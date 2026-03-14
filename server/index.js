@@ -1,6 +1,7 @@
 const express  = require('express');
 const cors     = require('cors');
 const bcrypt   = require('bcryptjs');
+const crypto   = require('crypto');
 const path     = require('path');
 require('dotenv').config();
 
@@ -10,10 +11,161 @@ const app  = express();
 const PORT = process.env.PORT || 4000;
 const BOT  = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT = process.env.TELEGRAM_ADMIN_CHAT_ID;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const MAIN_ADMIN_REFER_CODE = (process.env.MAIN_ADMIN_REFER_CODE || 'ADMIN01').trim();
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://phonecraft.tech',
+  'https://www.phonecraft.tech',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+];
+const allowedOrigins = new Set([
+  ...DEFAULT_ALLOWED_ORIGINS,
+  ...String(process.env.ALLOWED_ORIGINS || '').split(',').map(v => v.trim()).filter(Boolean),
+]);
+const AUTH_SECRET = process.env.AUTH_SECRET
+  || process.env.TELEGRAM_BOT_TOKEN
+  || (IS_PRODUCTION ? crypto.randomBytes(32).toString('hex') : 'local-dev-auth-secret');
 
-app.use(cors());
+if (!process.env.AUTH_SECRET) {
+  console.warn('[Security] AUTH_SECRET is not set. Set a stable secret in production to keep sessions valid across restarts.');
+}
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(null, false);
+  },
+}));
 app.use(express.json({ limit: '5mb' }));
 app.set('trust proxy', true);
+
+function createRateLimiter({ windowMs, max, prefix }) {
+  const hits = new Map();
+
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = `${prefix}:${req.ip || 'unknown'}`;
+    const current = hits.get(key);
+
+    if (!current || current.resetAt <= now) {
+      hits.set(key, { count: 1, resetAt: now + windowMs });
+      next();
+      return;
+    }
+
+    if (current.count >= max) {
+      res.setHeader('Retry-After', Math.ceil((current.resetAt - now) / 1000));
+      res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
+      return;
+    }
+
+    current.count += 1;
+
+    if (hits.size > 5000 && Math.random() < 0.01) {
+      for (const [entryKey, value] of hits.entries()) {
+        if (value.resetAt <= now) hits.delete(entryKey);
+      }
+    }
+
+    next();
+  };
+}
+
+const loginLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, prefix: 'login' });
+const registerLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, prefix: 'register' });
+const financeLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 20, prefix: 'finance' });
+const supportLimiter = createRateLimiter({ windowMs: 60_000, max: 20, prefix: 'support' });
+
+function signTokenPayload(encodedPayload) {
+  return crypto.createHmac('sha256', AUTH_SECRET).update(encodedPayload).digest('base64url');
+}
+
+function issueAuthToken(user) {
+  const encodedPayload = Buffer.from(JSON.stringify({
+    uid: user.id,
+    exp: Date.now() + (7 * 24 * 60 * 60 * 1000),
+    v: 1,
+  }), 'utf8').toString('base64url');
+
+  return `${encodedPayload}.${signTokenPayload(encodedPayload)}`;
+}
+
+function verifyAuthToken(token) {
+  if (!token) return null;
+
+  const [encodedPayload, signature] = String(token).split('.');
+  if (!encodedPayload || !signature) return null;
+
+  const expectedSignature = signTokenPayload(encodedPayload);
+  if (signature.length !== expectedSignature.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(signature, 'utf8'), Buffer.from(expectedSignature, 'utf8'))) return null;
+
+  try {
+    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+    if (!payload?.uid || !payload?.exp || payload.exp < Date.now()) return null;
+
+    const user = stmts.getUserById.get(Number(payload.uid));
+    if (!user || user.banned) return null;
+
+    return { userId: user.id, isAdmin: !!user.is_admin, user };
+  } catch (_) {
+    return null;
+  }
+}
+
+function getBearerToken(req) {
+  const header = req.headers.authorization || '';
+  return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+}
+
+function authRequired(req, res, next) {
+  const auth = verifyAuthToken(getBearerToken(req));
+  if (!auth) {
+    res.status(401).json({ error: 'Invalid or expired session' });
+    return;
+  }
+  req.auth = auth;
+  next();
+}
+
+function requireSelfOrAdmin(paramName = 'id') {
+  return (req, res, next) => {
+    const targetId = Number(req.params[paramName]);
+    if (req.auth?.isAdmin || targetId === req.auth?.userId) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: 'Forbidden' });
+  };
+}
+
+function requirePendingReferrerOrAdmin(req, res, next) {
+  const pending = stmts.getPendingReg.get(Number(req.params.id));
+  if (!pending || pending.status !== 'pending') {
+    res.status(404).json({ error: 'Not found or already processed' });
+    return;
+  }
+  if (!req.auth?.isAdmin && pending.referrer_id !== req.auth?.userId) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+  req.pendingRegistration = pending;
+  next();
+}
 
 // ── One-time migration: cap all existing marketplace prices to $10 ────────────
 try {
@@ -40,11 +192,25 @@ async function sendTelegram(text) {
 
 // ── Admin guard ─────────────────────────────────────────────────────────────
 function requireAdmin(req, res) {
-  const adminId = Number(req.headers['x-user-id']);
-  if (!adminId) { res.status(401).json({ error: 'Authentication required' }); return false; }
-  const user = stmts.getUserById.get(adminId);
+  const user = stmts.getUserById.get(req.auth?.userId);
+  if (!user) { res.status(401).json({ error: 'Authentication required' }); return false; }
   if (!user || !user.is_admin) { res.status(403).json({ error: 'Admin access required' }); return false; }
+  req.auth.user = user;
+  req.auth.isMainAdmin = isMainAdminUser(user);
   return true;
+}
+
+function isMainAdminUser(user) {
+  return !!(user && user.is_admin && user.refer_code === MAIN_ADMIN_REFER_CODE);
+}
+
+function toClientUser(user) {
+  const safe = sanitizeUser(user);
+  if (!safe) return safe;
+  return {
+    ...safe,
+    is_main_admin: isMainAdminUser(user),
+  };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -52,7 +218,7 @@ function requireAdmin(req, res) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── Register ─────────────────────────────────────────────────────────────────
-app.post('/api/register', (req, res) => {
+app.post('/api/register', registerLimiter, (req, res) => {
   try {
     const { name, identifier, password, plan, refCode } = req.body || {};
 
@@ -120,12 +286,10 @@ app.post('/api/register', (req, res) => {
 });
 
 // ── Approve pending registration ──────────────────────────────────────────────
-app.post('/api/registration/:id/approve', (req, res) => {
+app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOrAdmin, (req, res) => {
   try {
     const pendingId = Number(req.params.id);
-    const pending = stmts.getPendingReg.get(pendingId);
-    if (!pending || pending.status !== 'pending')
-      return res.status(404).json({ error: 'Not found or already processed' });
+    const pending = req.pendingRegistration;
 
     const referrer = stmts.getUserById.get(pending.referrer_id);
     if (!referrer || referrer.balance < pending.plan_rate)
@@ -209,7 +373,7 @@ app.post('/api/registration/:id/approve', (req, res) => {
     const newUser = approveTx();
     if (newUser?.alreadyProcessed)
       return res.status(409).json({ error: 'Already processed' });
-    res.json({ ok: true, user: sanitizeUser(newUser), plan: planRow });
+    res.json({ ok: true, user: toClientUser(newUser), plan: planRow, token: issueAuthToken(newUser) });
   } catch (err) {
     console.error('Approve error:', err.message);
     res.status(500).json({ error: 'Approval failed' });
@@ -217,12 +381,9 @@ app.post('/api/registration/:id/approve', (req, res) => {
 });
 
 // ── Decline pending registration ──────────────────────────────────────────────
-app.post('/api/registration/:id/decline', (req, res) => {
+app.post('/api/registration/:id/decline', authRequired, requirePendingReferrerOrAdmin, (req, res) => {
   try {
     const pendingId = Number(req.params.id);
-    const pending = stmts.getPendingReg.get(pendingId);
-    if (!pending || pending.status !== 'pending')
-      return res.status(404).json({ error: 'Not found' });
     stmts.updatePendingStatus.run('declined', pendingId);
     res.json({ ok: true });
   } catch (err) {
@@ -242,7 +403,7 @@ app.get('/api/registration/:id/status', (req, res) => {
 });
 
 // ── Login ────────────────────────────────────────────────────────────────────
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimiter, async (req, res) => {
   try {
     const { identifier, password } = req.body || {};
     if (!identifier || !password) {
@@ -287,7 +448,7 @@ app.post('/api/login', async (req, res) => {
         .catch(() => {});
     }
 
-    res.json({ user: sanitizeUser(user), plan });
+    res.json({ user: toClientUser(user), plan, token: issueAuthToken(user) });
   } catch (err) {
     console.error('Login error:', err.message);
     res.status(500).json({ error: 'Login failed' });
@@ -313,7 +474,7 @@ function ensureDailyReset(userId) {
 }
 
 // ── GET work status ──────────────────────────────────────────────────────────
-app.get('/api/user/:id/work-status', (req, res) => {
+app.get('/api/user/:id/work-status', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId = Number(req.params.id);
     ensureDailyReset(userId);
@@ -370,9 +531,9 @@ const startManufactureTx = db.transaction((body) => {
   };
 });
 
-app.post('/api/manufacture/start', (req, res) => {
+app.post('/api/manufacture/start', authRequired, (req, res) => {
   try {
-    const result = startManufactureTx(req.body || {});
+    const result = startManufactureTx({ ...(req.body || {}), userId: req.auth.userId });
     res.status(result.status).json(result.body);
   } catch (err) {
     console.error('Manufacture start error:', err.message);
@@ -447,9 +608,9 @@ const completeManufactureTx = db.transaction((body) => {
   };
 });
 
-app.post('/api/manufacture/complete', (req, res) => {
+app.post('/api/manufacture/complete', authRequired, (req, res) => {
   try {
-    const result = completeManufactureTx(req.body || {});
+    const result = completeManufactureTx({ ...(req.body || {}), userId: req.auth.userId });
     res.status(result.status).json(result.body);
   } catch (err) {
     console.error('Manufacture complete error:', err.message);
@@ -458,7 +619,7 @@ app.post('/api/manufacture/complete', (req, res) => {
 });
 
 // ── User's marketplace items ─────────────────────────────────────────────────
-app.get('/api/user/:id/marketplace', (req, res) => {
+app.get('/api/user/:id/marketplace', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId = Number(req.params.id);
     const items = stmts.getUserMarketItems.all(userId);
@@ -470,7 +631,7 @@ app.get('/api/user/:id/marketplace', (req, res) => {
 });
 
 // ── User's notifications ─────────────────────────────────────────────────────
-app.get('/api/user/:id/notifications', (req, res) => {
+app.get('/api/user/:id/notifications', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId = Number(req.params.id);
     const notifications = stmts.getNotifications.all(userId);
@@ -482,7 +643,7 @@ app.get('/api/user/:id/notifications', (req, res) => {
 });
 
 // ── Mark notification(s) read ────────────────────────────────────────────────
-app.patch('/api/user/:id/notifications/:notifId/read', (req, res) => {
+app.patch('/api/user/:id/notifications/:notifId/read', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId  = Number(req.params.id);
     const notifId = Number(req.params.notifId);
@@ -493,7 +654,7 @@ app.patch('/api/user/:id/notifications/:notifId/read', (req, res) => {
   }
 });
 
-app.patch('/api/user/:id/notifications/read-all', (req, res) => {
+app.patch('/api/user/:id/notifications/read-all', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId = Number(req.params.id);
     stmts.markAllNotifsRead.run(userId);
@@ -504,7 +665,7 @@ app.patch('/api/user/:id/notifications/read-all', (req, res) => {
 });
 
 // ── Upload / update user avatar image ────────────────────────────────────────
-app.patch('/api/user/:id/avatar-img', (req, res) => {
+app.patch('/api/user/:id/avatar-img', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId = Number(req.params.id);
     const { img } = req.body || {};
@@ -520,7 +681,7 @@ app.patch('/api/user/:id/avatar-img', (req, res) => {
 });
 
 // ── User's balance log (unified) ─────────────────────────────────────────────
-app.get('/api/user/:id/balance-log', (req, res) => {
+app.get('/api/user/:id/balance-log', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId = Number(req.params.id);
     const log     = stmts.getBalanceLog.all(userId);
@@ -534,7 +695,7 @@ app.get('/api/user/:id/balance-log', (req, res) => {
 });
 
 // ── User's referral activity ─────────────────────────────────────────────────
-app.get('/api/user/:id/referral-activity', (req, res) => {
+app.get('/api/user/:id/referral-activity', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId  = Number(req.params.id);
     const userRow = stmts.getUserById.get(userId);
@@ -544,7 +705,8 @@ app.get('/api/user/:id/referral-activity', (req, res) => {
     const members  = stmts.getReferralMemberCounts.get(
       userRow.refer_code, userRow.refer_code, userRow.refer_code
     );
-    res.json({ activity, stats, members });
+    const tree = stmts.getReferralTreeMembers.all(userRow.refer_code);
+    res.json({ activity, stats, members, tree });
   } catch (err) {
     console.error('Referral activity error:', err.message);
     res.status(500).json({ error: 'Failed to fetch referral activity' });
@@ -569,8 +731,9 @@ app.get('/api/deposit-info', (req, res) => {
 });
 
 // ── Admin settings ────────────────────────────────────────────────────────────
-app.get('/api/admin/settings', (req, res) => {
+app.get('/api/admin/settings', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
   try {
     const rows = stmts.getAllSettings.all();
     const settings = {};
@@ -579,8 +742,9 @@ app.get('/api/admin/settings', (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Failed' }); }
 });
 
-app.post('/api/admin/settings', (req, res) => {
+app.post('/api/admin/settings', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
   try {
     const body = req.body || {};
     // Batch update: { settings: { key: value, ... } }
@@ -599,7 +763,7 @@ app.post('/api/admin/settings', (req, res) => {
 });
 
 // ── Change password ──────────────────────────────────────────────────────────
-app.patch('/api/user/:id/change-password', async (req, res) => {
+app.patch('/api/user/:id/change-password', authRequired, requireSelfOrAdmin('id'), async (req, res) => {
   try {
     const userId = Number(req.params.id);
     const { currentPassword, newPassword } = req.body || {};
@@ -623,7 +787,7 @@ app.patch('/api/user/:id/change-password', async (req, res) => {
 });
 
 // ── Update emoji avatar ──────────────────────────────────────────────────────
-app.patch('/api/user/:id/avatar', (req, res) => {
+app.patch('/api/user/:id/avatar', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId = Number(req.params.id);
     const { avatar } = req.body || {};
@@ -636,7 +800,7 @@ app.patch('/api/user/:id/avatar', (req, res) => {
 });
 
 // ── User's transactions ──────────────────────────────────────────────────────
-app.get('/api/user/:id/transactions', (req, res) => {
+app.get('/api/user/:id/transactions', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
     const userId = Number(req.params.id);
     const transactions = stmts.getUserTransactions.all(userId);
@@ -652,10 +816,10 @@ app.get('/api/user/:id/transactions', (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── Withdraw / Deposit request (DB-tracked) ─────────────────────────────────
-app.post('/api/withdraw', async (req, res) => {
-  const { userId, user: userName, identifier, amount, method, account, type } = req.body || {};
+app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
+  const { amount, method, account, type } = req.body || {};
 
-  if (!userId || !amount || !method || !account || !type) {
+  if (!amount || !method || !account || !type) {
     return res.status(400).json({ error: 'Missing fields' });
   }
   if (!['withdraw', 'deposit'].includes(type)) {
@@ -668,7 +832,7 @@ app.post('/api/withdraw', async (req, res) => {
 
   try {
     const result = db.transaction(() => {
-      const userRow = stmts.getUserById.get(Number(userId));
+      const userRow = stmts.getUserById.get(req.auth.userId);
       if (!userRow) return { status: 404, body: { error: 'User not found' } };
       if (userRow.banned) return { status: 403, body: { error: 'Account suspended' } };
       if (type === 'withdraw') {
@@ -697,7 +861,7 @@ app.post('/api/withdraw', async (req, res) => {
 
       // Notify all admin users
       const admins = stmts.getAdminUsers.all();
-      const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userName || userRow.name} (${method})`;
+      const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`;
       for (const admin of admins) {
         stmts.insertNotification.run(admin.id, notifMsg, 'info');
       }
@@ -723,8 +887,8 @@ app.post('/api/withdraw', async (req, res) => {
     const msg = [
       `${emoji} <b>নতুন ${isDeposit ? 'Deposit' : 'Withdraw'} Request</b>`,
       `━━━━━━━━━━━━━━━━━━━`,
-      `👤 নাম: <b>${userName || 'Unknown'}</b>`,
-      `🆔 ID: <code>${identifier || '-'}</code>`,
+      `👤 নাম: <b>${req.auth.user.name}</b>`,
+      `🆔 ID: <code>${req.auth.user.identifier || '-'}</code>`,
       `💵 পরিমাণ: <b>৳${Number(amount).toLocaleString()}</b>`,
       `📱 মাধ্যম: <b>${method.toUpperCase()}</b>`,
       `🏦 নম্বর: <code>${account}</code>`,
@@ -745,7 +909,7 @@ app.post('/api/withdraw', async (req, res) => {
 });
 
 // ── User Lookup (for transfer) ─────────────────────────────────────────────────
-app.get('/api/lookup-user', (req, res) => {
+app.get('/api/lookup-user', authRequired, (req, res) => {
   const { identifier } = req.query;
   if (!identifier || !identifier.trim()) return res.status(400).json({ error: 'Missing identifier' });
   const user = stmts.getUserByIdentifier.get(identifier.trim());
@@ -754,9 +918,9 @@ app.get('/api/lookup-user', (req, res) => {
 });
 
 // ── Credit Transfer ───────────────────────────────────────────────────────────
-app.post('/api/transfer', (req, res) => {
-  const { fromUserId, toIdentifier, amount } = req.body || {};
-  if (!fromUserId || !toIdentifier || !amount) {
+app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
+  const { toIdentifier, amount } = req.body || {};
+  if (!toIdentifier || !amount) {
     return res.status(400).json({ error: 'Missing fields' });
   }
   const numAmount = Number(amount);
@@ -765,7 +929,7 @@ app.post('/api/transfer', (req, res) => {
   }
   try {
     const result = db.transaction(() => {
-      const sender = stmts.getUserById.get(Number(fromUserId));
+      const sender = stmts.getUserById.get(req.auth.userId);
       if (!sender) return { status: 404, body: { error: 'Sender not found' } };
       if (sender.banned) return { status: 403, body: { error: 'Account suspended' } };
       if (sender.balance < numAmount) return { status: 400, body: { error: 'Insufficient balance' } };
@@ -805,7 +969,7 @@ app.post('/api/transfer', (req, res) => {
 });
 
 // ── Live Support Chat ──────────────────────────────────────────────────────────
-app.post('/api/support/message', async (req, res) => {
+app.post('/api/support/message', supportLimiter, async (req, res) => {
   const { sessionId, message, senderName } = req.body || {};
   if (!sessionId || !message) return res.status(400).json({ error: 'Missing fields' });
   try {
@@ -876,7 +1040,7 @@ app.post('/webhook/telegram', (req, res) => {
 });
 
 // ── Generic notify ────────────────────────────────────────────────────────────
-app.post('/api/notify', async (req, res) => {
+app.post('/api/notify', authRequired, async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const { text } = req.body || {};
   if (!text) return res.status(400).json({ error: 'Missing text' });
@@ -893,17 +1057,28 @@ app.post('/api/notify', async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── GET /api/admin/users — list all users with last login info ──────────────
-app.get('/api/admin/users', (req, res) => {
+app.get('/api/admin/users', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
-    const rows = stmts.getAllUsers.all();
+    const requester = req.auth.user;
+    const requesterIsMain = req.auth.isMainAdmin;
+    let rows = stmts.getAllUsers.all();
+
+    if (!requesterIsMain) {
+      rows = rows.filter((r) => !r.is_admin || r.id === requester.id);
+    }
+
     const users = rows.map(row => {
       const { password, last_login_info, ...u } = row;
       let lastLogin = null;
       if (last_login_info) {
         try { lastLogin = JSON.parse(last_login_info); } catch (_) {}
       }
-      return { ...u, lastLogin };
+      return {
+        ...u,
+        is_main_admin: row.refer_code === MAIN_ADMIN_REFER_CODE,
+        lastLogin,
+      };
     });
     res.json({ users });
   } catch (err) {
@@ -913,13 +1088,27 @@ app.get('/api/admin/users', (req, res) => {
 });
 
 // ── PATCH /api/admin/users/:id — update balance, plan, banned, is_admin ─────
-app.patch('/api/admin/users/:id', (req, res) => {
+app.patch('/api/admin/users/:id', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const id = Number(req.params.id);
-    const adminId = Number(req.headers['x-user-id']);
+    const adminId = Number(req.auth.userId);
+    const requester = req.auth.user;
+    const requesterIsMain = req.auth.isMainAdmin;
     const user = stmts.getUserById.get(id);
     if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (!requesterIsMain) {
+      if (user.is_admin && id !== adminId) {
+        return res.status(403).json({ error: 'You cannot manage other admin accounts' });
+      }
+      if (req.body.is_admin !== undefined) {
+        return res.status(403).json({ error: 'You cannot change admin privileges' });
+      }
+      if (id === adminId && req.body.banned !== undefined && req.body.banned) {
+        return res.status(400).json({ error: 'Cannot ban yourself' });
+      }
+    }
 
     // Prevent admin from banning themselves
     if (id === adminId && req.body.banned) {
@@ -934,7 +1123,9 @@ app.patch('/api/admin/users/:id', (req, res) => {
     const balance  = req.body.balance !== undefined ? Number(req.body.balance) : user.balance;
     const plan_id  = req.body.plan_id || user.plan_id;
     const banned   = req.body.banned !== undefined ? (req.body.banned ? 1 : 0) : user.banned;
-    const is_admin = req.body.is_admin !== undefined ? (req.body.is_admin ? 1 : 0) : user.is_admin;
+    const is_admin = requesterIsMain
+      ? (req.body.is_admin !== undefined ? (req.body.is_admin ? 1 : 0) : user.is_admin)
+      : user.is_admin;
 
     const plan = stmts.getPlan.get(plan_id);
     if (!plan) return res.status(400).json({ error: 'Invalid plan' });
@@ -951,7 +1142,7 @@ app.patch('/api/admin/users/:id', (req, res) => {
     }
 
     const updated = stmts.getUserById.get(id);
-    res.json({ user: sanitizeUser(updated), plan });
+    res.json({ user: toClientUser(updated), plan });
   } catch (err) {
     console.error('Admin update error:', err.message);
     res.status(500).json({ error: 'Failed to update user' });
@@ -959,10 +1150,15 @@ app.patch('/api/admin/users/:id', (req, res) => {
 });
 
 // ── GET /api/admin/users/:id/logs — login history for a user ────────────────
-app.get('/api/admin/users/:id/logs', (req, res) => {
+app.get('/api/admin/users/:id/logs', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const userId = Number(req.params.id);
+    const target = stmts.getUserById.get(userId);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (!req.auth.isMainAdmin && target.is_admin && target.id !== req.auth.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     const logs = stmts.getUserLoginLogs.all(userId);
     res.json({ logs });
   } catch (err) {
@@ -972,10 +1168,16 @@ app.get('/api/admin/users/:id/logs', (req, res) => {
 });
 
 // ── GET /api/admin/transactions — list all transactions ─────────────────────
-app.get('/api/admin/transactions', (req, res) => {
+app.get('/api/admin/transactions', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
-    const transactions = stmts.getAllTransactions.all();
+    const requester = req.auth.user;
+    const requesterIsMain = req.auth.isMainAdmin;
+    let transactions = stmts.getAllTransactions.all();
+    if (!requesterIsMain) {
+      const adminIds = new Set(stmts.getAdminUsers.all().map((r) => r.id));
+      transactions = transactions.filter((tx) => !adminIds.has(tx.user_id) || tx.user_id === requester.id);
+    }
     res.json({ transactions });
   } catch (err) {
     console.error('Admin transactions error:', err.message);
@@ -984,7 +1186,7 @@ app.get('/api/admin/transactions', (req, res) => {
 });
 
 // ── PATCH /api/admin/transactions/:id — approve/reject transaction ──────────
-app.patch('/api/admin/transactions/:id', (req, res) => {
+app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const txId = Number(req.params.id);
@@ -1057,7 +1259,7 @@ app.patch('/api/admin/transactions/:id', (req, res) => {
 });
 
 // ── GET /api/admin/stats — financial dashboard data ─────────────────────────
-app.get('/api/admin/stats', (req, res) => {
+app.get('/api/admin/stats', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const stats = stmts.getFinancialStats.get();

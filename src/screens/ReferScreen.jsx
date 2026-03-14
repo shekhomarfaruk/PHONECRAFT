@@ -21,6 +21,11 @@ function ReferScreen({user, showToast, lang}) {
       .catch(() => {});
   }, [user?.id]);
 
+  const treeMembers = Array.isArray(refData?.tree) ? refData.tree : (user.teamMembers || []);
+  const l1Members = treeMembers.filter(member => member.level === 1);
+  const l2Members = treeMembers.filter(member => member.level === 2);
+  const l3Members = treeMembers.filter(member => member.level === 3);
+
   const l1Count = refData?.members?.l1_count ?? user.teamMembers?.length ?? 0;
   const l2Count = refData?.members?.l2_count ?? 0;
   const l3Count = refData?.members?.l3_count ?? 0;
@@ -29,9 +34,10 @@ function ReferScreen({user, showToast, lang}) {
   const l3Earn  = refData?.stats?.l3_total   ?? 0;
 
   const shareRef = async () => {
+    const earnRange = `${convertCurrency(20, lang)}–${convertCurrency(100, lang)}`;
     const desc = lang === 'bn'
-      ? `🤝 ফোনক্রাফটে আমার সাথে যোগ দিন!\n\n📱 ভার্চুয়াল ফোন তৈরি করে প্রতিদিন আয় করুন।\n💰 প্রতিটি টাস্কে ৳২০–৳১০০ আয়!\n\n✅ আমার রেফারেল কোড: ${user.referCode}\n🔗 লিংক: ${refLink}`
-      : `🤝 Join me on PhoneCraft!\n\n📱 Earn real money daily by completing virtual phone manufacturing tasks.\n💰 Earn ৳20–৳100 per task!\n\n✅ My Referral Code: ${user.referCode}\n🔗 Link: ${refLink}`;
+      ? `🤝 ফোনক্রাফটে আমার সাথে যোগ দিন!\n\n📱 ভার্চুয়াল ফোন তৈরি করে প্রতিদিন আয় করুন।\n💰 প্রতিটি টাস্কে ${earnRange} আয়!\n\n✅ আমার রেফারেল কোড: ${user.referCode}\n🔗 লিংক: ${refLink}`
+      : `🤝 Join me on PhoneCraft!\n\n📱 Earn real money daily by completing virtual phone manufacturing tasks.\n💰 Earn ${earnRange} per task!\n\n✅ My Referral Code: ${user.referCode}\n🔗 Link: ${refLink}`;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -195,20 +201,26 @@ function ReferScreen({user, showToast, lang}) {
           <div className="tree-av">{user.name?.[0] || '?'}</div>
           <div><div style={{fontWeight:700}}>{user.name} ({t.you})</div><span className="badge badge-blue">{t.root_badge}</span></div>
         </div>
-        <div className="tree-child">
-          {user.teamMembers?.filter(m=>m.level===1).map((m,i)=>(
-            <div key={i}>
-              <div className="tree-user">
-                <div className="tree-av">{m.name[0]}</div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:600,fontSize:13}}>{m.name}</div>
-                  <div style={{fontSize:11,color:'var(--text2)'}}>{t.code_label}: {m.code}</div>
-                </div>
-                <span className="badge badge-green">L1 (20%)</span>
+        {[{ label: 'L1 (20%)', members: l1Members, badge: 'badge-green' }, { label: 'L2 (4%)', members: l2Members, badge: 'badge-blue' }, { label: 'L3 (1%)', members: l3Members, badge: 'badge-orange' }].map(group => (
+          <div key={group.label} className="tree-child" style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>{group.label}</div>
+            {group.members.length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--text2)', padding: '4px 0 8px' }}>
+                {lang === 'bn' ? 'এখনও কেউ নেই' : 'No members yet'}
               </div>
-            </div>
-          ))}
-        </div>
+            )}
+            {group.members.map((member) => (
+              <div key={member.id} className="tree-user">
+                <div className="tree-av">{member.name?.[0] || '?'}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,fontSize:13}}>{member.name}</div>
+                  <div style={{fontSize:11,color:'var(--text2)'}}>{t.code_label}: {member.refer_code}</div>
+                </div>
+                <span className={`badge ${group.badge}`}>{group.label}</span>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </>
   );

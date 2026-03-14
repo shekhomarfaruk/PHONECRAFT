@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Icons from "../Icons.jsx";
 import { PLANS } from "../data.jsx";
 import { I18N } from "../i18n.js";
-import { convertCurrency } from "../currency.js";
+import { convertCurrency, convertCurrencyText } from "../currency.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -266,7 +266,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
                   </div>
                   {entry.note ? (
                     <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {entry.note}
+                      {convertCurrencyText(entry.note, lang)}
                     </div>
                   ) : null}
                   <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 1 }}>{formatDate(entry.created_at, lang)}</div>

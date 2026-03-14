@@ -29,6 +29,24 @@ export function convertCurrency(amount, lang, type) {
   return `$${(n / USD_RATE).toFixed(2)}`;
 }
 
+export function formatDateTime(value, lang, options) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-GB', options);
+}
+
+export function convertCurrencyText(text, lang) {
+  if (!text) return '';
+
+  return String(text).replace(/([+-]?)৳\s*([\d,]+(?:\.\d+)?)/g, (_match, sign, amount) => {
+    const numericAmount = Number(String(amount).replace(/,/g, ''));
+    const converted = convertCurrency(numericAmount, lang);
+    return `${sign || ''}${converted}`;
+  });
+}
+
 /** Shorthand: format a BDT amount respecting current language */
 export function fmt(amount, lang) {
   return convertCurrency(amount, lang);

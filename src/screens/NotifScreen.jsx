@@ -1,7 +1,8 @@
 import { useState } from "react";
 import Icons from "../Icons.jsx";
 import { I18N } from "../i18n.js";
-import { convertCurrency } from "../currency.js";
+import { convertCurrency, convertCurrencyText } from "../currency.js";
+import { mapApiUser, saveStoredSession } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -29,7 +30,13 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
       }
       setDone(action);
       // Refresh user balance in app state after approval
-      if (action === 'approve' && data.user && setUser) setUser(data.user);
+      if (action === 'approve' && data.user && setUser) {
+        setUser(prev => {
+          const nextUser = mapApiUser(data.user, null, data.token, prev);
+          saveStoredSession(nextUser);
+          return nextUser;
+        });
+      }
       // Mark as read on server so it doesn't reappear after next poll
       fetch(`${API_URL}/api/user/${userId}/notifications/${notif.id}/read`, { method: 'PATCH' }).catch(() => {});
       setItems(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
@@ -206,7 +213,7 @@ function NotifScreen({items, setItems, user, setUser, lang, showToast}) {
           >
             <div style={{fontSize:22,flexShrink:0,lineHeight:1}}>{n.icon}</div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{ fontSize:13, fontWeight:n.read?400:600, lineHeight:1.45, color:n.read?'var(--text2)':'var(--text)' }}>{n.text}</div>
+              <div style={{ fontSize:13, fontWeight:n.read?400:600, lineHeight:1.45, color:n.read?'var(--text2)':'var(--text)' }}>{convertCurrencyText(n.rawText || n.text, lang)}</div>
               <div style={{fontSize:11,color:'var(--text2)',marginTop:3}}>{n.time}</div>
               {n.type === 'registration_request' && !n.read && (
                 <div style={{ marginTop:6, fontSize:11, color:'var(--accent)', fontWeight:600 }}>

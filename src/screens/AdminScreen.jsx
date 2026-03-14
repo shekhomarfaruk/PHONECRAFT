@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import Icons from "../Icons.jsx";
 import { PLANS } from "../data.jsx";
 import { I18N } from "../i18n.js";
+import { convertCurrency, convertCurrencyText, formatDateTime } from "../currency.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -21,6 +22,9 @@ function parseDevice(ua) {
 
 export default function AdminScreen({ user, showToast, lang }) {
   const t = I18N[lang] || I18N.en;
+  const formatMoney = (amount) => convertCurrency(Number(amount) || 0, lang);
+  const formatStamp = (value) => formatDateTime(value ? `${value}Z` : '', lang);
+  const isMainAdmin = !!user?.isMainAdmin;
 
   // Tab state
   const [activeTab, setActiveTab] = useState('users');
@@ -118,6 +122,12 @@ export default function AdminScreen({ user, showToast, lang }) {
     if (activeTab === 'settings') fetchSettings();
   }, [activeTab]);
 
+  useEffect(() => {
+    if (!isMainAdmin && (activeTab === 'admins' || activeTab === 'settings')) {
+      setActiveTab('users');
+    }
+  }, [isMainAdmin, activeTab]);
+
   // ── User actions ───────────────────────────────────────────────────────────
   const selectUser = async (u) => {
     setSelectedUser(u);
@@ -183,7 +193,9 @@ export default function AdminScreen({ user, showToast, lang }) {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`Transaction ${status}`);
+        showToast(lang === 'bn'
+          ? `ট্রান্সঅ্যাকশন ${status === 'approved' ? 'অনুমোদিত' : 'প্রত্যাখ্যাত'}`
+          : `Transaction ${status}`);
         setAdminNote('');
         setProcessingTxId(null);
         fetchTransactions();
@@ -214,10 +226,10 @@ export default function AdminScreen({ user, showToast, lang }) {
       }}>
         {[
           { id: 'users', label: t.admin_users, icon: <Icons.User size={14} /> },
-          { id: 'admins', label: t.admin_admins, icon: <Icons.Shield size={14} /> },
+          ...(isMainAdmin ? [{ id: 'admins', label: t.admin_admins, icon: <Icons.Shield size={14} /> }] : []),
           { id: 'transactions', label: t.admin_transactions, icon: <Icons.Wallet size={14} /> },
           { id: 'dashboard', label: t.admin_dashboard, icon: <Icons.TrendUp size={14} /> },
-          { id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: <Icons.Settings size={14} /> },
+          ...(isMainAdmin ? [{ id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: <Icons.Settings size={14} /> }] : []),
         ].map(tab => (
           <div key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
             flex: 1, padding: '10px 8px', textAlign: 'center', cursor: 'pointer',
@@ -297,6 +309,7 @@ export default function AdminScreen({ user, showToast, lang }) {
               </div>
 
               {/* Admin toggle */}
+              {isMainAdmin && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <label className="input-label" style={{ marginBottom: 0 }}>{t.admin_admin_label}</label>
                 <div
@@ -323,6 +336,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 </div>
                 {editIsAdmin && <span className="badge badge-green">{t.admin_admin_label}</span>}
               </div>
+              )}
 
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary" onClick={saveUser} disabled={saving} style={{ flex: 1 }}>
@@ -357,7 +371,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                             {log.city}{log.city && log.country ? ', ' : ''}{log.country || (log.city ? '' : 'Local')}
                           </div>
                           <div style={{ color: 'var(--text2)', fontSize: 10 }}>
-                            {log.logged_at ? new Date(log.logged_at + 'Z').toLocaleString() : ''}
+                            {formatStamp(log.logged_at)}
                           </div>
                         </div>
                       </div>
@@ -404,7 +418,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                       </span>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
-                      {u.identifier} | REF: {u.refer_code} | Balance: {Number(u.balance).toLocaleString()}
+                      {u.identifier} | REF: {u.refer_code} | {lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}: {formatMoney(u.balance)}
                     </div>
                     {u.lastLogin && (
                       <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>
@@ -474,12 +488,12 @@ export default function AdminScreen({ user, showToast, lang }) {
                     </div>
                     <div style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: 11, color: 'var(--text2)', flexWrap: 'wrap' }}>
                       <span>REF: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{u.refer_code}</span></span>
-                      <span>Balance: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>৳{Number(u.balance).toLocaleString()}</span></span>
+                      <span>{lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{formatMoney(u.balance)}</span></span>
                       <span>Plan: <span style={{ color: u.plan_color || 'var(--accent)', fontWeight: 600 }}>{u.plan_name}</span></span>
                     </div>
                     {u.lastLogin && (
                       <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
-                        Last login: {u.lastLogin.ip || 'local'}
+                        {lang === 'bn' ? 'সর্বশেষ লগইন' : 'Last login'}: {u.lastLogin.ip || 'local'}
                         {u.lastLogin.city ? ` — ${u.lastLogin.city}, ${u.lastLogin.country}` : ''}
                         {' | '}{parseDevice(u.lastLogin.user_agent)}
                       </div>
@@ -513,7 +527,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                     <span style={{ fontSize: 18 }}>{tx.type === 'deposit' ? '\u{1F4B0}' : '\u{1F4B8}'}</span>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>
-                        {tx.type === 'deposit' ? t.deposit : t.withdraw} — ৳{Number(tx.amount).toLocaleString()}
+                        {tx.type === 'deposit' ? t.deposit : t.withdraw} — {formatMoney(tx.amount)}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text2)' }}>
                         {tx.user_name} ({tx.user_identifier}) | {tx.method} — {tx.account}
@@ -528,8 +542,8 @@ export default function AdminScreen({ user, showToast, lang }) {
                   </span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>
-                  {tx.created_at ? new Date(tx.created_at + 'Z').toLocaleString() : ''}
-                  {tx.admin_note ? ` | Note: ${tx.admin_note}` : ''}
+                  {formatStamp(tx.created_at)}
+                  {tx.admin_note ? ` | ${lang === 'bn' ? 'নোট' : 'Note'}: ${convertCurrencyText(tx.admin_note, lang)}` : ''}
                 </div>
                 {tx.status === 'pending' && (
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -576,14 +590,14 @@ export default function AdminScreen({ user, showToast, lang }) {
                   <div className="stat-num">{stats.withdrawals.count}</div>
                   <div className="stat-label">{t.admin_withdrawals}</div>
                   <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
-                    ৳{Number(stats.withdrawals.sum).toLocaleString()}
+                    {formatMoney(stats.withdrawals.sum)}
                   </div>
                 </div>
                 <div className="stat-box">
                   <div className="stat-num">{stats.deposits.count}</div>
                   <div className="stat-label">{t.admin_deposits}</div>
                   <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
-                    ৳{Number(stats.deposits.sum).toLocaleString()}
+                    {formatMoney(stats.deposits.sum)}
                   </div>
                 </div>
                 <div className="stat-box">
@@ -599,11 +613,11 @@ export default function AdminScreen({ user, showToast, lang }) {
                   <div className="stat-label">{t.admin_referrals}</div>
                 </div>
                 <div className="stat-box">
-                  <div className="stat-num" style={{ fontSize: 16 }}>৳{Number(stats.todayEarnings).toLocaleString()}</div>
+                  <div className="stat-num" style={{ fontSize: 16 }}>{formatMoney(stats.todayEarnings)}</div>
                   <div className="stat-label">{t.admin_today_earned}</div>
                 </div>
                 <div className="stat-box">
-                  <div className="stat-num" style={{ fontSize: 16 }}>৳{Number(stats.alltimeEarnings).toLocaleString()}</div>
+                  <div className="stat-num" style={{ fontSize: 16 }}>{formatMoney(stats.alltimeEarnings)}</div>
                   <div className="stat-label">{t.admin_alltime_earned}</div>
                 </div>
               </div>
@@ -616,11 +630,11 @@ export default function AdminScreen({ user, showToast, lang }) {
                   color: stats.profitLoss >= 0 ? '#0ECB81' : '#F6465D',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 }}>
-                  {stats.profitLoss >= 0 ? '+' : ''}৳{Number(stats.profitLoss).toLocaleString()}
+                  {stats.profitLoss >= 0 ? '+' : '-'}{formatMoney(Math.abs(stats.profitLoss))}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 8 }}>
-                  {t.admin_deposits} (৳{Number(stats.deposits.sum).toLocaleString()})
-                  {' - '}{t.admin_withdrawals} (৳{Number(stats.withdrawals.sum).toLocaleString()})
+                  {t.admin_deposits} ({formatMoney(stats.deposits.sum)})
+                  {' - '}{t.admin_withdrawals} ({formatMoney(stats.withdrawals.sum)})
                 </div>
               </div>
 

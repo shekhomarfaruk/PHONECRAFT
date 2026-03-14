@@ -13,6 +13,7 @@ const EARN_DATA = Array.from({ length: 14 }, () => {
 });
 
 function EarningsTicker({ lang = 'en' }) {
+  const t = I18N[lang] || I18N.en;
   // Duplicate for seamless loop
   const items = [...EARN_DATA, ...EARN_DATA];
   const dur   = EARN_DATA.length * 2.4;   // seconds
@@ -20,7 +21,7 @@ function EarningsTicker({ lang = 'en' }) {
   return (
     <div className="card" style={{padding:'14px 0 14px'}}>
       <div className="card-title" style={{paddingLeft:16,marginBottom:10}}>
-        <Icons.TrendUp size={14}/> Users Earning Now
+        <Icons.TrendUp size={14}/> {lang === 'bn' ? 'ব্যবহারকারীরা এখন আয় করছেন' : 'Users Earning Now'}
       </div>
 
       {/* inject keyframes */}
@@ -74,7 +75,7 @@ function EarningsTicker({ lang = 'en' }) {
               <div style={{
                 fontSize:8,fontWeight:700,letterSpacing:1.5,
                 color:'var(--green)',opacity:.7,
-              }}>EARNED TODAY</div>
+              }}>{lang === 'bn' ? 'আজকের আয়' : 'EARNED TODAY'}</div>
             </div>
           ))}
         </div>
@@ -177,8 +178,8 @@ function HomeScreen({user, navigate, lang}) {
             }}>
               <div style={{fontFamily:'Space Grotesk',fontSize:10,color:p.color,marginBottom:4}}>{p.name}</div>
               <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>{convertCurrency(p.rate, lang)}</div>
-              <div style={{fontSize:10,color:'var(--text2)'}}>Daily: {convertCurrency(p.dailyEarn, lang)} ({p.daily} tasks)</div>
-              <div style={{fontSize:10,color:'var(--text2)',marginTop:2}}>Per task: {convertCurrency(p.perTask, lang)}</div>
+              <div style={{fontSize:10,color:'var(--text2)'}}>{lang === 'bn' ? 'দৈনিক' : 'Daily'}: {convertCurrency(p.dailyEarn, lang)} ({p.daily} {lang === 'bn' ? 'টাস্ক' : 'tasks'})</div>
+              <div style={{fontSize:10,color:'var(--text2)',marginTop:2}}>{lang === 'bn' ? 'প্রতি টাস্ক' : 'Per task'}: {convertCurrency(p.perTask, lang)}</div>
               <div style={{fontSize:10,color:'var(--text2)',marginTop:2}}>Ref: {p.l1}%/{p.l2}%/{p.l3}%</div>
             </div>
           ))}

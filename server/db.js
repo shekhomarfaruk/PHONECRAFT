@@ -212,15 +212,34 @@ const seedPlans = db.transaction(() => {
 });
 seedPlans();
 
-// ── Seed admin user ─────────────────────────────────────────────────────────────
-const adminExists = db.prepare('SELECT id FROM users WHERE refer_code = ?').get('ADMIN01');
-if (!adminExists) {
-  const hash = bcrypt.hashSync('admin123', 10);
-  db.prepare(`
-    INSERT INTO users (name, identifier, password, plan_id, balance, daily_done, refer_code, avatar)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run('Admin', 'admin', hash, 'platinum', 10000000, 0, 'ADMIN01', '🧑');
+// ── Seed / harden admin user ───────────────────────────────────────────────────
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const adminIdentifier = (process.env.ADMIN_IDENTIFIER || 'admin').trim();
+const adminPassword = process.env.ADMIN_PASSWORD || '';
+const adminHashFromEnv = adminPassword ? bcrypt.hashSync(adminPassword, 10) : null;
+const existingAdmin = db.prepare('SELECT * FROM users WHERE refer_code = ?').get('ADMIN01');
+
+if (!existingAdmin) {
+  if (adminHashFromEnv) {
+    db.prepare(`
+      INSERT INTO users (name, identifier, password, plan_id, balance, daily_done, refer_code, avatar)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('Admin', adminIdentifier, adminHashFromEnv, 'platinum', 10000000, 0, 'ADMIN01', '🧑');
+  } else if (!IS_PRODUCTION) {
+    const devHash = bcrypt.hashSync('admin123', 10);
+    db.prepare(`
+      INSERT INTO users (name, identifier, password, plan_id, balance, daily_done, refer_code, avatar)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('Admin', 'admin', devHash, 'platinum', 10000000, 0, 'ADMIN01', '🧑');
+  } else {
+    console.warn('[Security] ADMIN_PASSWORD is not set. Admin bootstrap skipped in production.');
+  }
+} else if (adminHashFromEnv) {
+  db.prepare('UPDATE users SET identifier = ?, password = ? WHERE refer_code = ?').run(adminIdentifier, adminHashFromEnv, 'ADMIN01');
+} else if (IS_PRODUCTION && existingAdmin.identifier === 'admin' && bcrypt.compareSync('admin123', existingAdmin.password)) {
+  console.warn('[Security] Default admin credentials are still active. Set ADMIN_PASSWORD in production.');
 }
+
 // Ensure admin always has is_admin flag
 db.prepare('UPDATE users SET is_admin = 1 WHERE refer_code = ?').run('ADMIN01');
 
@@ -292,6 +311,23 @@ const stmts = {
       (SELECT COUNT(*) FROM users WHERE referred_by IN
         (SELECT refer_code FROM users WHERE referred_by IN
           (SELECT refer_code FROM users WHERE referred_by = ?))) AS l3_count
+  `),
+  getReferralTreeMembers: db.prepare(`
+    WITH RECURSIVE referral_tree AS (
+      SELECT id, name, refer_code, referred_by, 1 AS level, created_at
+      FROM users
+      WHERE referred_by = ?
+
+      UNION ALL
+
+      SELECT u.id, u.name, u.refer_code, u.referred_by, referral_tree.level + 1, u.created_at
+      FROM users u
+      JOIN referral_tree ON u.referred_by = referral_tree.refer_code
+      WHERE referral_tree.level < 3
+    )
+    SELECT id, name, refer_code, referred_by, level, created_at
+    FROM referral_tree
+    ORDER BY level ASC, id ASC
   `),
 
   // Unified balance log

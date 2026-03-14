@@ -21,7 +21,8 @@ import GuideScreen from "./screens/GuideScreen.jsx";
 import LandingScreen from "./screens/LandingScreen.jsx";
 import SupportWidget from "./SupportWidget.jsx";
 import { I18N } from "./i18n.js";
-import { convertCurrency } from "./currency.js";
+import { convertCurrency, convertCurrencyText } from "./currency.js";
+import { clearStoredSession, getStoredSession, mapApiUser, saveStoredSession } from "./session.js";
 
 // ── Custom Balance Icon ───────────────────────────────────────────────────────
 const BalanceIconImg = ({ size = 18 }) => (
@@ -94,22 +95,21 @@ export default function App() {
 
   // Persist user session to localStorage (auto-updates on any user change)
   useEffect(() => {
-    if (user?.id) {
-      localStorage.setItem('pc_session', JSON.stringify(user));
+    if (user?.id && user?.authToken) {
+      saveStoredSession(user);
     }
   }, [user]);
 
   // Restore session on app load
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('pc_session');
-      if (saved) {
-        const u = JSON.parse(saved);
-        if (u?.id) {
+      const u = getStoredSession();
+      if (u?.id && u?.authToken) {
           setUser(u);
           setAuth(true);
           setShowLanding(false);
-        }
+      } else if (u?.id) {
+        clearStoredSession();
       }
     } catch (_) {}
   }, []);
@@ -177,7 +177,8 @@ export default function App() {
           type: n.type,
           meta: n.meta || null,
           icon: n.type === 'sold' ? '💰' : n.type === 'success' ? '📱' : n.type === 'registration_request' ? '🔔' : 'ℹ️',
-          text: n.message,
+          rawText: n.message,
+          text: convertCurrencyText(n.message, lang),
           time: formatRelativeTime(n.created_at, lang),
           read: !!n.read,
         }));
@@ -211,6 +212,28 @@ export default function App() {
     return () => clearInterval(timer);
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+
+    const refreshReferralTree = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/user/${user.id}/referral-activity`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !Array.isArray(data.tree)) return;
+        setUser(prev => prev ? { ...prev, teamMembers: data.tree } : prev);
+      } catch (_) {}
+    };
+
+    refreshReferralTree();
+    const timer = setInterval(refreshReferralTree, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [user?.id]);
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -226,15 +249,9 @@ export default function App() {
       });
       const data = await res.json();
       if (!res.ok) { showToast('⚠️ ' + data.error); return; }
-      const u = data.user;
-      const plan = data.plan;
-      setUser({
-        id: u.id, name: u.name, identifier: u.identifier, plan: u.plan_id,
-        balance: u.balance, dailyDone: u.daily_done, dailyLimit: plan.daily,
-        referCode: u.refer_code, devices: [], avatar: u.avatar,
-        avatarImg: u.avatar_img || null,
-        teamMembers: [], isAdmin: !!u.is_admin,
-      });
+      const nextUser = mapApiUser(data.user, data.plan, data.token);
+      setUser(nextUser);
+      saveStoredSession(nextUser);
       setAuth(true);
     } catch { showToast('⚠️ ' + t.auth_conn_error); }
     finally { setAuthLoading(false); }
@@ -267,15 +284,9 @@ export default function App() {
         setPendingRegId(data.pending_id);
         return;
       }
-      const u = data.user;
-      const plan = data.plan;
-      setUser({
-        id: u.id, name: u.name, identifier: u.identifier, plan: u.plan_id,
-        balance: u.balance, dailyDone: u.daily_done, dailyLimit: plan.daily,
-        referCode: u.refer_code, devices: [], avatar: u.avatar,
-        avatarImg: u.avatar_img || null,
-        teamMembers: [], isAdmin: !!u.is_admin,
-      });
+      const nextUser = mapApiUser(data.user, data.plan, data.token);
+      setUser(nextUser);
+      saveStoredSession(nextUser);
       setAuth(true);
       showToast('✅ ' + t.auth_welcome);
     } catch { showToast('⚠️ ' + t.auth_conn_error); }
@@ -287,14 +298,14 @@ export default function App() {
   const doLogout = useCallback(() => {
     setAuth(null);
     setUser(null);
-    localStorage.removeItem('pc_session');
+    clearStoredSession();
     setShowLanding(true);
     setScreen('home');
   }, []);
 
   const addNotif = useCallback((notif) => {
     const t = I18N[lang] || I18N.en;
-    setNotifications(prev => [{ ...notif, id: Date.now(), time: t.time_just_now, read: false }, ...prev]);
+    setNotifications(prev => [{ ...notif, rawText: notif.rawText || notif.text, text: convertCurrencyText(notif.rawText || notif.text, lang), id: Date.now(), time: t.time_just_now, read: false }, ...prev]);
     playNotifSound();
   }, [lang]);
 
