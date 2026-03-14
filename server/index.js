@@ -1278,6 +1278,57 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
   }
 });
 
+// ── POST /api/admin/messages — send message to one user or all users ───────
+app.post('/api/admin/messages', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const { target, userId, message } = req.body || {};
+    const text = String(message || '').trim();
+
+    if (!text) return res.status(400).json({ error: 'Message is required' });
+    if (text.length > 1000) return res.status(400).json({ error: 'Message is too long (max 1000 chars)' });
+    if (!['all', 'user'].includes(target)) return res.status(400).json({ error: 'Invalid target' });
+
+    const recipients = [];
+
+    if (target === 'all') {
+      recipients.push(...stmts.getBroadcastRecipients.all());
+    } else {
+      const targetId = Number(userId);
+      if (!targetId) return res.status(400).json({ error: 'userId is required' });
+
+      const targetUser = stmts.getUserById.get(targetId);
+      if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+      if (!req.auth.isMainAdmin && targetUser.is_admin && targetUser.id !== req.auth.userId) {
+        return res.status(403).json({ error: 'You cannot message other admin accounts' });
+      }
+
+      if (targetUser.banned) return res.status(400).json({ error: 'User is banned' });
+      recipients.push({ id: targetUser.id, name: targetUser.name });
+    }
+
+    if (recipients.length === 0) {
+      return res.status(400).json({ error: 'No eligible recipients found' });
+    }
+
+    const senderName = req.auth.user?.name || 'Admin';
+    const payload = `📢 Admin Message from ${senderName}: ${text}`;
+
+    db.transaction(() => {
+      for (const r of recipients) {
+        stmts.insertNotification.run(r.id, payload, 'info');
+      }
+    })();
+
+    res.json({ ok: true, delivered: recipients.length });
+  } catch (err) {
+    console.error('Admin message error:', err.message);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // AUTO-SELL ENGINE — runs every 60 seconds
 // ══════════════════════════════════════════════════════════════════════════════

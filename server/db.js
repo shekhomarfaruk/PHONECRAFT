@@ -411,6 +411,12 @@ const stmts = {
       (SELECT COALESCE(SUM(earned), 0) FROM manufacturing_jobs) as alltime_earnings
   `),
   getPendingTransactionCount: db.prepare("SELECT COUNT(*) as count FROM transactions WHERE status = 'pending'"),
+  getBroadcastRecipients: db.prepare(`
+    SELECT id, name
+    FROM users
+    WHERE banned = 0 AND is_admin = 0
+    ORDER BY id ASC
+  `),
   insertSupportMsg:   db.prepare('INSERT INTO support_chats (session_id, sender, message) VALUES (?, ?, ?)'),
   getSupportMsgs:     db.prepare('SELECT * FROM support_chats WHERE session_id = ? ORDER BY id ASC LIMIT 100'),
   insertTgMsgMap:     db.prepare('INSERT OR IGNORE INTO tg_msg_map (tg_message_id, session_id) VALUES (?, ?)'),

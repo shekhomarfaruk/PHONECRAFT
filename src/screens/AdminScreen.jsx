@@ -49,6 +49,10 @@ export default function AdminScreen({ user, showToast, lang }) {
   const [editIsAdmin, setEditIsAdmin]   = useState(false);
   const [saving, setSaving]             = useState(false);
   const [searchQuery, setSearchQuery]   = useState('');
+  const [messageTarget, setMessageTarget] = useState('all');
+  const [messageUserId, setMessageUserId] = useState('');
+  const [messageText, setMessageText] = useState('');
+  const [messageSending, setMessageSending] = useState(false);
 
   // Transactions tab state
   const [transactions, setTransactions]     = useState([]);
@@ -219,6 +223,46 @@ export default function AdminScreen({ user, showToast, lang }) {
     finally { setProcessingTxId(null); }
   };
 
+  const sendAdminMessage = async () => {
+    const text = messageText.trim();
+    if (!text) {
+      showToast(lang === 'bn' ? 'মেসেজ লিখুন' : 'Enter a message', 'warning');
+      return;
+    }
+    if (messageTarget === 'user' && !messageUserId) {
+      showToast(lang === 'bn' ? 'একজন ব্যবহারকারী নির্বাচন করুন' : 'Select a user', 'warning');
+      return;
+    }
+
+    setMessageSending(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/messages`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          target: messageTarget,
+          userId: messageTarget === 'user' ? Number(messageUserId) : undefined,
+          message: text,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showApiError(data);
+        return;
+      }
+
+      setMessageText('');
+      if (messageTarget === 'user') setMessageUserId('');
+      showToast(lang === 'bn'
+        ? `মেসেজ পাঠানো হয়েছে (${data.delivered || 0} জন)`
+        : `Message sent (${data.delivered || 0} recipients)`, 'success');
+    } catch {
+      showToast(t.toast_connection_error, 'error');
+    } finally {
+      setMessageSending(false);
+    }
+  };
+
   // ── Filters ────────────────────────────────────────────────────────────────
   const filtered = searchQuery
     ? users.filter(u =>
@@ -227,6 +271,8 @@ export default function AdminScreen({ user, showToast, lang }) {
         u.refer_code.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : users;
+
+  const messageCandidates = users.filter(u => !u.banned && (!u.is_admin || u.id === user.id));
 
   return (
     <>
@@ -262,6 +308,60 @@ export default function AdminScreen({ user, showToast, lang }) {
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'users' && (
         <>
+          <div className="card">
+            <div className="card-title"><Icons.Bell size={14} /> {lang === 'bn' ? 'ব্যবহারকারীদের মেসেজ পাঠান' : 'Send Message to Users'}</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <button
+                className={`btn ${messageTarget === 'all' ? 'btn-primary' : 'btn-outline'}`}
+                style={{ flex: 1 }}
+                onClick={() => setMessageTarget('all')}
+              >
+                {lang === 'bn' ? 'সবার কাছে' : 'All Users'}
+              </button>
+              <button
+                className={`btn ${messageTarget === 'user' ? 'btn-primary' : 'btn-outline'}`}
+                style={{ flex: 1 }}
+                onClick={() => setMessageTarget('user')}
+              >
+                {lang === 'bn' ? 'একজন ব্যবহারকারী' : 'Single User'}
+              </button>
+            </div>
+
+            {messageTarget === 'user' && (
+              <div className="input-wrap">
+                <label className="input-label">{lang === 'bn' ? 'ব্যবহারকারী নির্বাচন' : 'Select User'}</label>
+                <select
+                  className="inp"
+                  value={messageUserId}
+                  onChange={e => setMessageUserId(e.target.value)}
+                >
+                  <option value="">{lang === 'bn' ? 'নির্বাচন করুন' : 'Choose a user'}</option>
+                  {messageCandidates.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.identifier})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="input-wrap">
+              <label className="input-label">{lang === 'bn' ? 'মেসেজ' : 'Message'}</label>
+              <textarea
+                className="inp"
+                rows={3}
+                maxLength={1000}
+                placeholder={lang === 'bn' ? 'এখানে মেসেজ লিখুন...' : 'Write your message...'}
+                value={messageText}
+                onChange={e => setMessageText(e.target.value)}
+              />
+            </div>
+
+            <button className="btn btn-primary btn-full" onClick={sendAdminMessage} disabled={messageSending}>
+              {messageSending
+                ? (lang === 'bn' ? 'পাঠানো হচ্ছে...' : 'Sending...')
+                : (lang === 'bn' ? '📨 পাঠান' : '📨 Send Message')}
+            </button>
+          </div>
+
           {/* Stats */}
           <div className="stats-row">
             <div className="stat-box">
