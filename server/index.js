@@ -9,8 +9,9 @@ const { db, stmts, sanitizeUser, todayDate } = require('./db');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
-const BOT  = process.env.TELEGRAM_BOT_TOKEN;
-const CHAT = process.env.TELEGRAM_ADMIN_CHAT_ID;
+const DEFAULT_TELEGRAM_BOT = process.env.TELEGRAM_BOT_TOKEN || '';
+const FINANCE_BOT = process.env.TELEGRAM_FINANCE_BOT_TOKEN || DEFAULT_TELEGRAM_BOT;
+const SUPPORT_BOT = process.env.TELEGRAM_SUPPORT_BOT_TOKEN || DEFAULT_TELEGRAM_BOT;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const MAIN_ADMIN_REFER_CODE = (process.env.MAIN_ADMIN_REFER_CODE || 'ADMIN01').trim();
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -28,6 +29,33 @@ const allowedOrigins = new Set([
 const AUTH_SECRET = process.env.AUTH_SECRET
   || process.env.TELEGRAM_BOT_TOKEN
   || (IS_PRODUCTION ? crypto.randomBytes(32).toString('hex') : 'local-dev-auth-secret');
+
+function parseChatIds(...values) {
+  const ids = [];
+  for (const v of values) {
+    const value = String(v || '').trim();
+    if (!value) continue;
+    for (const part of value.split(',')) {
+      const id = part.trim();
+      if (id) ids.push(id);
+    }
+  }
+  return [...new Set(ids)];
+}
+
+const FINANCE_CHAT_IDS = parseChatIds(
+  process.env.TELEGRAM_FINANCE_CHAT_IDS,
+  process.env.TELEGRAM_ADMIN_CHAT_ID,
+  process.env.TELEGRAM_CHAT_ID,
+  process.env.TELEGRAM_CHANNEL_ID,
+);
+
+const SUPPORT_CHAT_IDS = parseChatIds(
+  process.env.TELEGRAM_SUPPORT_CHAT_IDS,
+  process.env.TELEGRAM_SUPPORT_CHAT_ID,
+  process.env.TELEGRAM_ADMIN_CHAT_ID,
+  process.env.TELEGRAM_CHAT_ID,
+);
 
 if (!process.env.AUTH_SECRET) {
   console.warn('[Security] AUTH_SECRET is not set. Set a stable secret in production to keep sessions valid across restarts.');
@@ -180,14 +208,37 @@ app.use(express.static(path.join(__dirname, '..', 'dist')));
 app.get('/health', (_req, res) => res.json({ status:'ok', service:'PhoneCraft API' }));
 
 // ── Send Telegram message helper ─────────────────────────────────────────────
-async function sendTelegram(text) {
-  if (!BOT || !CHAT) return;
-  const url = `https://api.telegram.org/bot${BOT}/sendMessage`;
-  await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: CHAT, text, parse_mode: 'HTML' }),
-  });
+async function sendTelegram(text, { botToken = FINANCE_BOT, chatIds = FINANCE_CHAT_IDS } = {}) {
+  if (!botToken || !Array.isArray(chatIds) || chatIds.length === 0) {
+    throw new Error('Telegram bot token or chat ids are not configured');
+  }
+
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  const deliveries = [];
+  const errors = [];
+
+  for (const chatId of chatIds) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        throw new Error(data.description || `Telegram send failed (${response.status})`);
+      }
+      deliveries.push({ chatId, result: data.result || null });
+    } catch (err) {
+      errors.push(`chat ${chatId}: ${err.message}`);
+    }
+  }
+
+  if (deliveries.length === 0) {
+    throw new Error(errors.join(' | ') || 'Telegram delivery failed');
+  }
+
+  return deliveries;
 }
 
 // ── Admin guard ─────────────────────────────────────────────────────────────
@@ -211,6 +262,12 @@ function toClientUser(user) {
     ...safe,
     is_main_admin: isMainAdminUser(user),
   };
+}
+
+function syncDailyDoneWithCompletedJobs(userId) {
+  const completedToday = stmts.getCompletedJobCountToday.get(userId)?.count || 0;
+  stmts.setDailyDone.run(completedToday, userId);
+  return completedToday;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -478,14 +535,17 @@ app.get('/api/user/:id/work-status', authRequired, requireSelfOrAdmin('id'), (re
   try {
     const userId = Number(req.params.id);
     ensureDailyReset(userId);
+    const dailyDone = syncDailyDoneWithCompletedJobs(userId);
     const user = stmts.getUserById.get(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     const plan = stmts.getPlan.get(user.plan_id);
+    const activeJob = stmts.getProcessingJobByUser.get(userId) || null;
     res.json({
-      dailyDone:  user.daily_done,
+      dailyDone,
       dailyLimit: plan.daily,
-      canWork:    user.daily_done < plan.daily,
+      canWork:    dailyDone < plan.daily,
       perTask:    plan.per_task,
+      activeJob,
     });
   } catch (err) {
     console.error('Work status error:', err.message);
@@ -502,16 +562,28 @@ const startManufactureTx = db.transaction((body) => {
   }
 
   ensureDailyReset(userId);
+  syncDailyDoneWithCompletedJobs(userId);
   const user = stmts.getUserById.get(userId);
   if (!user) return { status: 404, body: { error: 'User not found' } };
   if (user.banned) return { status: 403, body: { error: 'Account suspended' } };
+
+  const existingJob = stmts.getProcessingJobByUser.get(userId);
+  if (existingJob) {
+    return {
+      status: 200,
+      body: {
+        job: existingJob,
+        resumed: true,
+        dailyDone: user.daily_done,
+        dailyLimit: stmts.getPlan.get(user.plan_id).daily,
+      },
+    };
+  }
 
   const plan = stmts.getPlan.get(user.plan_id);
   if (user.daily_done >= plan.daily) {
     return { status: 400, body: { error: 'Daily task limit reached. Upgrade your plan to continue.' } };
   }
-
-  stmts.incrementDaily.run(userId);
 
   const result = stmts.insertJob.run({
     user_id: userId, device_name: deviceName,
@@ -565,6 +637,9 @@ const completeManufactureTx = db.transaction((body) => {
   if (updated.changes === 0) {
     return { status: 400, body: { error: 'Failed to complete job' } };
   }
+
+  const completedToday = stmts.getCompletedJobCountToday.get(userId)?.count || 0;
+  stmts.setDailyDone.run(completedToday, userId);
 
   // Credit user balance
   stmts.creditBalance.run(earned, userId);
@@ -899,7 +974,9 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         ? `✅ পেমেন্ট যাচাই করে Admin Panel থেকে Approve করুন।`
         : `💳 User এর নম্বরে পেমেন্ট পাঠিয়ে Admin Panel থেকে Approve করুন।`,
     ].join('\n');
-    sendTelegram(msg).catch(() => {});
+    sendTelegram(msg, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS }).catch((err) => {
+      console.error('Finance Telegram error:', err.message);
+    });
 
     res.json(result.body);
   } catch (err) {
@@ -976,7 +1053,7 @@ app.post('/api/support/message', supportLimiter, async (req, res) => {
     stmts.insertSupportMsg.run(sessionId, 'user', message.trim());
 
     // Forward to Telegram and store message_id for reply mapping
-    if (BOT && CHAT) {
+    if (SUPPORT_BOT && SUPPORT_CHAT_IDS.length > 0) {
       const tgMsg = [
         `💬 <b>Live Support</b>`,
         `👤 ${senderName || 'Guest'}`,
@@ -987,19 +1064,15 @@ app.post('/api/support/message', supportLimiter, async (req, res) => {
         `👆 <i>Reply this message to respond</i>`,
       ].join('\n');
       try {
-        const tgRes = await fetch(
-          `https://api.telegram.org/bot${BOT}/sendMessage`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: CHAT, text: tgMsg, parse_mode: 'HTML' }),
+        const tgDeliveries = await sendTelegram(tgMsg, { botToken: SUPPORT_BOT, chatIds: SUPPORT_CHAT_IDS });
+        for (const delivery of tgDeliveries) {
+          if (delivery?.result?.message_id) {
+            stmts.insertTgMsgMap.run(delivery.result.message_id, sessionId);
           }
-        );
-        const tgData = await tgRes.json();
-        if (tgData.ok && tgData.result?.message_id) {
-          stmts.insertTgMsgMap.run(tgData.result.message_id, sessionId);
         }
-      } catch (_) {}
+      } catch (err) {
+        console.error('Support Telegram error:', err.message);
+      }
     }
 
     res.json({ ok: true });
@@ -1045,7 +1118,7 @@ app.post('/api/notify', authRequired, async (req, res) => {
   const { text } = req.body || {};
   if (!text) return res.status(400).json({ error: 'Missing text' });
   try {
-    await sendTelegram(text);
+    await sendTelegram(text, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1060,12 +1133,11 @@ app.post('/api/notify', authRequired, async (req, res) => {
 app.get('/api/admin/users', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
-    const requester = req.auth.user;
     const requesterIsMain = req.auth.isMainAdmin;
     let rows = stmts.getAllUsers.all();
 
     if (!requesterIsMain) {
-      rows = rows.filter((r) => !r.is_admin || r.id === requester.id);
+      rows = rows.filter((r) => !isMainAdminUser(r));
     }
 
     const users = rows.map(row => {
@@ -1099,11 +1171,15 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (!requesterIsMain) {
-      if (user.is_admin && id !== adminId) {
-        return res.status(403).json({ error: 'You cannot manage other admin accounts' });
+      if (user.is_admin) {
+        return res.status(403).json({ error: 'You cannot manage admin accounts' });
       }
       if (req.body.is_admin !== undefined) {
         return res.status(403).json({ error: 'You cannot change admin privileges' });
+      }
+      if ((req.body.balance !== undefined && Number(req.body.balance) !== Number(user.balance)) ||
+          (req.body.plan_id !== undefined && req.body.plan_id !== user.plan_id)) {
+        return res.status(403).json({ error: 'You cannot modify user balance or plan' });
       }
       if (id === adminId && req.body.banned !== undefined && req.body.banned) {
         return res.status(400).json({ error: 'Cannot ban yourself' });
@@ -1156,7 +1232,7 @@ app.get('/api/admin/users/:id/logs', authRequired, (req, res) => {
     const userId = Number(req.params.id);
     const target = stmts.getUserById.get(userId);
     if (!target) return res.status(404).json({ error: 'User not found' });
-    if (!req.auth.isMainAdmin && target.is_admin && target.id !== req.auth.userId) {
+    if (!req.auth.isMainAdmin && target.is_admin) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     const logs = stmts.getUserLoginLogs.all(userId);
@@ -1175,7 +1251,7 @@ app.get('/api/admin/transactions', authRequired, (req, res) => {
     const requesterIsMain = req.auth.isMainAdmin;
     let transactions = stmts.getAllTransactions.all();
     if (!requesterIsMain) {
-      const adminIds = new Set(stmts.getAdminUsers.all().map((r) => r.id));
+      const adminIds = new Set(stmts.getVisibleAdminsForDelegated.all(MAIN_ADMIN_REFER_CODE).map((r) => r.id));
       transactions = transactions.filter((tx) => !adminIds.has(tx.user_id) || tx.user_id === requester.id);
     }
     res.json({ transactions });
@@ -1248,7 +1324,9 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
         `📱 ${tx.method.toUpperCase()}: <code>${tx.account}</code>`,
         admin_note ? `📝 নোট: ${admin_note}` : '',
       ].filter(Boolean).join('\n');
-      sendTelegram(tgMsg).catch(() => {});
+      sendTelegram(tgMsg, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS }).catch((err) => {
+        console.error('Admin transaction Telegram error:', err.message);
+      });
     }
 
     res.status(result.status).json(result.body);
@@ -1381,9 +1459,9 @@ app.listen(PORT, '0.0.0.0', () => {
 
   // Auto-register Telegram webhook on startup
   const webhookBase = process.env.WEBHOOK_URL;
-  if (BOT && webhookBase) {
+  if (SUPPORT_BOT && webhookBase) {
     const webhookUrl = `${webhookBase}/webhook/telegram`;
-    fetch(`https://api.telegram.org/bot${BOT}/setWebhook`, {
+    fetch(`https://api.telegram.org/bot${SUPPORT_BOT}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message'] }),

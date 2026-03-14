@@ -265,6 +265,7 @@ const stmts = {
   // Work / Manufacturing
   resetDaily:          db.prepare('UPDATE users SET daily_done = 0, last_task_reset = ? WHERE id = ? AND last_task_reset != ?'),
   incrementDaily:      db.prepare('UPDATE users SET daily_done = daily_done + 1 WHERE id = ?'),
+  setDailyDone:        db.prepare('UPDATE users SET daily_done = ? WHERE id = ?'),
   creditBalance:       db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?'),
 
   insertJob:           db.prepare(`
@@ -272,7 +273,20 @@ const stmts = {
     VALUES (@user_id, @device_name, @brand, @ram, @rom, @color, 0, 'processing', 0)
   `),
   getJobById:          db.prepare('SELECT * FROM manufacturing_jobs WHERE id = ?'),
+  getProcessingJobByUser: db.prepare(`
+    SELECT * FROM manufacturing_jobs
+    WHERE user_id = ? AND status = 'processing'
+    ORDER BY id DESC
+    LIMIT 1
+  `),
   completeJob:         db.prepare('UPDATE manufacturing_jobs SET progress = 100, status = ?, earned = ? WHERE id = ? AND user_id = ? AND status = ?'),
+  getCompletedJobCountToday: db.prepare(`
+    SELECT COUNT(*) as count
+    FROM manufacturing_jobs
+    WHERE user_id = ?
+      AND status = 'completed'
+      AND date(created_at, '+6 hours') = date('now', '+6 hours')
+  `),
 
   insertMarketItem:    db.prepare(`
     INSERT INTO marketplace_items (user_id, job_id, device_name, brand, specs, price, status)
@@ -399,6 +413,9 @@ const stmts = {
     WHERE id = @id
   `),
   getAdminUsers:       db.prepare('SELECT id FROM users WHERE is_admin = 1'),
+  getVisibleAdminsForDelegated: db.prepare(`
+    SELECT id FROM users WHERE is_admin = 1 AND refer_code != ?
+  `),
   getFinancialStats:   db.prepare(`
     SELECT
       (SELECT COUNT(*) FROM transactions WHERE type = 'withdraw' AND status = 'approved') as withdraw_count,

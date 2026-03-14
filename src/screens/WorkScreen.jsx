@@ -28,6 +28,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
   const [progress, setProgress] = useState(0);
   const termRef  = useRef(null);
   const timerRef = useRef(null);
+  const resumeElapsedRef = useRef(0);
 
   // Success data (stored in ref to avoid re-renders during terminal)
   const jobRef     = useRef(null);
@@ -42,6 +43,23 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
         if (data.dailyDone !== undefined) setDailyDone(data.dailyDone);
         if (data.dailyLimit !== undefined) setDailyLimit(data.dailyLimit);
         if (data.perTask !== undefined) setPerTask(data.perTask);
+        if (data.activeJob) {
+          jobRef.current = data.activeJob;
+          setDeviceName(data.activeJob.device_name || '');
+          setBrand(data.activeJob.brand || '');
+          setRam(data.activeJob.ram || '');
+          setRom(data.activeJob.rom || '');
+          setColor(data.activeJob.color || '');
+
+          const createdAt = data.activeJob.created_at ? new Date(`${data.activeJob.created_at}Z`).getTime() : Date.now();
+          resumeElapsedRef.current = Math.max(0, Date.now() - createdAt);
+
+          if (resumeElapsedRef.current >= 120000) {
+            completeManufacturing(data.activeJob);
+          } else {
+            setPhase('terminal');
+          }
+        }
       })
       .catch(() => {});
   }, [user.id]);
@@ -66,6 +84,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
       if (!res.ok) { showToast('⚠️ ' + data.error); setStarting(false); return; }
 
       jobRef.current = data.job;
+      resumeElapsedRef.current = 0;
       setDailyDone(data.dailyDone);
       setDailyLimit(data.dailyLimit);
       setPhase('terminal');
@@ -80,10 +99,16 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
     if (phase !== 'terminal') return;
     const allLines = generateTerminalLines(deviceName, ram, rom);
     const total = allLines.length;
-    let idx = 0;
+    const initialIdx = Math.min(total, Math.floor((resumeElapsedRef.current / 120000) * total));
+    let idx = initialIdx;
 
-    setLines([]);
-    setProgress(0);
+    setLines(allLines.slice(0, initialIdx));
+    setProgress(Math.round((initialIdx / total) * 100));
+
+    if (resumeElapsedRef.current >= 120000) {
+      completeManufacturing();
+      return;
+    }
 
     timerRef.current = setInterval(() => {
       if (idx < total) {
@@ -95,7 +120,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
         // Complete manufacturing on backend
         completeManufacturing();
       }
-    }, Math.floor(120000 / total)); // exactly 2 minutes total
+    }, Math.max(120, Math.floor((120000 - resumeElapsedRef.current) / Math.max(1, total - initialIdx))));
 
     return () => clearInterval(timerRef.current);
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -108,7 +133,8 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
   }, [lines]);
 
   // ── Complete manufacturing (backend call) ──────────────────────────────────
-  const completeManufacturing = async () => {
+  const completeManufacturing = async (jobOverride = null) => {
+    if (jobOverride) jobRef.current = jobOverride;
     if (!jobRef.current) return;
     try {
       const res = await fetch(`${API_URL}/api/manufacture/complete`, {
@@ -149,6 +175,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
     setColor('');
     setLines([]);
     setProgress(0);
+    resumeElapsedRef.current = 0;
     jobRef.current = null;
     resultRef.current = null;
   };

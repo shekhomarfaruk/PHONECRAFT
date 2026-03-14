@@ -406,7 +406,8 @@ export default function AdminScreen({ user, showToast, lang }) {
                 {selectedUser.is_admin ? <span className="badge badge-green">{t.admin_admin_label}</span> : null}
               </div>
 
-              {/* Edit form */}
+              {/* Edit form (main admin only) */}
+              {isMainAdmin && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                 <div className="input-wrap" style={{ marginBottom: 0 }}>
                   <label className="input-label">{t.admin_balance}</label>
@@ -420,6 +421,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                   </select>
                 </div>
               </div>
+              )}
 
               {/* Admin toggle */}
               {isMainAdmin && (
@@ -452,11 +454,13 @@ export default function AdminScreen({ user, showToast, lang }) {
               )}
 
               <div style={{ display: 'flex', gap: 8 }}>
+                {isMainAdmin && (
                 <button className="btn btn-primary" onClick={saveUser} disabled={saving} style={{ flex: 1 }}>
                   {saving ? t.admin_saving : t.admin_save}
                 </button>
+                )}
                 <button className={`btn ${selectedUser.banned ? 'btn-success' : 'btn-danger'}`}
-                  onClick={() => toggleBan(selectedUser)} style={{ flex: 1 }}>
+                  onClick={() => toggleBan(selectedUser)} style={{ flex: isMainAdmin ? 1 : 2 }}>
                   {selectedUser.banned ? t.admin_unban_user : t.admin_ban_user}
                 </button>
               </div>
