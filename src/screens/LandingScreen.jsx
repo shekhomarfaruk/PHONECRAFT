@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import Icons from "../Icons.jsx";
 import { PLANS } from "../data.jsx";
 import { convertCurrency } from "../currency.js";
+import PwaInstallGuideModal from "../components/PwaInstallGuideModal.jsx";
 
 // ── Manufacturing YouTube video slider ──────────────────────────────────────
 // Replace video IDs with actual YouTube manufacturing video IDs as needed
@@ -479,6 +480,7 @@ function Counter({ target, suffix = '', prefix = '' }) {
 // ── Main LandingScreen ───────────────────────────────────────────────────────
 export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'en', setLang }) {
   const [legalDoc, setLegalDoc] = useState(null);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     try { return !!localStorage.getItem('pwa-banner-dismissed'); } catch { return false; }
@@ -510,6 +512,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
 
   return (
     <>
+      <PwaInstallGuideModal open={showInstallGuide} onClose={() => setShowInstallGuide(false)} lang={lang} />
       <style>{`
         @keyframes landingFadeUp { from{ opacity:0; transform:translateY(22px); } to{ opacity:1; transform:translateY(0); } }
         @keyframes orbFloat { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-8px) scale(1.03)} }
@@ -647,6 +650,36 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           >✕</button>
         </div>
       )}
+
+      <div
+        onClick={() => setShowInstallGuide(true)}
+        style={{
+          cursor: 'pointer',
+          background: 'linear-gradient(90deg, rgba(35,175,145,.2), rgba(99,102,241,.14))',
+          borderBottom: '1px solid rgba(35,175,145,.28)',
+          padding: '10px clamp(16px,4vw,56px)',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}
+      >
+        <div style={{
+          width: 34, height: 34, borderRadius: 10,
+          background: 'rgba(10,12,16,.45)',
+          border: '1px solid rgba(35,175,145,.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+          flexShrink: 0,
+        }}>
+          <img src="/logo.png" alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: 'Space Grotesk', fontSize: 13, fontWeight: 800, color: '#EAECEF' }}>
+            {lang === 'bn' ? 'অ্যাপ ইনস্টল গাইড দেখুন' : 'Open App Install Guide'}
+          </div>
+          <div style={{ fontSize: 11, color: '#9AA4B2', marginTop: 1 }}>
+            {lang === 'bn' ? 'Android ও iPhone-এ হোম স্ক্রিনে যোগ করার ধাপ' : 'Step-by-step Android & iPhone home screen install'}
+          </div>
+        </div>
+        <span style={{ color: '#23AF91', fontSize: 17, fontWeight: 900, flexShrink: 0 }}>›</span>
+      </div>
 
       <div style={{ minHeight:'100dvh', background:'transparent', color:'#EAECEF', fontFamily:'Inter,sans-serif', paddingBottom:60, overflowX:'hidden' }}>
 

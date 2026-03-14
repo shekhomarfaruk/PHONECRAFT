@@ -1,7 +1,9 @@
+import { useState } from "react";
 import Icons from "../Icons.jsx";
 import { PLANS, AVATARS, COUNTRIES, RANDOM_NAMES, maskName, randItem } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
+import PwaInstallGuideModal from "../components/PwaInstallGuideModal.jsx";
 
 // ── Static pool so it doesn't re-generate every render ──────────────────────
 const EARN_DATA = Array.from({ length: 14 }, () => {
@@ -130,9 +132,45 @@ function LiveActivityTicker({ t }) {
 function HomeScreen({user, navigate, lang}) {
   const t      = I18N[lang] || I18N.en;
   const plan   = PLANS.find(p => p.id === user.plan);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   return (
     <>
+      <PwaInstallGuideModal open={showInstallGuide} onClose={() => setShowInstallGuide(false)} lang={lang} />
+
+      <div
+        className="card"
+        onClick={() => setShowInstallGuide(true)}
+        style={{
+          cursor: 'pointer',
+          background: 'linear-gradient(135deg, rgba(35,175,145,.18), rgba(99,102,241,.16))',
+          borderColor: 'rgba(35,175,145,.36)',
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <div style={{
+          width: 44, height: 44, borderRadius: 12,
+          background: 'rgba(10,12,16,.45)',
+          border: '1px solid rgba(35,175,145,.28)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', flexShrink: 0,
+        }}>
+          <img src="/logo.png" alt="" style={{ width: 30, height: 30, objectFit: 'contain' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: 'Space Grotesk', fontWeight: 800, fontSize: 14 }}>
+            {lang === 'bn' ? '📲 হোম স্ক্রিনে অ্যাপ ইনস্টল করুন' : '📲 Install App to Home Screen'}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+            {lang === 'bn' ? 'ট্যাপ করে Android/iPhone install guide দেখুন' : 'Tap to open Android/iPhone install guide'}
+          </div>
+        </div>
+        <div style={{ color: 'var(--accent)', fontWeight: 900, fontSize: 18, flexShrink: 0 }}>›</div>
+      </div>
+
       {/* ── Welcome card ── */}
       <div className="card" style={{background:'linear-gradient(135deg,rgba(35,175,145,.12),rgba(99,102,241,.12))',borderColor:'rgba(35,175,145,.3)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12}}>
