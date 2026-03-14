@@ -295,8 +295,11 @@ const LEGAL_BN = {
 };
 
 // ── Video Card ──────────────────────────────────────────────────────────────
-function VideoCard({ video, isActive, onEnded }) {
+function VideoCard({ video, isActive, onEnded, lang }) {
   const videoRef = useRef(null);
+  const [isReady, setIsReady] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [needsTap, setNeedsTap] = useState(false);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -305,6 +308,7 @@ function VideoCard({ video, isActive, onEnded }) {
     if (!isActive) {
       el.pause();
       el.currentTime = 0;
+      setNeedsTap(false);
       return;
     }
 
@@ -312,9 +316,24 @@ function VideoCard({ video, isActive, onEnded }) {
     el.muted = true;
     const playPromise = el.play();
     if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(() => {});
+      playPromise.catch(() => {
+        setNeedsTap(true);
+      });
     }
   }, [isActive]);
+
+  useEffect(() => {
+    setIsReady(false);
+    setHasError(false);
+    setNeedsTap(false);
+  }, [video.src]);
+
+  const retryPlay = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = true;
+    el.play().then(() => setNeedsTap(false)).catch(() => setNeedsTap(true));
+  };
 
   return (
       <div style={{ width: '100%', borderRadius: 16, overflow: 'hidden',
@@ -341,10 +360,49 @@ function VideoCard({ video, isActive, onEnded }) {
             muted
             playsInline
             preload="auto"
-            controls={false}
+            controls
             onEnded={onEnded}
+            onLoadedData={() => setIsReady(true)}
+            onError={() => setHasError(true)}
             style={{ position:'absolute', inset:0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
+          {!isReady && !hasError && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#9AA4B2', fontSize: 13, background: 'rgba(0,0,0,.35)',
+            }}>
+              {lang === 'bn' ? 'ভিডিও লোড হচ্ছে...' : 'Loading video...'}
+            </div>
+          )}
+          {hasError && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#EAECEF', fontSize: 13, background: 'rgba(0,0,0,.55)', textAlign: 'center', padding: 14,
+            }}>
+              {lang === 'bn' ? 'এই ভিডিওটি আপনার ব্রাউজারে চলতে পারছে না' : 'This video cannot be played in your browser'}
+            </div>
+          )}
+          {needsTap && !hasError && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+              <button
+                onClick={retryPlay}
+                style={{
+                  pointerEvents: 'auto',
+                  border: '1px solid rgba(35,175,145,.35)',
+                  background: 'rgba(10,12,16,.72)',
+                  color: '#23AF91',
+                  borderRadius: 999,
+                  padding: '10px 16px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                }}
+              >
+                {lang === 'bn' ? '▶ ভিডিও চালান' : '▶ Play video'}
+              </button>
+            </div>
+          )}
         </div>
         <div style={{ padding: '10px 16px 13px' }}>
           <div style={{ fontFamily:'Space Grotesk', fontWeight:700, fontSize:'clamp(13px,2vw,16px)', color:'#EAECEF', marginBottom:2 }}>{video.title}</div>
@@ -355,7 +413,7 @@ function VideoCard({ video, isActive, onEnded }) {
 }
 
 // ── Video Slider ────────────────────────────────────────────────────────────
-function VideoSlider() {
+function VideoSlider({ lang }) {
   const [active, setActive] = useState(0);
   const timerRef = useRef(null);
 
@@ -379,7 +437,7 @@ function VideoSlider() {
 
   return (
     <div>
-      <VideoCard video={VIDEOS[active]} isActive={true} onEnded={handleEnded} key={active} />
+      <VideoCard video={VIDEOS[active]} isActive={true} onEnded={handleEnded} lang={lang} key={active} />
       {/* Dots */}
       <div style={{ display:'flex', justifyContent:'center', gap:8, marginTop:12 }}>
         {VIDEOS.map((_, i) => (
@@ -828,7 +886,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
             <span style={{ marginLeft:'auto', fontSize:10, color:'#23AF91', background:'rgba(35,175,145,.1)', border:'1px solid rgba(35,175,145,.2)', borderRadius:10, padding:'2px 8px', fontFamily:'Space Grotesk', fontWeight:600 }}>{t.vid_live}</span>
           </div>
           <div style={{ maxWidth:760, margin:'0 auto' }}>
-            <VideoSlider />
+            <VideoSlider lang={lang} />
           </div>
           </div>{/* end ld-wrap */}
         </section>
