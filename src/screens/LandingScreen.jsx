@@ -295,13 +295,24 @@ const LEGAL_BN = {
 };
 
 // ── Video Card ──────────────────────────────────────────────────────────────
-function VideoCard({ video, isActive }) {
+function VideoCard({ video, isActive, onEnded }) {
   const videoRef = useRef(null);
 
   useEffect(() => {
-    if (!isActive && videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+    const el = videoRef.current;
+    if (!el) return;
+
+    if (!isActive) {
+      el.pause();
+      el.currentTime = 0;
+      return;
+    }
+
+    // Mobile autoplay usually requires muted + playsInline.
+    el.muted = true;
+    const playPromise = el.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {});
     }
   }, [isActive]);
 
@@ -326,9 +337,12 @@ function VideoCard({ video, isActive }) {
           <video
             ref={videoRef}
             src={video.src}
-            controls
+            autoPlay={isActive}
+            muted
             playsInline
-            preload="none"
+            preload="auto"
+            controls={false}
+            onEnded={onEnded}
             style={{ position:'absolute', inset:0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         </div>
@@ -353,11 +367,19 @@ function VideoSlider() {
     if (idx !== undefined) setActive(idx);
   };
 
+  const handleEnded = () => {
+    clearInterval(timerRef.current);
+    setActive(p => (p + 1) % VIDEOS.length);
+    timerRef.current = setInterval(() => {
+      setActive(p => (p + 1) % VIDEOS.length);
+    }, 7000);
+  };
+
   useEffect(() => { resetTimer(); return () => clearInterval(timerRef.current); }, []);
 
   return (
     <div>
-      <VideoCard video={VIDEOS[active]} isActive={true} key={active} />
+      <VideoCard video={VIDEOS[active]} isActive={true} onEnded={handleEnded} key={active} />
       {/* Dots */}
       <div style={{ display:'flex', justifyContent:'center', gap:8, marginTop:12 }}>
         {VIDEOS.map((_, i) => (
