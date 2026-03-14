@@ -7,6 +7,10 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function SettingsScreen({ user, setUser, showToast, lang, setLang, doLogout, fontSize, setFontSize }) {
   const t = I18N[lang] || I18N.en;
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    ...(user?.authToken ? { Authorization: `Bearer ${user.authToken}` } : {}),
+  };
   const [curPass,  setCurPass]  = useState('');
   const [newPass,  setNewPass]  = useState('');
   const [conPass,  setConPass]  = useState('');
@@ -28,11 +32,26 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
     try {
       const res = await fetch(`${API_URL}/api/user/${user.id}/change-password`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({ currentPassword: curPass, newPassword: newPass }),
       });
       const data = await res.json();
-      if (!res.ok) { showToast('❌ ' + (data.error || (lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন ব্যর্থ' : 'Failed to change password')), 'error'); return; }
+      if (!res.ok) {
+        let msg = data.error || '';
+        if (msg === 'Current password is incorrect') {
+          msg = lang === 'bn' ? 'বর্তমান পাসওয়ার্ড সঠিক নয়' : 'Current password is incorrect';
+        } else if (msg === 'Invalid or expired session') {
+          msg = lang === 'bn' ? 'সেশন মেয়াদোত্তীর্ণ হয়েছে, আবার লগইন করুন' : 'Session expired, please log in again';
+        } else if (msg === 'Both passwords are required') {
+          msg = lang === 'bn' ? 'দুইটি পাসওয়ার্ডই প্রয়োজন' : 'Both passwords are required';
+        } else if (msg === 'New password must be at least 6 characters') {
+          msg = lang === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে' : 'New password must be at least 6 characters';
+        } else if (!msg) {
+          msg = lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন ব্যর্থ' : 'Failed to change password';
+        }
+        showToast(`❌ ${msg}`, 'error');
+        return;
+      }
       showToast('✅ ' + (lang === 'bn' ? 'পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!' : 'Password changed successfully!'), 'success');
       setCurPass(''); setNewPass(''); setConPass('');
     } catch {
@@ -45,7 +64,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
     try {
       await fetch(`${API_URL}/api/user/${user.id}/avatar`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({ avatar: av }),
       });
     } catch (_) {}
