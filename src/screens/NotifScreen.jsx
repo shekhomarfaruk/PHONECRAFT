@@ -23,7 +23,7 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
         if (data.error === 'insufficient_balance') {
           showToast('⚠️ ' + (lang === 'bn' ? 'অপর্যাপ্ত ব্যালেন্স' : 'Insufficient Balance'));
         } else {
-          showToast('⚠️ ' + (data.error || 'Failed'));
+          showToast('⚠️ ' + (data.error || (lang === 'bn' ? 'ব্যর্থ হয়েছে' : 'Failed')));
         }
         setLoading('');
         return;
@@ -44,7 +44,7 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
         ? '✅ ' + (lang === 'bn' ? 'নিবন্ধন অনুমোদন করা হয়েছে' : 'Registration approved')
         : '❌ ' + (lang === 'bn' ? 'প্রত্যাখ্যান করা হয়েছে' : 'Registration declined'));
     } catch (_) {
-      showToast('⚠️ Network error');
+      showToast('⚠️ ' + (lang === 'bn' ? 'নেটওয়ার্ক ত্রুটি হয়েছে' : 'Network error'));
       setLoading('');
     }
   };
