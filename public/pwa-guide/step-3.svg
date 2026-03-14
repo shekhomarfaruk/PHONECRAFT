@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1280">
+  <rect width="720" height="1280" fill="#111827"/>
+  <rect x="58" y="470" width="604" height="360" rx="44" fill="#2d3140"/>
+  <text x="108" y="565" fill="#E5E7EB" font-size="56" font-family="Arial">Install app</text>
+  <text x="110" y="635" fill="#9CA3AF" font-size="32" font-family="Arial">PhoneCraft</text>
+  <rect x="458" y="710" width="160" height="74" rx="18" fill="none" stroke="#F97316" stroke-width="8"/>
+  <text x="492" y="758" fill="#9CC2FF" font-size="42" font-family="Arial">Install</text>
+  <path d="M298 840 L460 760" stroke="#FACC15" stroke-width="16" stroke-linecap="round"/>
+  <polygon points="458,748 503,760 472,792" fill="#FACC15"/>
+  <text x="70" y="320" fill="#23AF91" font-size="48" font-family="Arial" font-weight="700">Step 3</text>
+</svg>

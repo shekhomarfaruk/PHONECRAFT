@@ -485,7 +485,6 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     try { return !!localStorage.getItem('pwa-banner-dismissed'); } catch { return false; }
   });
-  const [installTab, setInstallTab] = useState('android');
   const isIOS = /iphone|ipad|ipod/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
   const isInstalled = typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches;
 
@@ -1100,118 +1099,6 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
             </div>
           </div>
           </div>{/* end ld-wrap */}
-        </section>
-
-        {/* ── INSTALL APP GUIDE ── */}
-        <section className="ld-fade ld-fade-5 ld-section">
-          <div className="ld-wrap">
-          <div className="ld-sec-head">
-            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#23AF91,#6366F1)', display:'inline-block' }} />
-            <span className="ld-sec-title">{t.install_guide_title}</span>
-          </div>
-
-          {/* Top row: phone mockup + info */}
-          <div style={{ display:'flex', gap:'clamp(20px,4vw,56px)', flexWrap:'wrap', alignItems:'center', marginBottom:28, justifyContent:'center' }}>
-
-            {/* Phone frame mockup */}
-            <div style={{ flexShrink:0, position:'relative' }}>
-              <div style={{
-                width:130, height:230, borderRadius:28,
-                border:'3px solid rgba(35,175,145,.45)',
-                background:'linear-gradient(160deg,#0d1117,#0a0c10)',
-                padding:'12px 8px 16px', display:'flex', flexDirection:'column',
-                alignItems:'center', justifyContent:'center', gap:8,
-                position:'relative', overflow:'hidden',
-                boxShadow:'0 0 48px rgba(35,175,145,.15), inset 0 0 24px rgba(35,175,145,.04)',
-              }}>
-                {/* Status bar */}
-                <div style={{ position:'absolute', top:0, left:0, right:0, height:26, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 12px' }}>
-                  <span style={{ fontSize:8, color:'rgba(234,236,239,.4)', fontFamily:'Space Grotesk', fontWeight:600 }}>9:41</span>
-                  <div style={{ width:30, height:8, borderRadius:4, background:'rgba(35,175,145,.2)', border:'1px solid rgba(35,175,145,.3)' }} />
-                  <span style={{ fontSize:8, color:'rgba(234,236,239,.4)' }}>▮▮▮</span>
-                </div>
-                {/* Screen content */}
-                <div style={{ marginTop:8, width:52, height:52, borderRadius:14, background:'linear-gradient(135deg,rgba(35,175,145,.15),rgba(99,102,241,.08))', border:'1px solid rgba(35,175,145,.2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <img src="/logo.png" alt="PhoneCraft" style={{ width:36, height:36, objectFit:'contain' }} onError={e => { e.target.style.display='none'; }} />
-                </div>
-                <div style={{ fontFamily:'Space Grotesk', fontWeight:800, fontSize:9, color:'#23AF91', letterSpacing:1.5, textAlign:'center' }}>PHONECRAFT</div>
-                <div style={{ width:70, height:1, background:'rgba(35,175,145,.15)' }} />
-                <div style={{ width:'80%', height:6, borderRadius:3, background:'rgba(35,175,145,.12)' }} />
-                <div style={{ width:'60%', height:6, borderRadius:3, background:'rgba(35,175,145,.07)' }} />
-                <div style={{ width:'70%', height:6, borderRadius:3, background:'rgba(35,175,145,.07)' }} />
-                {/* Home bar */}
-                <div style={{ position:'absolute', bottom:6, left:'50%', transform:'translateX(-50%)', width:44, height:3, borderRadius:2, background:'rgba(35,175,145,.25)' }} />
-              </div>
-              {/* Glow ring */}
-              <div style={{ position:'absolute', inset:-12, borderRadius:36, border:'1px solid rgba(35,175,145,.1)', pointerEvents:'none' }} />
-            </div>
-
-            {/* Info block */}
-            <div style={{ flex:1, minWidth:220, maxWidth:500 }}>
-              <div style={{ fontFamily:'Space Grotesk', fontWeight:900, fontSize:'clamp(17px,2vw,24px)', marginBottom:10, lineHeight:1.25 }}>{t.install_guide_title}</div>
-              <div style={{ fontSize:'clamp(13px,1.2vw,15px)', color:'#707A8A', lineHeight:1.8, marginBottom:18 }}>{t.install_guide_sub}</div>
-              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', background:'rgba(35,175,145,.08)', border:'1px solid rgba(35,175,145,.2)', borderRadius:20 }}>
-                  <span style={{ fontSize:13 }}>📱</span>
-                  <span style={{ fontSize:12, color:'#23AF91', fontFamily:'Space Grotesk', fontWeight:600 }}>Android Chrome</span>
-                </div>
-                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', background:'rgba(99,102,241,.08)', border:'1px solid rgba(99,102,241,.2)', borderRadius:20 }}>
-                  <span style={{ fontSize:13 }}>🍎</span>
-                  <span style={{ fontSize:12, color:'#818cf8', fontFamily:'Space Grotesk', fontWeight:600 }}>Safari (iOS)</span>
-                </div>
-                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', background:'rgba(35,175,145,.06)', border:'1px solid rgba(35,175,145,.15)', borderRadius:20 }}>
-                  <span style={{ fontSize:13 }}>⚡</span>
-                  <span style={{ fontSize:12, color:'#707A8A', fontFamily:'Space Grotesk', fontWeight:600 }}>No Store Needed</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tab switcher */}
-          <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
-            {['android','ios'].map(tab => (
-              <button key={tab} onClick={() => setInstallTab(tab)} style={{
-                padding: '10px 24px', borderRadius: 10,
-                border: installTab !== tab ? '1px solid rgba(35,175,145,.2)' : 'none',
-                cursor: 'pointer', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 13,
-                transition: 'all .2s',
-                background: installTab === tab ? 'linear-gradient(135deg,#23AF91,#1a8f75)' : 'rgba(35,175,145,.07)',
-                color: installTab === tab ? '#fff' : '#23AF91',
-                boxShadow: installTab === tab ? '0 4px 16px rgba(35,175,145,.3)' : 'none',
-              }}>
-                {tab === 'android' ? `📱 ${t.install_tab_android}` : `🍎 ${t.install_tab_ios}`}
-              </button>
-            ))}
-          </div>
-
-          {/* Step cards */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:16 }}>
-            {(installTab === 'android' ? t.install_android_steps : t.install_ios_steps).map((step, i) => (
-              <div key={i} style={{
-                borderRadius:14, padding:'clamp(16px,2vw,22px)',
-                border:'1px solid rgba(43,49,57,.9)',
-                background:'rgba(22,26,37,.7)',
-                position:'relative', overflow:'hidden',
-              }}>
-                {/* Top accent line */}
-                <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:'linear-gradient(90deg,#23AF91,#6366F1)', opacity:0.7 }} />
-                {/* Step number */}
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-                  <span style={{ fontFamily:'Space Grotesk', fontSize:10, fontWeight:700, color:'#23AF91', letterSpacing:2 }}>STEP {step.num}</span>
-                  <span style={{ width:28, height:28, borderRadius:8, background:'rgba(35,175,145,.1)', border:'1px solid rgba(35,175,145,.2)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>{step.icon}</span>
-                </div>
-                <div style={{ fontWeight:700, fontSize:'clamp(13px,1.3vw,16px)', marginBottom:8, color:'#EAECEF' }}>{step.title}</div>
-                <div style={{ fontSize:'clamp(12px,1.1vw,14px)', color:'#707A8A', lineHeight:1.7 }}>{step.desc}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Tip note */}
-          <div style={{ padding:'12px 18px', borderRadius:12, background:'rgba(35,175,145,.05)', border:'1px solid rgba(35,175,145,.15)', display:'flex', alignItems:'flex-start', gap:12 }}>
-            <span style={{ fontSize:20, flexShrink:0, marginTop:2 }}>💡</span>
-            <span style={{ fontSize:13, color:'rgba(112,122,138,.9)', lineHeight:1.7 }}>{t.install_note}</span>
-          </div>
-          </div>
         </section>
 
         {/* ── BOTTOM CTA ── */}
