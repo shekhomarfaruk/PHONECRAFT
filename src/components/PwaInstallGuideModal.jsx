@@ -3,34 +3,34 @@ import { useMemo } from 'react';
 function guideText(lang) {
   const isBn = lang === 'bn';
   return {
-    title: isBn ? 'PWA ????? ?????? ????' : 'PWA App Install Guide',
+    title: isBn ? 'PWA অ্যাপ ইনস্টল গাইড' : 'PWA App Install Guide',
     subtitle: isBn
-      ? '???????? ???? ??? ???????? PhoneCraft ??? ????'
+      ? 'ব্রাউজার থেকে PhoneCraft হোম স্ক্রিনে যোগ করার ধাপগুলো দেখুন'
       : 'Add PhoneCraft to your home screen directly from browser',
-    close: isBn ? '???? ????' : 'Close',
+    close: isBn ? 'বন্ধ করুন' : 'Close',
     note: isBn
-      ? '?????? ???? ??? ??????? ???????? ??? ????? ????? ??????'
+      ? 'ইনস্টল করার পরে হোম স্ক্রিনের আইকন থেকে সরাসরি অ্যাপ খুলুন।'
       : 'After installation, the app opens faster without browser chrome.',
     steps: [
       {
-        title: isBn ? 'Step 01: Browser Menu ?????' : 'Step 01: Open Browser Menu',
-        desc: isBn ? '???? ??????? ???-?? (?) ?????? ????? ?????' : 'Tap the three-dot (?) browser menu at the top-right corner.',
-        img: '/pwa-guide/step-1.svg',
+        title: isBn ? 'Step 01: ব্রাউজার মেনু খুলুন' : 'Step 01: Open Browser Menu',
+        desc: isBn ? 'উপরে ডানদিকে তিন-ডট (⋮) মেনুতে ট্যাপ করুন।' : 'Tap the three-dot (⋮) browser menu at the top-right corner.',
+        img: '/pwa-guide/step-1.jpg',
       },
       {
         title: isBn ? 'Step 02: Add to home screen' : 'Step 02: Tap Add to home screen',
-        desc: isBn ? '?????? Add to home screen ?????? ???????? ?????' : 'Select the Add to home screen option from the menu list.',
-        img: '/pwa-guide/step-2.svg',
+        desc: isBn ? 'মেনু থেকে Add to home screen অপশনটি নির্বাচন করুন।' : 'Select the Add to home screen option from the menu list.',
+        img: '/pwa-guide/step-2.jpg',
       },
       {
-        title: isBn ? 'Step 03: Install ??????? ????' : 'Step 03: Confirm Install',
-        desc: isBn ? '????? Install ????? ????? ??? ?????? ??????? ?????' : 'Tap Install in the popup prompt to complete installation.',
-        img: '/pwa-guide/step-3.svg',
+        title: isBn ? 'Step 03: Install নিশ্চিত করুন' : 'Step 03: Confirm Install',
+        desc: isBn ? 'পপআপে Install বাটনে ট্যাপ করে ইনস্টল সম্পন্ন করুন।' : 'Tap Install in the popup prompt to complete installation.',
+        img: '/pwa-guide/step-3.jpg',
       },
       {
-        title: isBn ? 'Step 04: ??? ??????? ???? ???? ????' : 'Step 04: Open from Home Screen',
-        desc: isBn ? 'PhoneCraft ????? ????? ??? ?????? ????? ???? ?????' : 'Launch PhoneCraft directly by tapping the home screen icon.',
-        img: '/pwa-guide/step-4.svg',
+        title: isBn ? 'Step 04: হোম স্ক্রিন থেকে চালু করুন' : 'Step 04: Open from Home Screen',
+        desc: isBn ? 'PhoneCraft আইকনে ট্যাপ করে সরাসরি অ্যাপ চালু করুন।' : 'Launch PhoneCraft directly by tapping the home screen icon.',
+        img: '/pwa-guide/step-4.jpg',
       },
     ],
   };
@@ -95,7 +95,19 @@ export default function PwaInstallGuideModal({ open, onClose, lang = 'en' }) {
               padding: '10px',
             }}>
               <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(35,175,145,.2)', marginBottom: 9 }}>
-                <img src={s.img} alt={s.title} loading="lazy" style={{ width: '100%', display: 'block', background: '#0f141d' }} />
+                <img
+                  src={s.img}
+                  alt={s.title}
+                  loading="lazy"
+                  style={{
+                    width: '100%',
+                    height: 320,
+                    display: 'block',
+                    objectFit: 'contain',
+                    objectPosition: 'center',
+                    background: '#0f141d',
+                  }}
+                />
               </div>
               <div style={{ fontSize: 11, color: '#23AF91', fontWeight: 800, letterSpacing: 1.2, marginBottom: 6 }}>STEP {idx + 1}</div>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 5 }}>{s.title}</div>
