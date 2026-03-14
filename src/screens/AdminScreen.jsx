@@ -25,6 +25,15 @@ export default function AdminScreen({ user, showToast, lang }) {
   const formatMoney = (amount) => convertCurrency(Number(amount) || 0, lang);
   const formatStamp = (value) => formatDateTime(value ? `${value}Z` : '', lang);
   const isMainAdmin = !!user?.isMainAdmin;
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    ...(user?.authToken ? { Authorization: `Bearer ${user.authToken}` } : {}),
+  };
+
+  const showApiError = (data, fallback) => {
+    const msg = data?.error || fallback || t.toast_connection_error;
+    showToast(msg, 'error');
+  };
 
   // Tab state
   const [activeTab, setActiveTab] = useState('users');
@@ -53,24 +62,29 @@ export default function AdminScreen({ user, showToast, lang }) {
 
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/settings`, { headers });
+      const res = await fetch(`${API_URL}/api/admin/settings`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok && data.settings) {
         setSettingsData(prev => ({ ...prev, ...data.settings }));
+      } else if (!res.ok) {
+        showApiError(data);
       }
-    } catch {}
-  }, []);
+    } catch {
+      showToast(t.toast_connection_error, 'error');
+    }
+  }, [user?.authToken, lang]);
 
   const saveSettings = async () => {
     setSettingsSaving(true);
     try {
       const res = await fetch(`${API_URL}/api/admin/settings`, {
-        method: 'POST', headers,
+        method: 'POST', headers: authHeaders,
         body: JSON.stringify({ settings: settingsData }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) showToast('✅ ' + (lang === 'bn' ? 'সেটিংস সংরক্ষিত!' : 'Settings saved!'), 'success');
-      else showToast('❌ ' + (lang === 'bn' ? 'সংরক্ষণ ব্যর্থ' : 'Failed to save'), 'error');
-    } catch { showToast('❌ Error', 'error'); }
+      else showApiError(data, lang === 'bn' ? 'সংরক্ষণ ব্যর্থ' : 'Failed to save');
+    } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setSettingsSaving(false); }
   };
 
@@ -78,41 +92,39 @@ export default function AdminScreen({ user, showToast, lang }) {
   const [stats, setStats]             = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  const headers = { 'Content-Type': 'application/json', 'x-user-id': String(user.id) };
-
   // ── Data fetchers ──────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/users`, { headers });
+      const res = await fetch(`${API_URL}/api/admin/users`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setUsers(data.users || []);
-      else showToast(t.toast_connection_error);
-    } catch { showToast(t.toast_connection_error); }
+      else showApiError(data);
+    } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setLoading(false); }
-  }, []);
+  }, [user?.authToken, lang]);
 
   const fetchTransactions = useCallback(async () => {
     setTxLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/transactions`, { headers });
+      const res = await fetch(`${API_URL}/api/admin/transactions`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setTransactions(data.transactions || []);
-      else showToast(t.toast_connection_error);
-    } catch { showToast(t.toast_connection_error); }
+      else showApiError(data);
+    } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setTxLoading(false); }
-  }, []);
+  }, [user?.authToken, lang]);
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/stats`, { headers });
+      const res = await fetch(`${API_URL}/api/admin/stats`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setStats(data);
-      else showToast(t.toast_connection_error);
-    } catch { showToast(t.toast_connection_error); }
+      else showApiError(data);
+    } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setStatsLoading(false); }
-  }, []);
+  }, [user?.authToken, lang]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -136,10 +148,11 @@ export default function AdminScreen({ user, showToast, lang }) {
     setEditIsAdmin(!!u.is_admin);
     setLogsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/users/${u.id}/logs`, { headers });
+      const res = await fetch(`${API_URL}/api/admin/users/${u.id}/logs`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setLoginLogs(data.logs || []);
-    } catch {}
+      else showApiError(data);
+    } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setLogsLoading(false); }
   };
 
@@ -148,7 +161,7 @@ export default function AdminScreen({ user, showToast, lang }) {
     setSaving(true);
     try {
       const res = await fetch(`${API_URL}/api/admin/users/${selectedUser.id}`, {
-        method: 'PATCH', headers,
+        method: 'PATCH', headers: authHeaders,
         body: JSON.stringify({
           balance: Number(editBalance), plan_id: editPlan,
           banned: selectedUser.banned, is_admin: editIsAdmin,
@@ -162,8 +175,8 @@ export default function AdminScreen({ user, showToast, lang }) {
           ...prev, balance: data.user.balance,
           plan_id: data.user.plan_id, is_admin: data.user.is_admin,
         }));
-      } else { showToast(data.error || t.toast_connection_error); }
-    } catch { showToast(t.toast_connection_error); }
+      } else { showApiError(data); }
+    } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setSaving(false); }
   };
 
@@ -171,7 +184,7 @@ export default function AdminScreen({ user, showToast, lang }) {
     const newBanned = u.banned ? 0 : 1;
     try {
       const res = await fetch(`${API_URL}/api/admin/users/${u.id}`, {
-        method: 'PATCH', headers,
+        method: 'PATCH', headers: authHeaders,
         body: JSON.stringify({ banned: newBanned }),
       });
       const data = await res.json();
@@ -179,8 +192,8 @@ export default function AdminScreen({ user, showToast, lang }) {
         showToast(newBanned ? t.admin_user_banned : t.admin_user_unbanned);
         fetchUsers();
         if (selectedUser?.id === u.id) setSelectedUser(prev => ({ ...prev, banned: newBanned }));
-      } else { showToast(data.error || t.toast_connection_error); }
-    } catch { showToast(t.toast_connection_error); }
+      } else { showApiError(data); }
+    } catch { showToast(t.toast_connection_error, 'error'); }
   };
 
   // ── Transaction actions ────────────────────────────────────────────────────
@@ -188,7 +201,7 @@ export default function AdminScreen({ user, showToast, lang }) {
     setProcessingTxId(txId);
     try {
       const res = await fetch(`${API_URL}/api/admin/transactions/${txId}`, {
-        method: 'PATCH', headers,
+        method: 'PATCH', headers: authHeaders,
         body: JSON.stringify({ status, admin_note: adminNote }),
       });
       const data = await res.json();
@@ -200,9 +213,9 @@ export default function AdminScreen({ user, showToast, lang }) {
         setProcessingTxId(null);
         fetchTransactions();
       } else {
-        showToast(data.error || t.toast_connection_error);
+        showApiError(data);
       }
-    } catch { showToast(t.toast_connection_error); }
+    } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setProcessingTxId(null); }
   };
 
