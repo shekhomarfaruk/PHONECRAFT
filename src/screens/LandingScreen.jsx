@@ -167,6 +167,24 @@ const LD_TEXT = {
     cta_title: 'Ready to Start Earning?',
     cta_body: 'Join 84,000+ members who earn daily from the comfort of their home. Registration requires a referral code.',
     cta_btn: 'Create Account Now',
+    install_banner_title: 'PhoneCraft App',
+    install_banner_sub: 'Install for the best experience — works offline too!',
+    install_btn: '⬇ Install',
+    install_guide_title: 'Install App on Your Phone',
+    install_guide_sub: 'Add PhoneCraft to your home screen in seconds — works like a native app, no Play Store or App Store needed.',
+    install_tab_android: 'Android',
+    install_tab_ios: 'iPhone / iPad',
+    install_android_steps: [
+      { num: '01', icon: '⋮', title: 'Open Browser Menu', desc: 'Tap the three-dot (⋮) menu button at the top-right corner of Chrome browser' },
+      { num: '02', icon: '📲', title: 'Add to Home Screen', desc: 'Find and tap \'Add to Home Screen\' or \'Install App\' from the dropdown menu' },
+      { num: '03', icon: '✅', title: 'Confirm & Launch', desc: 'Tap \'Add\' or \'Install\' in the popup — the PhoneCraft icon will appear on your home screen' },
+    ],
+    install_ios_steps: [
+      { num: '01', icon: '📤', title: 'Tap the Share Button', desc: 'Tap the Share icon (rectangle with an arrow pointing up) at the bottom toolbar of Safari' },
+      { num: '02', icon: '📲', title: 'Add to Home Screen', desc: 'Scroll down in the share menu and tap \'Add to Home Screen\'' },
+      { num: '03', icon: '✅', title: 'Confirm & Launch', desc: 'Tap \'Add\' in the top-right corner — the PhoneCraft icon will appear on your home screen' },
+    ],
+    install_note: 'Once installed, open PhoneCraft from your home screen for the full app experience — fast, offline-ready, and no browser bar.',
     footer_terms: 'Terms of Service',
     footer_privacy: 'Privacy Policy',
     footer_copy: '© 2026 PhoneCraft. All rights reserved.',
@@ -218,6 +236,24 @@ const LD_TEXT = {
     cta_title: 'আয় শুরু করতে প্রস্তুত?',
     cta_body: '৮৪,০০০+ সদস্যের সাথে যোগ দিন যারা প্রতিদিন ঘরে বসে আয় করছেন। নিবন্ধনের জন্য রেফারেল কোড প্রয়োজন।',
     cta_btn: 'এখনই অ্যাকাউন্ট তৈরি করুন',
+    install_banner_title: 'ফোনক্রাফট অ্যাপ',
+    install_banner_sub: 'সেরা অভিজ্ঞতার জন্য ইনস্টল করুন — অফলাইনেও চলে!',
+    install_btn: '⬇ ইনস্টল',
+    install_guide_title: 'ফোনে অ্যাপ ইনস্টল করুন',
+    install_guide_sub: 'মাত্র কয়েক সেকেন্ডে ফোনক্রাফট হোম স্ক্রিনে যোগ করুন — Play Store বা App Store ছাড়াই native app-এর মতো চলবে।',
+    install_tab_android: 'অ্যান্ড্রয়েড',
+    install_tab_ios: 'আইফোন / আইপ্যাড',
+    install_android_steps: [
+      { num: '০১', icon: '⋮', title: 'ব্রাউজার মেনু খুলুন', desc: 'Chrome ব্রাউজারের উপরের ডান কোণে তিন-ডট (⋮) মেনু বাটনে ট্যাপ করুন' },
+      { num: '০২', icon: '📲', title: 'হোম স্ক্রিনে যোগ করুন', desc: 'ড্রপডাউন মেনু থেকে \'Add to Home Screen\' বা \'Install App\' খুঁজে ট্যাপ করুন' },
+      { num: '০৩', icon: '✅', title: 'নিশ্চিত করুন ও চালু করুন', desc: 'পপআপে \'Add\' বা \'Install\' ট্যাপ করুন — হোম স্ক্রিনে ফোনক্রাফট আইকন যোগ হয়ে যাবে' },
+    ],
+    install_ios_steps: [
+      { num: '০১', icon: '📤', title: 'শেয়ার বাটন চাপুন', desc: 'Safari ব্রাউজারের নিচের টুলবারে Share আইকনে (উপরে তীর সহ আয়তক্ষেত্র) ট্যাপ করুন' },
+      { num: '০২', icon: '📲', title: 'হোম স্ক্রিনে যোগ করুন', desc: 'শেয়ার মেনু স্ক্রল করে \'Add to Home Screen\' খুঁজে ট্যাপ করুন' },
+      { num: '০৩', icon: '✅', title: 'নিশ্চিত করুন ও চালু করুন', desc: 'উপরের ডান কোণে \'Add\' ট্যাপ করুন — হোম স্ক্রিনে ফোনক্রাফট আইকন যোগ হয়ে যাবে' },
+    ],
+    install_note: 'একবার ইনস্টল করলে হোম স্ক্রিন থেকে সরাসরি খুলুন — দ্রুত, অফলাইন-রেডি, ব্রাউজার বার ছাড়াই।',
     footer_terms: 'সেবার শর্তাবলী',
     footer_privacy: 'গোপনীয়তা নীতি',
     footer_copy: '© ২০২৬ ফোনক্রাফট। সর্বস্বত্ব সংরক্ষিত।',
@@ -443,6 +479,32 @@ function Counter({ target, suffix = '', prefix = '' }) {
 // ── Main LandingScreen ───────────────────────────────────────────────────────
 export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'en', setLang }) {
   const [legalDoc, setLegalDoc] = useState(null);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    try { return !!localStorage.getItem('pwa-banner-dismissed'); } catch { return false; }
+  });
+  const [installTab, setInstallTab] = useState('android');
+  const isIOS = /iphone|ipad|ipod/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '');
+  const isInstalled = typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches;
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') { setDeferredPrompt(null); setBannerDismissed(true); }
+  };
+
+  const dismissBanner = () => {
+    setBannerDismissed(true);
+    try { localStorage.setItem('pwa-banner-dismissed', '1'); } catch (_) {}
+  };
+
   const t = LD_TEXT[lang] || LD_TEXT.en;
   const legalData = lang === 'bn' ? LEGAL_BN : LEGAL;
 
@@ -550,6 +612,41 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         }
         .ld-legal-btn:hover { border-color:rgba(35,175,145,.4); color:#23AF91; }
       `}</style>
+
+      {/* ── PWA INSTALL BANNER ── */}
+      {!bannerDismissed && !isInstalled && (
+        <div style={{
+          background: 'linear-gradient(90deg, rgba(10,12,16,0.97), rgba(22,26,37,0.97))',
+          borderBottom: '1px solid rgba(35,175,145,.3)',
+          padding: '10px clamp(16px,4vw,56px)',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+            background: 'linear-gradient(135deg, rgba(35,175,145,.2), rgba(35,175,145,.08))',
+            border: '1px solid rgba(35,175,145,.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+          }}>
+            <img src="/logo.png" alt="" style={{ width: 30, height: 30, objectFit: 'contain' }} onError={e => { e.target.style.display='none'; }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 14, color: '#EAECEF', lineHeight: 1.2 }}>{t.install_banner_title}</div>
+            <div style={{ fontSize: 12, color: '#707A8A', marginTop: 2, lineHeight: 1.3 }}>{t.install_banner_sub}</div>
+          </div>
+          {deferredPrompt && (
+            <button
+              onClick={handleInstall}
+              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#23AF91,#1a8f75)', color: '#fff', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, boxShadow: '0 2px 12px rgba(35,175,145,.35)' }}
+            >{t.install_btn}</button>
+          )}
+          <button
+            onClick={dismissBanner}
+            style={{ background: 'none', border: '1px solid rgba(43,49,57,.8)', color: '#707A8A', cursor: 'pointer', fontSize: 16, lineHeight: 1, flexShrink: 0, padding: '4px 8px', borderRadius: 6, transition: 'all .2s' }}
+            onMouseEnter={e => { e.target.style.borderColor='rgba(35,175,145,.4)'; e.target.style.color='#23AF91'; }}
+            onMouseLeave={e => { e.target.style.borderColor='rgba(43,49,57,.8)'; e.target.style.color='#707A8A'; }}
+          >✕</button>
+        </div>
+      )}
 
       <div style={{ minHeight:'100dvh', background:'transparent', color:'#EAECEF', fontFamily:'Inter,sans-serif', paddingBottom:60, overflowX:'hidden' }}>
 
@@ -970,6 +1067,118 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
             </div>
           </div>
           </div>{/* end ld-wrap */}
+        </section>
+
+        {/* ── INSTALL APP GUIDE ── */}
+        <section className="ld-fade ld-fade-5 ld-section">
+          <div className="ld-wrap">
+          <div className="ld-sec-head">
+            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#23AF91,#6366F1)', display:'inline-block' }} />
+            <span className="ld-sec-title">{t.install_guide_title}</span>
+          </div>
+
+          {/* Top row: phone mockup + info */}
+          <div style={{ display:'flex', gap:'clamp(20px,4vw,56px)', flexWrap:'wrap', alignItems:'center', marginBottom:28, justifyContent:'center' }}>
+
+            {/* Phone frame mockup */}
+            <div style={{ flexShrink:0, position:'relative' }}>
+              <div style={{
+                width:130, height:230, borderRadius:28,
+                border:'3px solid rgba(35,175,145,.45)',
+                background:'linear-gradient(160deg,#0d1117,#0a0c10)',
+                padding:'12px 8px 16px', display:'flex', flexDirection:'column',
+                alignItems:'center', justifyContent:'center', gap:8,
+                position:'relative', overflow:'hidden',
+                boxShadow:'0 0 48px rgba(35,175,145,.15), inset 0 0 24px rgba(35,175,145,.04)',
+              }}>
+                {/* Status bar */}
+                <div style={{ position:'absolute', top:0, left:0, right:0, height:26, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 12px' }}>
+                  <span style={{ fontSize:8, color:'rgba(234,236,239,.4)', fontFamily:'Space Grotesk', fontWeight:600 }}>9:41</span>
+                  <div style={{ width:30, height:8, borderRadius:4, background:'rgba(35,175,145,.2)', border:'1px solid rgba(35,175,145,.3)' }} />
+                  <span style={{ fontSize:8, color:'rgba(234,236,239,.4)' }}>▮▮▮</span>
+                </div>
+                {/* Screen content */}
+                <div style={{ marginTop:8, width:52, height:52, borderRadius:14, background:'linear-gradient(135deg,rgba(35,175,145,.15),rgba(99,102,241,.08))', border:'1px solid rgba(35,175,145,.2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <img src="/logo.png" alt="PhoneCraft" style={{ width:36, height:36, objectFit:'contain' }} onError={e => { e.target.style.display='none'; }} />
+                </div>
+                <div style={{ fontFamily:'Space Grotesk', fontWeight:800, fontSize:9, color:'#23AF91', letterSpacing:1.5, textAlign:'center' }}>PHONECRAFT</div>
+                <div style={{ width:70, height:1, background:'rgba(35,175,145,.15)' }} />
+                <div style={{ width:'80%', height:6, borderRadius:3, background:'rgba(35,175,145,.12)' }} />
+                <div style={{ width:'60%', height:6, borderRadius:3, background:'rgba(35,175,145,.07)' }} />
+                <div style={{ width:'70%', height:6, borderRadius:3, background:'rgba(35,175,145,.07)' }} />
+                {/* Home bar */}
+                <div style={{ position:'absolute', bottom:6, left:'50%', transform:'translateX(-50%)', width:44, height:3, borderRadius:2, background:'rgba(35,175,145,.25)' }} />
+              </div>
+              {/* Glow ring */}
+              <div style={{ position:'absolute', inset:-12, borderRadius:36, border:'1px solid rgba(35,175,145,.1)', pointerEvents:'none' }} />
+            </div>
+
+            {/* Info block */}
+            <div style={{ flex:1, minWidth:220, maxWidth:500 }}>
+              <div style={{ fontFamily:'Space Grotesk', fontWeight:900, fontSize:'clamp(17px,2vw,24px)', marginBottom:10, lineHeight:1.25 }}>{t.install_guide_title}</div>
+              <div style={{ fontSize:'clamp(13px,1.2vw,15px)', color:'#707A8A', lineHeight:1.8, marginBottom:18 }}>{t.install_guide_sub}</div>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', background:'rgba(35,175,145,.08)', border:'1px solid rgba(35,175,145,.2)', borderRadius:20 }}>
+                  <span style={{ fontSize:13 }}>📱</span>
+                  <span style={{ fontSize:12, color:'#23AF91', fontFamily:'Space Grotesk', fontWeight:600 }}>Android Chrome</span>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', background:'rgba(99,102,241,.08)', border:'1px solid rgba(99,102,241,.2)', borderRadius:20 }}>
+                  <span style={{ fontSize:13 }}>🍎</span>
+                  <span style={{ fontSize:12, color:'#818cf8', fontFamily:'Space Grotesk', fontWeight:600 }}>Safari (iOS)</span>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', background:'rgba(35,175,145,.06)', border:'1px solid rgba(35,175,145,.15)', borderRadius:20 }}>
+                  <span style={{ fontSize:13 }}>⚡</span>
+                  <span style={{ fontSize:12, color:'#707A8A', fontFamily:'Space Grotesk', fontWeight:600 }}>No Store Needed</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tab switcher */}
+          <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
+            {['android','ios'].map(tab => (
+              <button key={tab} onClick={() => setInstallTab(tab)} style={{
+                padding: '10px 24px', borderRadius: 10,
+                border: installTab !== tab ? '1px solid rgba(35,175,145,.2)' : 'none',
+                cursor: 'pointer', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 13,
+                transition: 'all .2s',
+                background: installTab === tab ? 'linear-gradient(135deg,#23AF91,#1a8f75)' : 'rgba(35,175,145,.07)',
+                color: installTab === tab ? '#fff' : '#23AF91',
+                boxShadow: installTab === tab ? '0 4px 16px rgba(35,175,145,.3)' : 'none',
+              }}>
+                {tab === 'android' ? `📱 ${t.install_tab_android}` : `🍎 ${t.install_tab_ios}`}
+              </button>
+            ))}
+          </div>
+
+          {/* Step cards */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:16 }}>
+            {(installTab === 'android' ? t.install_android_steps : t.install_ios_steps).map((step, i) => (
+              <div key={i} style={{
+                borderRadius:14, padding:'clamp(16px,2vw,22px)',
+                border:'1px solid rgba(43,49,57,.9)',
+                background:'rgba(22,26,37,.7)',
+                position:'relative', overflow:'hidden',
+              }}>
+                {/* Top accent line */}
+                <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:'linear-gradient(90deg,#23AF91,#6366F1)', opacity:0.7 }} />
+                {/* Step number */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                  <span style={{ fontFamily:'Space Grotesk', fontSize:10, fontWeight:700, color:'#23AF91', letterSpacing:2 }}>STEP {step.num}</span>
+                  <span style={{ width:28, height:28, borderRadius:8, background:'rgba(35,175,145,.1)', border:'1px solid rgba(35,175,145,.2)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>{step.icon}</span>
+                </div>
+                <div style={{ fontWeight:700, fontSize:'clamp(13px,1.3vw,16px)', marginBottom:8, color:'#EAECEF' }}>{step.title}</div>
+                <div style={{ fontSize:'clamp(12px,1.1vw,14px)', color:'#707A8A', lineHeight:1.7 }}>{step.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tip note */}
+          <div style={{ padding:'12px 18px', borderRadius:12, background:'rgba(35,175,145,.05)', border:'1px solid rgba(35,175,145,.15)', display:'flex', alignItems:'flex-start', gap:12 }}>
+            <span style={{ fontSize:20, flexShrink:0, marginTop:2 }}>💡</span>
+            <span style={{ fontSize:13, color:'rgba(112,122,138,.9)', lineHeight:1.7 }}>{t.install_note}</span>
+          </div>
+          </div>
         </section>
 
         {/* ── BOTTOM CTA ── */}
