@@ -55,6 +55,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
           resumeElapsedRef.current = Math.max(0, Date.now() - createdAt);
 
           if (resumeElapsedRef.current >= 120000) {
+            clearInterval(timerRef.current);
             completeManufacturing(data.activeJob);
           } else {
             setPhase('terminal');

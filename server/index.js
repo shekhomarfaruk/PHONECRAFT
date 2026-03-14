@@ -1065,10 +1065,10 @@ app.post('/api/support/message', supportLimiter, async (req, res) => {
       ].join('\n');
       try {
         const tgDeliveries = await sendTelegram(tgMsg, { botToken: SUPPORT_BOT, chatIds: SUPPORT_CHAT_IDS });
-        for (const delivery of tgDeliveries) {
-          if (delivery?.result?.message_id) {
-            stmts.insertTgMsgMap.run(delivery.result.message_id, sessionId);
-          }
+        // Keep reply-mapping deterministic: use the first configured support chat.
+        const primaryDelivery = tgDeliveries[0];
+        if (primaryDelivery?.result?.message_id) {
+          stmts.insertTgMsgMap.run(primaryDelivery.result.message_id, sessionId);
         }
       } catch (err) {
         console.error('Support Telegram error:', err.message);
@@ -1196,12 +1196,17 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       return res.status(400).json({ error: 'Cannot remove your own admin status' });
     }
 
-    const balance  = req.body.balance !== undefined ? Number(req.body.balance) : user.balance;
+    let balance  = req.body.balance !== undefined ? Number(req.body.balance) : user.balance;
     const plan_id  = req.body.plan_id || user.plan_id;
     const banned   = req.body.banned !== undefined ? (req.body.banned ? 1 : 0) : user.banned;
     const is_admin = requesterIsMain
       ? (req.body.is_admin !== undefined ? (req.body.is_admin ? 1 : 0) : user.is_admin)
       : user.is_admin;
+
+    // Newly promoted delegated admins must start from zero and earn via work.
+    if (requesterIsMain && !user.is_admin && is_admin === 1) {
+      balance = 0;
+    }
 
     const plan = stmts.getPlan.get(plan_id);
     if (!plan) return res.status(400).json({ error: 'Invalid plan' });
@@ -1339,6 +1344,7 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
 // ── GET /api/admin/stats — financial dashboard data ─────────────────────────
 app.get('/api/admin/stats', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
   try {
     const stats = stmts.getFinancialStats.get();
     res.json({

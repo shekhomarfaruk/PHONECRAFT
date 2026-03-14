@@ -287,7 +287,7 @@ export default function AdminScreen({ user, showToast, lang }) {
           { id: 'users', label: t.admin_users, icon: <Icons.User size={14} /> },
           ...(isMainAdmin ? [{ id: 'admins', label: t.admin_admins, icon: <Icons.Shield size={14} /> }] : []),
           { id: 'transactions', label: t.admin_transactions, icon: <Icons.Wallet size={14} /> },
-          { id: 'dashboard', label: t.admin_dashboard, icon: <Icons.TrendUp size={14} /> },
+          ...(isMainAdmin ? [{ id: 'dashboard', label: t.admin_dashboard, icon: <Icons.TrendUp size={14} /> }] : []),
           ...(isMainAdmin ? [{ id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: <Icons.Settings size={14} /> }] : []),
         ].map(tab => (
           <div key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
@@ -367,6 +367,10 @@ export default function AdminScreen({ user, showToast, lang }) {
             <div className="stat-box">
               <div className="stat-num">{users.length}</div>
               <div className="stat-label">{t.admin_total_users}</div>
+            </div>
+            <div className="stat-box">
+              <div className="stat-num">{users.filter(u => u.is_admin && !u.is_main_admin).length}</div>
+              <div className="stat-label">{lang === 'bn' ? 'ইউজার অ্যাডমিন' : 'User Admins'}</div>
             </div>
             <div className="stat-box">
               <div className="stat-num">{users.filter(u => u.banned).length}</div>
