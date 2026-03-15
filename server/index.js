@@ -45,6 +45,7 @@ function parseChatIds(...values) {
 
 const FINANCE_CHAT_IDS = parseChatIds(
   process.env.TELEGRAM_FINANCE_CHAT_IDS,
+  process.env.TELEGRAM_FINANCE_CHAT_ID,
   process.env.TELEGRAM_ADMIN_CHAT_ID,
   process.env.TELEGRAM_CHAT_ID,
   process.env.TELEGRAM_CHANNEL_ID,
@@ -1462,6 +1463,8 @@ app.get('*', (_req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`PhoneCraft API running on port ${PORT}`);
+  console.log(`[Telegram] Finance bot configured: ${FINANCE_BOT ? 'yes' : 'no'} | finance chats: ${FINANCE_CHAT_IDS.length}`);
+  console.log(`[Telegram] Support bot configured: ${SUPPORT_BOT ? 'yes' : 'no'} | support chats: ${SUPPORT_CHAT_IDS.length}`);
 
   // Auto-register Telegram webhook on startup
   const webhookBase = process.env.WEBHOOK_URL;
