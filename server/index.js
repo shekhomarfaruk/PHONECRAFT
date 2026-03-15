@@ -1126,6 +1126,55 @@ app.post('/api/notify', authRequired, async (req, res) => {
   }
 });
 
+// ── Telegram diagnostics (admin only) ───────────────────────────────────────
+app.get('/api/admin/telegram/health', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+
+  const mask = (token) => {
+    const t = String(token || '');
+    if (!t) return '';
+    return `${t.slice(0, 10)}...${t.slice(-6)}`;
+  };
+
+  res.json({
+    finance: {
+      botConfigured: !!FINANCE_BOT,
+      botMasked: mask(FINANCE_BOT),
+      chatIds: FINANCE_CHAT_IDS,
+      chatCount: FINANCE_CHAT_IDS.length,
+    },
+    support: {
+      botConfigured: !!SUPPORT_BOT,
+      botMasked: mask(SUPPORT_BOT),
+      chatIds: SUPPORT_CHAT_IDS,
+      chatCount: SUPPORT_CHAT_IDS.length,
+    },
+    webhookUrlConfigured: !!process.env.WEBHOOK_URL,
+  });
+});
+
+app.post('/api/admin/telegram/test', authRequired, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+
+  const { channel = 'finance', text } = req.body || {};
+  const msg = String(text || '').trim() || `[PhoneCraft Test] ${new Date().toISOString()}`;
+  const normalized = String(channel || '').toLowerCase();
+
+  try {
+    if (normalized === 'support') {
+      const deliveries = await sendTelegram(msg, { botToken: SUPPORT_BOT, chatIds: SUPPORT_CHAT_IDS });
+      return res.json({ ok: true, channel: 'support', delivered: deliveries.length, deliveries });
+    }
+
+    const deliveries = await sendTelegram(msg, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS });
+    return res.json({ ok: true, channel: 'finance', delivered: deliveries.length, deliveries });
+  } catch (err) {
+    res.status(500).json({ error: err.message, channel: normalized === 'support' ? 'support' : 'finance' });
+  }
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // ADMIN ENDPOINTS
 // ══════════════════════════════════════════════════════════════════════════════
