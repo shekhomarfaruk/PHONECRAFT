@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "telegram:e2e": "node scripts/telegram-e2e-test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
