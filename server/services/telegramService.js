@@ -144,11 +144,13 @@ class TelegramService {
     if (!msg) return { handled: false, reason: 'no-message' };
 
     const chatId = String(msg.chat?.id || '');
+    const senderId = String(msg.from?.id || '');
     const text = this.getMessageText(msg);
     if (!text.startsWith('/')) return { handled: false, reason: 'not-command' };
 
-    if (!this.isAdminChatId(chatId)) {
-      this.logAction('handleAdminCommands', false, `unauthorized chat ${chatId}`);
+    const isAdminActor = this.isAdminChatId(chatId) || this.isAdminChatId(senderId);
+    if (!isAdminActor) {
+      this.logAction('handleAdminCommands', false, `unauthorized chat=${chatId} sender=${senderId}`);
       return { handled: false, reason: 'unauthorized' };
     }
 
@@ -335,10 +337,11 @@ class TelegramService {
     if (!msg) return { handled: false, reason: 'no-message' };
 
     const chatId = String(msg.chat?.id || '');
+    const senderId = String(msg.from?.id || '');
     const text = this.getMessageText(msg);
     if (!text) return { handled: false, reason: 'empty-message' };
 
-    const isAdmin = this.isAdminChatId(chatId);
+    const isAdmin = this.isAdminChatId(chatId) || this.isAdminChatId(senderId);
 
     if (isAdmin && msg.reply_to_message?.message_id) {
       const mapped = this.stmts.getSessionByTgMsg.get(msg.reply_to_message.message_id);
