@@ -164,6 +164,17 @@ db.exec(`
   );
 `);
 
+// Telegram integration audit logs
+db.exec(`
+  CREATE TABLE IF NOT EXISTS telegram_action_logs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    action      TEXT NOT NULL,
+    ok          INTEGER NOT NULL DEFAULT 1,
+    details     TEXT DEFAULT '',
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // App settings (key-value store for deposit numbers, etc.)
 db.exec(`
   CREATE TABLE IF NOT EXISTS app_settings (
@@ -438,6 +449,10 @@ const stmts = {
   getSupportMsgs:     db.prepare('SELECT * FROM support_chats WHERE session_id = ? ORDER BY id ASC LIMIT 100'),
   insertTgMsgMap:     db.prepare('INSERT OR IGNORE INTO tg_msg_map (tg_message_id, session_id) VALUES (?, ?)'),
   getSessionByTgMsg:  db.prepare('SELECT session_id FROM tg_msg_map WHERE tg_message_id = ?'),
+  insertTelegramLog:  db.prepare(`
+    INSERT INTO telegram_action_logs (action, ok, details)
+    VALUES (@action, @ok, @details)
+  `),
 
   // App settings
   getSetting:     db.prepare('SELECT value FROM app_settings WHERE key = ?'),

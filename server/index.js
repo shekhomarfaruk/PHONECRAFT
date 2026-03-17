@@ -6,6 +6,7 @@ const path     = require('path');
 require('dotenv').config();
 
 const { db, stmts, sanitizeUser, todayDate } = require('./db');
+const { TelegramService } = require('./services/telegramService');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -56,6 +57,11 @@ const SUPPORT_CHAT_IDS = parseChatIds(
   process.env.TELEGRAM_SUPPORT_CHAT_ID,
   process.env.TELEGRAM_ADMIN_CHAT_ID,
   process.env.TELEGRAM_CHAT_ID,
+);
+
+const ADMIN_CHAT_IDS = parseChatIds(
+  process.env.TELEGRAM_ADMIN_CHAT_IDS,
+  process.env.TELEGRAM_ADMIN_CHAT_ID,
 );
 
 if (!process.env.AUTH_SECRET) {
@@ -241,6 +247,64 @@ async function sendTelegram(text, { botToken = FINANCE_BOT, chatIds = FINANCE_CH
 
   return deliveries;
 }
+
+function processTransactionAction({ txId, status, adminNote = '' }) {
+  if (!['approved', 'rejected'].includes(status)) {
+    return { status: 400, body: { error: 'Status must be approved or rejected' } };
+  }
+
+  return db.transaction(() => {
+    const tx = stmts.getTransactionById.get(Number(txId));
+    if (!tx) return { status: 404, body: { error: 'Transaction not found' } };
+    if (tx.status !== 'pending') return { status: 409, body: { error: 'Transaction already processed' } };
+
+    stmts.updateTransactionStatus.run({
+      id: Number(txId),
+      status,
+      admin_note: adminNote || '',
+    });
+
+    if (tx.type === 'withdraw' && status === 'rejected') {
+      stmts.creditBalance.run(tx.amount, tx.user_id);
+      stmts.insertBalanceLog.run({
+        user_id: tx.user_id,
+        type: 'withdrawal_refund',
+        amount: tx.amount,
+        note: `উইথড্র রিফান্ড (প্রত্যাখ্যাত) — ${tx.method}`,
+      });
+    }
+
+    if (tx.type === 'deposit' && status === 'approved') {
+      stmts.creditBalance.run(tx.amount, tx.user_id);
+      stmts.insertBalanceLog.run({
+        user_id: tx.user_id,
+        type: 'deposit',
+        amount: tx.amount,
+        note: `ডিপোজিট অনুমোদিত (${tx.method} - ${tx.account})`,
+      });
+    }
+
+    const action = status === 'approved' ? 'approved' : 'rejected';
+    const noteStr = adminNote ? ` Note: ${adminNote}` : '';
+    const notifMsg = `Your ${tx.type} of ৳${tx.amount.toLocaleString()} has been ${action}.${noteStr}`;
+    stmts.insertNotification.run(tx.user_id, notifMsg, status === 'approved' ? 'success' : 'warning');
+
+    return { status: 200, body: { transaction: stmts.getTransactionById.get(Number(txId)) } };
+  })();
+}
+
+const telegramService = new TelegramService({
+  financeBotToken: FINANCE_BOT,
+  supportBotToken: SUPPORT_BOT,
+  financeChatIds: FINANCE_CHAT_IDS,
+  supportChatIds: SUPPORT_CHAT_IDS,
+  adminChatIds: ADMIN_CHAT_IDS,
+  stmts,
+  processTransactionAction,
+  onSupportSessionReply: ({ sessionId, text }) => {
+    stmts.insertSupportMsg.run(sessionId, 'admin', String(text || '').trim());
+  },
+});
 
 // ── Admin guard ─────────────────────────────────────────────────────────────
 function requireAdmin(req, res) {
@@ -956,28 +1020,26 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       return res.status(result.status).json(result.body);
     }
 
-    // Send Telegram (fire-and-forget, outside transaction)
-    const isDeposit = type === 'deposit';
-    const emoji = isDeposit ? '💰' : '💸';
-    const txId  = result.body.transactionId;
-    const msg = [
-      `${emoji} <b>নতুন ${isDeposit ? 'Deposit' : 'Withdraw'} Request</b>`,
-      `━━━━━━━━━━━━━━━━━━━`,
-      `👤 নাম: <b>${req.auth.user.name}</b>`,
-      `🆔 ID: <code>${req.auth.user.identifier || '-'}</code>`,
-      `💵 পরিমাণ: <b>৳${Number(amount).toLocaleString()}</b>`,
-      `📱 মাধ্যম: <b>${method.toUpperCase()}</b>`,
-      `🏦 নম্বর: <code>${account}</code>`,
-      `📋 TX ID: #${txId}`,
-      `🕐 সময়: ${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })}`,
-      `━━━━━━━━━━━━━━━━━━━`,
-      isDeposit
-        ? `✅ পেমেন্ট যাচাই করে Admin Panel থেকে Approve করুন।`
-        : `💳 User এর নম্বরে পেমেন্ট পাঠিয়ে Admin Panel থেকে Approve করুন।`,
-    ].join('\n');
-    sendTelegram(msg, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS }).catch((err) => {
-      console.error('Finance Telegram error:', err.message);
-    });
+    // Send Telegram event notification (fire-and-forget, outside transaction)
+    const txId = result.body.transactionId;
+    const payload = {
+      userId: req.auth.userId,
+      amount: Number(amount),
+      requestId: txId,
+      paymentMethod: String(method || '').toUpperCase(),
+      accountNumber: account,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (type === 'deposit') {
+      telegramService.sendDepositNotification(payload).catch((err) => {
+        console.error('Finance Telegram error:', err.message);
+      });
+    } else {
+      telegramService.sendWithdrawNotification(payload).catch((err) => {
+        console.error('Finance Telegram error:', err.message);
+      });
+    }
 
     res.json(result.body);
   } catch (err) {
@@ -1053,28 +1115,13 @@ app.post('/api/support/message', supportLimiter, async (req, res) => {
   try {
     stmts.insertSupportMsg.run(sessionId, 'user', message.trim());
 
-    // Forward to Telegram and store message_id for reply mapping
-    if (SUPPORT_BOT && SUPPORT_CHAT_IDS.length > 0) {
-      const tgMsg = [
-        `💬 <b>Live Support</b>`,
-        `👤 ${senderName || 'Guest'}`,
-        `🔑 Session: <code>${sessionId}</code>`,
-        `━━━━━━━━━━━━━━━`,
-        message.trim(),
-        `━━━━━━━━━━━━━━━`,
-        `👆 <i>Reply this message to respond</i>`,
-      ].join('\n');
-      try {
-        const tgDeliveries = await sendTelegram(tgMsg, { botToken: SUPPORT_BOT, chatIds: SUPPORT_CHAT_IDS });
-        // Keep reply-mapping deterministic: use the first configured support chat.
-        const primaryDelivery = tgDeliveries[0];
-        if (primaryDelivery?.result?.message_id) {
-          stmts.insertTgMsgMap.run(primaryDelivery.result.message_id, sessionId);
-        }
-      } catch (err) {
-        console.error('Support Telegram error:', err.message);
-      }
-    }
+    await telegramService.forwardSupportMessage({
+      sessionId,
+      message: message.trim(),
+      senderName,
+    }).catch((err) => {
+      console.error('Support Telegram error:', err.message);
+    });
 
     res.json({ ok: true });
   } catch (err) {
@@ -1091,26 +1138,20 @@ app.get('/api/support/messages/:sessionId', (req, res) => {
   }
 });
 
-// ── Telegram Webhook (admin replies → live support) ───────────────────────────
+// ── Telegram Support Webhook ──────────────────────────────────────────────────
 app.post('/webhook/telegram', (req, res) => {
   res.sendStatus(200); // always ack immediately
-  try {
-    const update = req.body;
-    const msg = update?.message || update?.channel_post;
-    if (!msg) return;
+  telegramService.handleSupportUpdate(req.body).catch((err) => {
+    console.error('[Telegram Support Webhook] Error:', err.message);
+  });
+});
 
-    // Only process replies from the admin channel
-    const replyTo = msg.reply_to_message;
-    if (!replyTo) return;
-
-    const row = stmts.getSessionByTgMsg.get(replyTo.message_id);
-    if (!row) return;
-
-    const text = msg.text || msg.caption || '';
-    if (!text.trim()) return;
-
-    stmts.insertSupportMsg.run(row.session_id, 'admin', text.trim());
-  } catch (_) {}
+// ── Telegram Finance Webhook (admin commands) ───────────────────────────────
+app.post('/webhook/telegram/finance', (req, res) => {
+  res.sendStatus(200); // always ack immediately
+  telegramService.handleAdminCommands(req.body).catch((err) => {
+    console.error('[Telegram Finance Webhook] Error:', err.message);
+  });
 });
 
 // ── Generic notify ────────────────────────────────────────────────────────────
@@ -1143,6 +1184,8 @@ app.get('/api/admin/telegram/health', authRequired, (req, res) => {
       botMasked: mask(FINANCE_BOT),
       chatIds: FINANCE_CHAT_IDS,
       chatCount: FINANCE_CHAT_IDS.length,
+      adminCommandChatIds: ADMIN_CHAT_IDS,
+      adminCommandChatCount: ADMIN_CHAT_IDS.length,
     },
     support: {
       botConfigured: !!SUPPORT_BOT,
@@ -1323,50 +1366,11 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
     const txId = Number(req.params.id);
     const { status, admin_note } = req.body || {};
 
-    if (!['approved', 'rejected'].includes(status)) {
-      return res.status(400).json({ error: 'Status must be approved or rejected' });
-    }
-
-    const result = db.transaction(() => {
-      const tx = stmts.getTransactionById.get(txId);
-      if (!tx) return { status: 404, body: { error: 'Transaction not found' } };
-      if (tx.status !== 'pending') {
-        return { status: 400, body: { error: 'Transaction already processed' } };
-      }
-
-      // Update transaction status
-      stmts.updateTransactionStatus.run({
-        id: txId, status, admin_note: admin_note || '',
-      });
-
-      // Handle balance changes
-      if (tx.type === 'withdraw' && status === 'rejected') {
-        // Refund: balance was already deducted when request was created
-        stmts.creditBalance.run(tx.amount, tx.user_id);
-        stmts.insertBalanceLog.run({
-          user_id: tx.user_id, type: 'withdrawal_refund', amount: tx.amount,
-          note: `উইথড্র রিফান্ড (প্রত্যাখ্যাত) — ${tx.method}`,
-        });
-      }
-      if (tx.type === 'deposit' && status === 'approved') {
-        // Credit balance now that deposit has been verified and approved
-        stmts.creditBalance.run(tx.amount, tx.user_id);
-        stmts.insertBalanceLog.run({
-          user_id: tx.user_id, type: 'deposit', amount: tx.amount,
-          note: `ডিপোজিট অনুমোদিত (${tx.method} - ${tx.account})`,
-        });
-      }
-      // deposit + rejected: no action (balance was never credited)
-
-      // Create notification for the user
-      const action = status === 'approved' ? 'approved' : 'rejected';
-      const noteStr = admin_note ? ` Note: ${admin_note}` : '';
-      const notifMsg = `Your ${tx.type} of ৳${tx.amount.toLocaleString()} has been ${action}.${noteStr}`;
-      stmts.insertNotification.run(tx.user_id, notifMsg, status === 'approved' ? 'success' : 'warning');
-
-      const updatedTx = stmts.getTransactionById.get(txId);
-      return { status: 200, body: { transaction: updatedTx } };
-    })();
+    const result = processTransactionAction({
+      txId,
+      status,
+      adminNote: admin_note || '',
+    });
 
     // Notify admin on Telegram about approval/rejection
     if (result.status === 200) {
@@ -1514,8 +1518,9 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`PhoneCraft API running on port ${PORT}`);
   console.log(`[Telegram] Finance bot configured: ${FINANCE_BOT ? 'yes' : 'no'} | finance chats: ${FINANCE_CHAT_IDS.length}`);
   console.log(`[Telegram] Support bot configured: ${SUPPORT_BOT ? 'yes' : 'no'} | support chats: ${SUPPORT_CHAT_IDS.length}`);
+  console.log(`[Telegram] Admin chat ids configured: ${ADMIN_CHAT_IDS.length}`);
 
-  // Auto-register Telegram webhook on startup
+  // Auto-register Telegram webhooks on startup
   const webhookBase = process.env.WEBHOOK_URL;
   if (SUPPORT_BOT && webhookBase) {
     const webhookUrl = `${webhookBase}/webhook/telegram`;
@@ -1525,7 +1530,19 @@ app.listen(PORT, '0.0.0.0', () => {
       body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message'] }),
     })
       .then(r => r.json())
-      .then(d => console.log(`[Telegram] Webhook ${d.ok ? 'registered ✓' : 'failed ✗'}: ${webhookUrl}`))
-      .catch(e => console.error('[Telegram] Webhook registration failed:', e.message));
+      .then(d => console.log(`[Telegram] Support webhook ${d.ok ? 'registered ✓' : 'failed ✗'}: ${webhookUrl}`))
+      .catch(e => console.error('[Telegram] Support webhook registration failed:', e.message));
+  }
+
+  if (FINANCE_BOT && webhookBase) {
+    const financeWebhookUrl = `${webhookBase}/webhook/telegram/finance`;
+    fetch(`https://api.telegram.org/bot${FINANCE_BOT}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: financeWebhookUrl, allowed_updates: ['message'] }),
+    })
+      .then(r => r.json())
+      .then(d => console.log(`[Telegram] Finance webhook ${d.ok ? 'registered ✓' : 'failed ✗'}: ${financeWebhookUrl}`))
+      .catch(e => console.error('[Telegram] Finance webhook registration failed:', e.message));
   }
 });
