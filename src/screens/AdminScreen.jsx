@@ -22,9 +22,20 @@ function parseDevice(ua) {
 
 export default function AdminScreen({ user, showToast, lang }) {
   const t = I18N[lang] || I18N.en;
+  const isBn = lang === 'bn';
   const formatMoney = (amount) => convertCurrency(Number(amount) || 0, lang);
   const formatStamp = (value) => formatDateTime(value ? `${value}Z` : '', lang);
   const isMainAdmin = !!user?.isMainAdmin;
+  
+  // ── Admin Theme Toggle ────────────────────────────────────────
+  const [adminThemeDark, setAdminThemeDark] = useState(() => 
+    localStorage.getItem('admin-theme') !== 'light'
+  );
+  
+  useEffect(() => {
+    localStorage.setItem('admin-theme', adminThemeDark ? 'dark' : 'light');
+  }, [adminThemeDark]);
+
   const authHeaders = {
     'Content-Type': 'application/json',
     ...(user?.authToken ? { Authorization: `Bearer ${user.authToken}` } : {}),
@@ -34,6 +45,73 @@ export default function AdminScreen({ user, showToast, lang }) {
     const msg = data?.error || fallback || t.toast_connection_error;
     showToast(msg, 'error');
   };
+
+  const adminThemeVars = {
+    '--accent': '#F59E0B',
+    '--accent2': '#EF4444',
+    '--border2': 'rgba(245,158,11,0.45)',
+    '--glow': '0 0 16px rgba(245,158,11,0.22)',
+  };
+
+  const adminRoles = [
+    {
+      title: 'Main Admin',
+      desc: isBn
+        ? 'সব সেটিংস, policy ও admin permission নিয়ন্ত্রণ করবে।'
+        : 'Controls global settings, policy changes and admin permissions.',
+      perms: ['Settings update', 'Admin promote/demote', 'Emergency override'],
+    },
+    {
+      title: 'Finance Admin',
+      desc: isBn
+        ? 'Deposit/Withdraw request যাচাই করে SLA মেনে process করবে।'
+        : 'Processes deposit/withdraw requests within SLA windows.',
+      perms: ['Approve/Reject/Paid', 'Duplicate prevent check', 'High risk hold'],
+    },
+    {
+      title: 'Support Admin',
+      desc: isBn
+        ? 'Live support chat handle ও escalation follow করবে।'
+        : 'Handles live support chat and escalation workflow.',
+      perms: ['First response under 3 min', 'Telegram bridge reply', 'Ticket escalation'],
+    },
+  ];
+
+  const opsChecklist = isBn
+    ? [
+        'সকাল: pending finance request clear করুন',
+        'দুপুর: suspicious account review করুন',
+        'রাত: payout reconciliation + incident summary',
+      ]
+    : [
+        'Morning: clear pending finance requests',
+        'Midday: review suspicious accounts',
+        'Night: payout reconciliation + incident summary',
+      ];
+
+  const financeSop = isBn
+    ? [
+        'Deposit SLA: 5-15 min (peak সর্বোচ্চ 30 min)',
+        'Withdraw low risk: 15-60 min, high risk: manual hold',
+        'Pending ছাড়া transaction action করা যাবে না',
+      ]
+    : [
+        'Deposit SLA: 5-15 min (peak max 30 min)',
+        'Withdraw low risk: 15-60 min, high risk: manual hold',
+        'No transaction action unless status is pending',
+      ];
+
+  const supportSop = isBn
+    ? [
+        'First response target: business hour-এ 2 min',
+        'Telegram reply অবশ্যই mapped thread-এ দিন',
+        '15 min এর বেশি unresolved হলে escalate করুন',
+      ]
+    : [
+        'First response target: 2 min in business hours',
+        'Always reply on the mapped Telegram thread',
+        'Escalate if unresolved beyond 15 min',
+      ];
 
   // Tab state
   const [activeTab, setActiveTab] = useState('users');
@@ -276,7 +354,19 @@ export default function AdminScreen({ user, showToast, lang }) {
 
   return (
     <>
-      <div className="screen-title"><Icons.Shield size={18} /> {t.admin_panel}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div className="screen-title"><Icons.Shield size={18} /> {t.admin_panel}</div>
+        <div 
+          onClick={() => setAdminThemeDark(!adminThemeDark)} 
+          style={{
+            width: 48, height: 28, borderRadius: 14, background: adminThemeDark ? 'rgba(31, 41, 55, 0.5)' : 'rgba(243, 244, 246, 0.5)',
+            border: '2px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center',
+            padding: '2px', transition: 'all 0.3s', justifyContent: 'center', gap: 4,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>{adminThemeDark ? '🌙' : '☀️'}</span>
+        </div>
+      </div>
 
       {/* Tab bar */}
       <div style={{
@@ -287,6 +377,7 @@ export default function AdminScreen({ user, showToast, lang }) {
           { id: 'users', label: t.admin_users, icon: <Icons.User size={14} /> },
           ...(isMainAdmin ? [{ id: 'admins', label: t.admin_admins, icon: <Icons.Shield size={14} /> }] : []),
           { id: 'transactions', label: t.admin_transactions, icon: <Icons.Wallet size={14} /> },
+          { id: 'ops', label: 'Ops', icon: <Icons.Info size={14} /> },
           ...(isMainAdmin ? [{ id: 'dashboard', label: t.admin_dashboard, icon: <Icons.TrendUp size={14} /> }] : []),
           ...(isMainAdmin ? [{ id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: <Icons.Settings size={14} /> }] : []),
         ].map(tab => (
@@ -691,6 +782,201 @@ export default function AdminScreen({ user, showToast, lang }) {
               </div>
             ))
           )}
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* OPS TAB — Admin Plan & SOP */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'ops' && (
+        <>
+          {/* Header with theme toggle */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>
+                {isBn ? '📋 অপারেশন SOP' : '📋 Operations SOP'}
+              </h2>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text2)' }}>
+                {isBn ? 'Admin টিমের কাজ প্রক্রিয়া এবং লক্ষ্য' : 'Team workflow and targets'}
+              </p>
+            </div>
+            <div onClick={() => setAdminThemeDark(!adminThemeDark)} style={{
+              width: 50, height: 28, borderRadius: 14, background: adminThemeDark ? '#1F2937' : '#F3F4F6',
+              border: '2px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center',
+              padding: '2px', transition: 'all 0.3s',
+            }}>
+              <div style={{
+                width: 24, height: 24, borderRadius: '50%', background: 'var(--accent)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transform: adminThemeDark ? 'translateX(22px)' : 'translateX(0)',
+                transition: 'transform 0.3s', fontSize: 12,
+              }}>
+                {adminThemeDark ? '🌙' : '☀️'}
+              </div>
+            </div>
+          </div>
+
+          {/* Admin Roles Overview */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title">👥 {isBn ? 'Admin ভূমিকা' : 'Admin Roles'}</div>
+            {adminRoles.map((role, i) => (
+              <div key={i} style={{
+                padding: '12px', marginBottom: i < adminRoles.length - 1 ? 8 : 0,
+                borderRadius: 8, background: 'rgba(245, 158, 11, 0.05)',
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+              }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)', marginBottom: 4 }}>
+                  {role.title}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>
+                  {role.desc}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {role.perms.map((p, j) => (
+                    <span key={j} className="badge badge-blue" style={{ fontSize: 10, padding: '2px 8px' }}>
+                      ✓ {p}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Daily Operations Checklist */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title">✅ {isBn ? 'দৈনিক কাজের তালিকা' : 'Daily Checklist'}</div>
+            {opsChecklist.map((item, i) => (
+              <div key={i} style={{
+                display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 0',
+                borderBottom: i < opsChecklist.length - 1 ? '1px solid var(--border)' : 'none',
+              }}>
+                <div style={{ fontSize: 16, flexShrink: 0, marginTop: 2 }}>
+                  {['🌅', '🌞', '🌙'][i]}
+                </div>
+                <div style={{ flex: 1, fontSize: 13 }}>{item}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Finance Operations SOP */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title">💳 {isBn ? 'ফিনান্স অপারেশন SOP' : 'Finance Operations SOP'}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+              {isBn ? 'ডিপোজিট/উইথড্র রিকোয়েস্ট প্রসেস করার নিয়ম' : 'How to process deposit/withdraw requests'}
+            </div>
+            <div style={{ background: 'var(--card)', borderRadius: 8, border: '1px solid var(--border)' }}>
+              {financeSop.map((item, i) => (
+                <div key={i} style={{
+                  padding: '10px', borderBottom: i < financeSop.length - 1 ? '1px solid var(--border)' : 'none',
+                  fontSize: 12, display: 'flex', gap: 8,
+                }}>
+                  <span style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>•</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Support Operations SOP */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title">💬 {isBn ? 'সাপোর্ট অপারেশন SOP' : 'Support Operations SOP'}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+              {isBn ? 'লাইভ চ্যাট এবং Telegram সাপোর্ট হ্যান্ডলিং নিয়ম' : 'How to handle live chat and Telegram support'}
+            </div>
+            <div style={{ background: 'var(--card)', borderRadius: 8, border: '1px solid var(--border)' }}>
+              {supportSop.map((item, i) => (
+                <div key={i} style={{
+                  padding: '10px', borderBottom: i < supportSop.length - 1 ? '1px solid var(--border)' : 'none',
+                  fontSize: 12, display: 'flex', gap: 8,
+                }}>
+                  <span style={{ color: 'var(--accent)', fontWeight: 700, flexShrink: 0 }}>•</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* KPI Targets */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title">🎯 {isBn ? 'KPI টার্গেট' : 'KPI Targets'}</div>
+            <div className="stats-row">
+              <div className="stat-box" style={{ background: 'rgba(240, 253, 250, 0.1)' }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#14B8A6' }}>98%</div>
+                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
+                  {isBn ? 'Deposit সাফল্য' : 'Deposit Success'}
+                </div>
+              </div>
+              <div className="stat-box" style={{ background: 'rgba(240, 253, 250, 0.1)' }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#14B8A6' }}>97%</div>
+                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
+                  {isBn ? 'Withdraw সাফল্য' : 'Withdraw Success'}
+                </div>
+              </div>
+              <div className="stat-box" style={{ background: 'rgba(251, 191, 36, 0.1)' }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#F59E0B' }}>60 min</div>
+                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
+                  {isBn ? 'গড় Withdraw' : 'Avg Withdraw Time'}
+                </div>
+              </div>
+              <div className="stat-box" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#EF4444' }}>&lt;0.5%</div>
+                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
+                  {isBn ? 'ফ্রড লস' : 'Fraud Loss'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Fraud Control Rules */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title">🛡️ {isBn ? 'ফ্রড নিয়ন্ত্রণ' : 'Fraud Control Rules'}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+              {isBn ? 'সন্দেহজনক কার্যকলাপ সনাক্ত এবং ব্লক করার নিয়ম' : 'How to identify and handle suspicious activities'}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ padding: 10, borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                <div style={{ fontWeight: 700, fontSize: 11, color: '#EF4444', marginBottom: 6 }}>⚠️ HIGH RISK</div>
+                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--text2)' }}>
+                  <li>{isBn ? 'একই ডিভাইস থেকে অনেক একাউন্ট' : 'Many accounts from same device'}</li>
+                  <li>{isBn ? 'দ্রুত ডিপোজিট-উইথড্র' : 'Rapid deposit-withdraw'}</li>
+                  <li>{isBn ? 'অস্বাভাবিক রেফারেল বৃদ্ধি' : 'Abnormal referral growth'}</li>
+                </ul>
+              </div>
+              <div style={{ padding: 10, borderRadius: 8, background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
+                <div style={{ fontWeight: 700, fontSize: 11, color: '#F59E0B', marginBottom: 6 }}>🚩 ACTION</div>
+                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--text2)' }}>
+                  <li>{isBn ? 'একাউন্টে মার্ক করুন' : 'Mark account risk flag'}</li>
+                  <li>{isBn ? 'বড় লেনদেন হোল্ড করুন' : 'Hold large transactions'}</li>
+                  <li>{isBn ? 'Manual KYC যাচাই' : 'Manual KYC verification'}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Weekly Review */}
+          <div className="card">
+            <div className="card-title">📅 {isBn ? 'সাপ্তাহিক পর্যালোচনা' : 'Weekly Review Points'}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ padding: 10, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 4 }}>1. Payout Reconciliation</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+                  {isBn ? 'সব পেআউট এক্সপোর্ট করুন এবং রেকর্ড রাখুন' : 'Export all payouts and keep records'}
+                </div>
+              </div>
+              <div style={{ padding: 10, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 4 }}>2. Fraud Pattern Review</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+                  {isBn ? 'নতুন ফ্রড প্যাটার্ন খুঁজুন এবং রুল আপডেট করুন' : 'Find new fraud patterns, update rules'}
+                </div>
+              </div>
+              <div style={{ padding: 10, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 4 }}>3. Retention Campaign</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+                  {isBn ? 'নিষ্ক্রিয় ব্যবহারকারীদের জন্য অফার পাঠান' : 'Send offers to inactive users'}
+                </div>
+              </div>
+            </div>
+          </div>
         </>
       )}
 
