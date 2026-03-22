@@ -316,7 +316,8 @@ class TelegramService {
 
     for (const delivery of deliveries) {
       if (delivery?.result?.message_id) {
-        this.stmts.insertTgMsgMap.run(delivery.result.message_id, `session:${sessionId}`);
+        const deliveryChatId = delivery.result.chat?.id ?? 0;
+        this.stmts.insertTgMsgMap.run(deliveryChatId, delivery.result.message_id, `session:${sessionId}`);
       }
     }
 
@@ -346,9 +347,9 @@ class TelegramService {
 
     if (isAdmin && msg.reply_to_message?.message_id) {
       const replyToId = msg.reply_to_message.message_id;
-      const mapped = this.stmts.getSessionByTgMsg.get(replyToId);
+      const mapped = this.stmts.getSessionByTgMsg.get(chatId, replyToId);
       if (!mapped) {
-        this.logAction('handleSupportUpdate', false, `admin-reply: no tg_msg_map entry for msg_id=${replyToId}`);
+        this.logAction('handleSupportUpdate', false, `admin-reply: no tg_msg_map entry for chat_id=${chatId} msg_id=${replyToId}`);
         return { handled: false, reason: 'no-mapping' };
       }
 
@@ -403,7 +404,8 @@ class TelegramService {
 
     for (const delivery of deliveries) {
       if (delivery?.result?.message_id) {
-        this.stmts.insertTgMsgMap.run(delivery.result.message_id, `tguser:${chatId}`);
+        const deliveryChatId = delivery.result.chat?.id ?? 0;
+        this.stmts.insertTgMsgMap.run(deliveryChatId, delivery.result.message_id, `tguser:${chatId}`);
       }
     }
 

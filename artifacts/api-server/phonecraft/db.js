@@ -155,14 +155,41 @@ db.exec(`
   );
 `);
 
-// Telegram message_id → support session mapping (for webhook replies)
+// Telegram (chat_id, message_id) → support session mapping (for webhook replies)
+// Note: Telegram message_ids are scoped per-chat, so we use a composite key to avoid collisions
 db.exec(`
   CREATE TABLE IF NOT EXISTS tg_msg_map (
-    tg_message_id INTEGER PRIMARY KEY,
+    chat_id       INTEGER NOT NULL DEFAULT 0,
+    tg_message_id INTEGER NOT NULL,
     session_id    TEXT NOT NULL,
-    created_at    TEXT DEFAULT (datetime('now'))
+    created_at    TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (chat_id, tg_message_id)
   );
 `);
+
+// Migrate existing tg_msg_map if it still uses the old single-column primary key
+try {
+  const cols = db.prepare('PRAGMA table_info(tg_msg_map)').all();
+  const hasChatId = cols.some(c => c.name === 'chat_id');
+  if (!hasChatId) {
+    db.exec(`
+      ALTER TABLE tg_msg_map RENAME TO tg_msg_map_old;
+      CREATE TABLE tg_msg_map (
+        chat_id       INTEGER NOT NULL DEFAULT 0,
+        tg_message_id INTEGER NOT NULL,
+        session_id    TEXT NOT NULL,
+        created_at    TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (chat_id, tg_message_id)
+      );
+      INSERT INTO tg_msg_map (chat_id, tg_message_id, session_id, created_at)
+        SELECT 0, tg_message_id, session_id, created_at FROM tg_msg_map_old;
+      DROP TABLE tg_msg_map_old;
+    `);
+    console.log('[DB] tg_msg_map migrated to composite (chat_id, tg_message_id) primary key');
+  }
+} catch (e) {
+  console.warn('[DB] tg_msg_map migration skipped:', e.message);
+}
 
 // Telegram integration audit logs
 db.exec(`
@@ -447,8 +474,8 @@ const stmts = {
   `),
   insertSupportMsg:   db.prepare('INSERT INTO support_chats (session_id, sender, message) VALUES (?, ?, ?)'),
   getSupportMsgs:     db.prepare('SELECT * FROM support_chats WHERE session_id = ? ORDER BY id ASC LIMIT 100'),
-  insertTgMsgMap:     db.prepare('INSERT OR IGNORE INTO tg_msg_map (tg_message_id, session_id) VALUES (?, ?)'),
-  getSessionByTgMsg:  db.prepare('SELECT session_id FROM tg_msg_map WHERE tg_message_id = ?'),
+  insertTgMsgMap:     db.prepare('INSERT OR IGNORE INTO tg_msg_map (chat_id, tg_message_id, session_id) VALUES (?, ?, ?)'),
+  getSessionByTgMsg:  db.prepare('SELECT session_id FROM tg_msg_map WHERE chat_id = ? AND tg_message_id = ?'),
 
   // Admin support session queries
   getAllSupportSessions: db.prepare(`
