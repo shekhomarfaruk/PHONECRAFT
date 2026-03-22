@@ -1407,7 +1407,7 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
     const today = todayDate();
     const activeToday = db.prepare(`
       SELECT COUNT(DISTINCT user_id) AS cnt FROM login_logs
-      WHERE DATE(login_at) = ?
+      WHERE DATE(logged_at) = ?
     `).get(today)?.cnt || 0;
 
     const newUsersToday = db.prepare(`
