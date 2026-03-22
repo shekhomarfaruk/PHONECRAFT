@@ -1,0 +1,68 @@
+name: Build and Deploy Node.js App to Azure Web App - phonecraft
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+
+      - name: Build frontend
+        run: |
+          cd artifacts/phonecraft
+          npm install
+          npm run build
+
+      - name: Prepare server directory
+        run: |
+          mkdir -p server
+          cp artifacts/api-server/phonecraft/index.js server/
+          cp artifacts/api-server/phonecraft/db.js server/
+          cp artifacts/api-server/phonecraft/package.json server/
+          cp -r artifacts/api-server/phonecraft/services server/
+          cd server
+          npm init -y 2>/dev/null || true
+          npm install express cors bcryptjs better-sqlite3 dotenv node-fetch
+
+      - name: Enable static file serving in server
+        run: |
+          sed -i 's|// app.use(express.static(path.join(__dirname, .*, .dist.)));|app.use(express.static(path.join(__dirname, "..", "dist")));|' server/index.js
+          sed -i "s|res.status(404).json({ error: 'Not found' });|res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));|" server/index.js
+
+      - name: Copy dist from frontend build
+        run: cp -r artifacts/phonecraft/dist dist
+
+      - name: Archive production artifacts
+        run: zip -r release.zip server dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app
+          path: release.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app
+
+      - name: Deploy to Azure Web App (Zip Deploy)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'phonecraft'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: release.zip
