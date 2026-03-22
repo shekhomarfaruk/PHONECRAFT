@@ -33,7 +33,7 @@ packages = ["python3"]
 [userenv]
 
 [userenv.shared]
-WEBHOOK_URL = "https://f98b6bc6-1eb7-4a9c-a3c8-3d2e976614dd-00-3kc1gekpg3hwx.picard.replit.dev"
+WEBHOOK_URL = "https://phonecraft.tech"
 TELEGRAM_FINANCE_CHAT_IDS = "1003887307980,1003885723195"
 TELEGRAM_FINANCE_CHAT_ID = "1003887307980"
 TELEGRAM_SUPPORT_CHAT_IDS = "-1003885723195"
