@@ -117,7 +117,7 @@ async function run() {
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
   db.prepare('DELETE FROM support_chats WHERE session_id = ?').run(sessionId);
-  db.prepare('DELETE FROM tg_msg_map WHERE tg_message_id = ?').run(fakeTgMsgId);
+  db.prepare('DELETE FROM tg_msg_map WHERE chat_id = ? AND tg_message_id = ?').run(ADMIN_CHAT_ID, fakeTgMsgId);
 
   // ── Summary ────────────────────────────────────────────────────────────────
   console.log(`\nResults: ${passed} passed, ${failed} failed`);

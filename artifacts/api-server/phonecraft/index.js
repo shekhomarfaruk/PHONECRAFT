@@ -1459,6 +1459,34 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
   }
 });
 
+// ── GET /api/admin/telegram/webhooks — diagnostic: current webhook info ──────
+app.get('/api/admin/telegram/webhooks', authRequired, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    async function getWebhookInfo(botToken, label) {
+      if (!botToken) return { label, configured: false };
+      const r = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
+      const d = await r.json().catch(() => ({}));
+      const info = d.result || {};
+      return {
+        label,
+        configured: true,
+        url: info.url || null,
+        pending_update_count: info.pending_update_count || 0,
+        last_error_message: info.last_error_message || null,
+        last_error_date: info.last_error_date || null,
+      };
+    }
+    const [support, finance] = await Promise.all([
+      getWebhookInfo(SUPPORT_BOT, 'support'),
+      getWebhookInfo(FINANCE_BOT, 'finance'),
+    ]);
+    res.json({ webhooks: [support, finance] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /api/admin/support/sessions — list all support chat sessions ─────────
 app.get('/api/admin/support/sessions', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
