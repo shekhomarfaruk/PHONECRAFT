@@ -1511,9 +1511,11 @@ app.get('/api/admin/support/messages/:sessionId', authRequired, (req, res) => {
 });
 
 // ── POST /api/admin/support/reply — admin sends a reply to a session ─────────
-app.post('/api/admin/support/reply', authRequired, async (req, res) => {
+// Also supports /api/admin/support/reply/:sessionId (REST-style)
+async function handleAdminSupportReply(req, res) {
   if (!requireAdmin(req, res)) return;
-  const { sessionId, message } = req.body || {};
+  const sessionId = req.params.sessionId || (req.body || {}).sessionId;
+  const message = (req.body || {}).message;
   const text = String(message || '').trim();
   if (!sessionId || !text) return res.status(400).json({ error: 'sessionId and message required' });
   const adminName = req.auth.user?.name || 'Admin';
@@ -1521,7 +1523,7 @@ app.post('/api/admin/support/reply', authRequired, async (req, res) => {
     stmts.insertSupportMsg.run(sessionId, 'admin', text, adminName);
 
     // Also forward to Telegram support group so Telegram-based admins see web-panel replies
-    const tgMsg = `💬 Web Admin Reply\n👤 ${adminName}\nSession: ${sessionId.slice(0, 12)}...\n\n${text}`;
+    const tgMsg = `💬 Web Admin Reply\n👤 ${adminName}\nSession: ${sessionId.slice(0, 12)}...\n\n${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}`;
     telegramService.sendMessage(tgMsg, {
       botToken: SUPPORT_BOT,
       chatIds: SUPPORT_CHAT_IDS,
@@ -1531,7 +1533,9 @@ app.post('/api/admin/support/reply', authRequired, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to send reply' });
   }
-});
+}
+app.post('/api/admin/support/reply', authRequired, handleAdminSupportReply);
+app.post('/api/admin/support/reply/:sessionId', authRequired, handleAdminSupportReply);
 
 // ── POST /api/admin/messages — send message to one user or all users ───────
 app.post('/api/admin/messages', authRequired, (req, res) => {
