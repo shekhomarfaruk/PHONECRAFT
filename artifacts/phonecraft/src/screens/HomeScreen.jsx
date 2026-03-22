@@ -4,6 +4,7 @@ import { PLANS, AVATARS, COUNTRIES, RANDOM_NAMES, maskName, randItem } from "../
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
 import PwaInstallGuideModal from "../components/PwaInstallGuideModal.jsx";
+import { RegistrationModal } from "./NotifScreen.jsx";
 
 // ── Static pool so it doesn't re-generate every render ──────────────────────
 const EARN_DATA = Array.from({ length: 14 }, () => {
@@ -129,14 +130,87 @@ function LiveActivityTicker({ t }) {
   );
 }
 
-function HomeScreen({user, navigate, lang}) {
+function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [], setNotifications}) {
   const t      = I18N[lang] || I18N.en;
   const plan   = PLANS.find(p => p.id === user.plan);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [regModalNotif, setRegModalNotif] = useState(null);
+
+  const pendingRegs = notifications.filter(
+    n => n.type === 'registration_request' && !n.read
+  );
 
   return (
     <>
       <PwaInstallGuideModal open={showInstallGuide} onClose={() => setShowInstallGuide(false)} lang={lang} />
+
+      {regModalNotif && (
+        <RegistrationModal
+          notif={regModalNotif}
+          onClose={() => setRegModalNotif(null)}
+          setItems={setNotifications}
+          showToast={showToast}
+          lang={lang}
+          userId={user.id}
+          setUser={setUser}
+        />
+      )}
+
+      {pendingRegs.map(notif => {
+        let parsed = {};
+        try { parsed = JSON.parse(notif.meta || '{}'); } catch (_) {}
+        return (
+          <div
+            key={notif.id}
+            className="card"
+            style={{
+              background: 'linear-gradient(135deg, rgba(246,70,93,0.12), rgba(245,158,11,0.12))',
+              borderColor: 'rgba(246,70,93,0.4)',
+              padding: '14px 16px',
+              animation: 'regPulse 2s ease-in-out infinite',
+            }}
+          >
+            <style>{`
+              @keyframes regPulse {
+                0%, 100% { box-shadow: 0 0 0 0 rgba(246,70,93,0.3); }
+                50% { box-shadow: 0 0 16px 4px rgba(246,70,93,0.15); }
+              }
+            `}</style>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+              <div style={{
+                width: 42, height: 42, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #F6465D, #F59E0B)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, flexShrink: 0,
+              }}>🔔</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--text)' }}>
+                  {lang === 'bn' ? 'নতুন রেজিস্ট্রেশন অনুরোধ!' : 'New Registration Request!'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+                  <strong>{parsed.new_user_name || '?'}</strong> — {parsed.plan_name || '?'} ({convertCurrency(parsed.amount || 0, lang)})
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setRegModalNotif(notif)}
+                className="btn btn-success"
+                style={{ flex: 1, fontSize: 13, padding: '10px 0', fontWeight: 700, borderRadius: 10 }}
+              >
+                {lang === 'bn' ? '✅ Accept' : '✅ Accept'}
+              </button>
+              <button
+                onClick={() => setRegModalNotif(notif)}
+                className="btn btn-danger"
+                style={{ flex: 1, fontSize: 13, padding: '10px 0', fontWeight: 700, borderRadius: 10 }}
+              >
+                {lang === 'bn' ? '❌ Decline' : '❌ Decline'}
+              </button>
+            </div>
+          </div>
+        );
+      })}
 
       <div
         className="card"

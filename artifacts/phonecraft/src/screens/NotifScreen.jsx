@@ -232,3 +232,4 @@ function NotifScreen({items, setItems, user, setUser, lang, showToast}) {
 }
 
 export default NotifScreen;
+export { RegistrationModal };
