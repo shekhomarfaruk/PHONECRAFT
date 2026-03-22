@@ -1602,12 +1602,55 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Telegram] Admin chat ids configured: ${ADMIN_CHAT_IDS.length}`);
 
   // Auto-register Telegram webhooks on startup
-  // Use REPLIT_DEV_DOMAIN automatically if available, fall back to WEBHOOK_URL
-  const replitDomain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS;
-  const webhookBase = replitDomain
-    ? `https://${replitDomain}`
-    : process.env.WEBHOOK_URL;
+  // Priority: explicit WEBHOOK_URL (production) → REPLIT_DEV_DOMAIN (dev) → REPLIT_DOMAINS (first entry)
+  function resolveWebhookBase() {
+    if (process.env.WEBHOOK_URL) return process.env.WEBHOOK_URL.replace(/\/$/, '');
+    const devDomain = process.env.REPLIT_DEV_DOMAIN;
+    if (devDomain) return `https://${devDomain.trim()}`;
+    const domains = process.env.REPLIT_DOMAINS;
+    if (domains) {
+      const first = domains.split(/[\s,]+/)[0].trim();
+      if (first) return `https://${first}`;
+    }
+    return null;
+  }
 
+  async function registerAndVerifyWebhook(botToken, webhookUrl, label) {
+    try {
+      // Register
+      const setRes = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message'] }),
+      });
+      const setData = await setRes.json().catch(() => ({}));
+      if (!setData.ok) {
+        console.error(`[Telegram] ${label} webhook registration failed: ${setData.description || 'unknown'}`);
+        return;
+      }
+      console.log(`[Telegram] ${label} webhook registered ✓: ${webhookUrl}`);
+
+      // Verify via getWebhookInfo
+      const infoRes = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
+      const infoData = await infoRes.json().catch(() => ({}));
+      if (infoData.ok) {
+        const info = infoData.result || {};
+        const registered = info.url || '';
+        if (registered !== webhookUrl) {
+          console.warn(`[Telegram] ${label} webhook mismatch! Expected: ${webhookUrl} | Got: ${registered}`);
+        } else {
+          console.log(`[Telegram] ${label} webhook verified ✓ | pending_update_count: ${info.pending_update_count || 0}`);
+        }
+        if (info.last_error_message) {
+          console.warn(`[Telegram] ${label} last error: ${info.last_error_message} (at ${info.last_error_date})`);
+        }
+      }
+    } catch (err) {
+      console.error(`[Telegram] ${label} webhook setup error: ${err.message}`);
+    }
+  }
+
+  const webhookBase = resolveWebhookBase();
   if (webhookBase) {
     console.log(`[Telegram] Using webhook base: ${webhookBase}`);
   } else {
@@ -1615,26 +1658,10 @@ app.listen(PORT, '0.0.0.0', () => {
   }
 
   if (SUPPORT_BOT && webhookBase) {
-    const webhookUrl = `${webhookBase}/webhook/telegram`;
-    fetch(`https://api.telegram.org/bot${SUPPORT_BOT}/setWebhook`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message'] }),
-    })
-      .then(r => r.json())
-      .then(d => console.log(`[Telegram] Support webhook ${d.ok ? 'registered ✓' : 'failed ✗'}: ${webhookUrl}`))
-      .catch(e => console.error('[Telegram] Support webhook registration failed:', e.message));
+    registerAndVerifyWebhook(SUPPORT_BOT, `${webhookBase}/webhook/telegram`, 'Support');
   }
 
   if (FINANCE_BOT && webhookBase) {
-    const financeWebhookUrl = `${webhookBase}/webhook/telegram/finance`;
-    fetch(`https://api.telegram.org/bot${FINANCE_BOT}/setWebhook`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: financeWebhookUrl, allowed_updates: ['message'] }),
-    })
-      .then(r => r.json())
-      .then(d => console.log(`[Telegram] Finance webhook ${d.ok ? 'registered ✓' : 'failed ✗'}: ${financeWebhookUrl}`))
-      .catch(e => console.error('[Telegram] Finance webhook registration failed:', e.message));
+    registerAndVerifyWebhook(FINANCE_BOT, `${webhookBase}/webhook/telegram/finance`, 'Finance');
   }
 });

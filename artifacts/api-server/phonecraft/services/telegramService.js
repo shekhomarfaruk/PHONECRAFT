@@ -344,12 +344,16 @@ class TelegramService {
     const isAdmin = this.isAdminChatId(chatId) || this.isAdminChatId(senderId);
 
     if (isAdmin && msg.reply_to_message?.message_id) {
-      const mapped = this.stmts.getSessionByTgMsg.get(msg.reply_to_message.message_id);
+      const replyToId = msg.reply_to_message.message_id;
+      const mapped = this.stmts.getSessionByTgMsg.get(replyToId);
       if (!mapped) {
+        this.logAction('handleSupportUpdate', false, `admin-reply: no tg_msg_map entry for msg_id=${replyToId}`);
         return { handled: false, reason: 'no-mapping' };
       }
 
       const sessionKey = String(mapped.session_id || '');
+      this.logAction('handleSupportUpdate', true, `admin-reply: mapped msg_id=${replyToId} → ${sessionKey}`);
+
       if (sessionKey.startsWith('tguser:')) {
         const userChatId = sessionKey.slice('tguser:'.length);
         await this.replyToUser({ targetChatId: userChatId, text });
@@ -360,11 +364,14 @@ class TelegramService {
         const sessionId = sessionKey.slice('session:'.length);
         if (this.onSupportSessionReply) {
           this.onSupportSessionReply({ sessionId, text });
-          this.logAction('supportSessionReply', true, `session=${sessionId}`);
+          this.logAction('supportSessionReply', true, `session=${sessionId} text="${text.slice(0, 80)}"`);
+        } else {
+          this.logAction('supportSessionReply', false, `no onSupportSessionReply handler registered`);
         }
         return { handled: true, mode: 'session-reply' };
       }
 
+      this.logAction('handleSupportUpdate', false, `admin-reply: unrecognized session key format: ${sessionKey}`);
       return { handled: false, reason: 'invalid-mapping' };
     }
 
