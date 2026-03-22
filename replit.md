@@ -92,15 +92,27 @@ The admin panel (`AdminScreen.jsx`) has the following tabs:
 - **Dashboard** — financial stats, user activity, top earners, support summary (main admin only)
 - **Settings** — payment account settings (main admin only)
 
+### Admin Role System
+
+Three-tier role hierarchy:
+- **Main Admin** (`refer_code = ADMIN01`): Full access — users, admins, settings, dashboard. Can promote users to User Admin and set their daily balance limit.
+- **User Admin** (`is_admin = 1`): Can see only regular users (no admins visible). Can add balance to users max **3 times per day** up to `admin_balance_limit` (set by Main Admin). Cannot promote others or change plans.
+- **Regular User** (`is_admin = 0`): No admin access.
+
+Key columns: `users.is_admin` (0/1), `users.admin_balance_limit` (REAL), table `admin_balance_adds` tracks daily usage.
+
 ## Key API Endpoints
 
 - `GET  /api/health` — health check
 - `POST /api/auth/login` — login
 - `POST /api/auth/register` — register
-- `GET  /api/admin/users` — list users
+- `GET  /api/admin/users` — list users (filtered by role)
+- `PATCH /api/admin/users/:id` — update user (role-aware: user-admins can only add balance)
+- `GET  /api/admin/my-quota` — user-admin daily balance add quota
 - `GET  /api/admin/support/sessions` — list support sessions
 - `GET  /api/admin/support/messages/:sessionId` — get messages for a session
 - `POST /api/admin/support/reply` — send admin reply to support session
-- `GET  /api/admin/stats` — financial + activity dashboard stats
+- `POST /api/admin/support/reply/:sessionId` — REST-style admin reply
+- `GET  /api/admin/stats` — financial + activity dashboard stats (main admin only)
 - `POST /webhook/telegram` — support bot webhook
 - `POST /webhook/telegram/finance` — finance bot webhook

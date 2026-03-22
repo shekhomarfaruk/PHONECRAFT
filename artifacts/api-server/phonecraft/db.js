@@ -88,6 +88,19 @@ try { db.exec('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0'); } catch 
 try { db.exec('ALTER TABLE notifications ADD COLUMN meta TEXT DEFAULT NULL'); } catch (_) {}
 // Add avatar_img column for user profile photo
 try { db.exec('ALTER TABLE users ADD COLUMN avatar_img TEXT DEFAULT NULL'); } catch (_) {}
+// Admin role system: balance limit for user-admins
+try { db.exec('ALTER TABLE users ADD COLUMN admin_balance_limit REAL DEFAULT 0'); } catch (_) {}
+
+// Track daily balance additions by user-admins (max 3 per day)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_balance_adds (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id   INTEGER NOT NULL REFERENCES users(id),
+    target_id  INTEGER NOT NULL REFERENCES users(id),
+    amount     REAL NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`
@@ -486,6 +499,15 @@ const stmts = {
     WHERE banned = 0 AND is_admin = 0
     ORDER BY id ASC
   `),
+  // Admin balance add tracking (user-admin daily limit)
+  insertAdminBalanceAdd: db.prepare('INSERT INTO admin_balance_adds (admin_id, target_id, amount) VALUES (?, ?, ?)'),
+  getAdminBalanceAddsToday: db.prepare(`
+    SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total
+    FROM admin_balance_adds
+    WHERE admin_id = ? AND date(created_at, '+6 hours') = date('now', '+6 hours')
+  `),
+  updateAdminBalanceLimit: db.prepare('UPDATE users SET admin_balance_limit = ? WHERE id = ?'),
+
   insertSupportMsg:   db.prepare('INSERT INTO support_chats (session_id, sender, message, sender_name) VALUES (?, ?, ?, ?)'),
   getSupportMsgs:     db.prepare('SELECT * FROM support_chats WHERE session_id = ? ORDER BY id ASC LIMIT 100'),
   insertTgMsgMap:     db.prepare('INSERT OR IGNORE INTO tg_msg_map (chat_id, tg_message_id, session_id) VALUES (?, ?, ?)'),

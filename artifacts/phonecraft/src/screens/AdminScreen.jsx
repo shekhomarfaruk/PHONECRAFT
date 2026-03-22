@@ -125,6 +125,9 @@ export default function AdminScreen({ user, showToast, lang }) {
   const [editBalance, setEditBalance]   = useState('');
   const [editPlan, setEditPlan]         = useState('');
   const [editIsAdmin, setEditIsAdmin]   = useState(false);
+  const [editBalanceLimit, setEditBalanceLimit] = useState('');
+  const [addBalanceAmount, setAddBalanceAmount] = useState('');
+  const [myQuota, setMyQuota]           = useState(null);
   const [saving, setSaving]             = useState(false);
   const [searchQuery, setSearchQuery]   = useState('');
   const [messageTarget, setMessageTarget] = useState('all');
@@ -182,6 +185,15 @@ export default function AdminScreen({ user, showToast, lang }) {
   const [supportMsgsLoading, setSupportMsgsLoading] = useState(false);
   const [supportReply, setSupportReply] = useState('');
   const [supportReplying, setSupportReplying] = useState(false);
+
+  const fetchMyQuota = useCallback(async () => {
+    if (isMainAdmin) return;
+    try {
+      const res = await fetch(`${API_URL}/api/admin/my-quota`, { headers: authHeaders });
+      const data = await res.json();
+      if (res.ok) setMyQuota(data);
+    } catch {}
+  }, [user?.authToken, isMainAdmin]);
 
   // ── Data fetchers ──────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
@@ -281,10 +293,12 @@ export default function AdminScreen({ user, showToast, lang }) {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!isMainAdmin && (activeTab === 'admins' || activeTab === 'settings')) {
+    if (!isMainAdmin && (activeTab === 'admins' || activeTab === 'settings' || activeTab === 'dashboard')) {
       setActiveTab('users');
     }
   }, [isMainAdmin, activeTab]);
+
+  useEffect(() => { fetchMyQuota(); }, [fetchMyQuota]);
 
   // ── User actions ───────────────────────────────────────────────────────────
   const selectUser = async (u) => {
@@ -292,6 +306,8 @@ export default function AdminScreen({ user, showToast, lang }) {
     setEditBalance(String(u.balance));
     setEditPlan(u.plan_id);
     setEditIsAdmin(!!u.is_admin);
+    setEditBalanceLimit(String(u.admin_balance_limit || 0));
+    setAddBalanceAmount('');
     setLogsLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/admin/users/${u.id}/logs`, { headers: authHeaders });
@@ -306,12 +322,16 @@ export default function AdminScreen({ user, showToast, lang }) {
     if (!selectedUser) return;
     setSaving(true);
     try {
+      const body = isMainAdmin
+        ? {
+            balance: Number(editBalance), plan_id: editPlan,
+            banned: selectedUser.banned, is_admin: editIsAdmin,
+            admin_balance_limit: editIsAdmin ? Number(editBalanceLimit) || 0 : 0,
+          }
+        : { banned: selectedUser.banned };
       const res = await fetch(`${API_URL}/api/admin/users/${selectedUser.id}`, {
         method: 'PATCH', headers: authHeaders,
-        body: JSON.stringify({
-          balance: Number(editBalance), plan_id: editPlan,
-          banned: selectedUser.banned, is_admin: editIsAdmin,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (res.ok) {
@@ -320,7 +340,31 @@ export default function AdminScreen({ user, showToast, lang }) {
         setSelectedUser(prev => ({
           ...prev, balance: data.user.balance,
           plan_id: data.user.plan_id, is_admin: data.user.is_admin,
+          admin_balance_limit: data.user.admin_balance_limit,
         }));
+      } else { showApiError(data); }
+    } catch { showToast(t.toast_connection_error, 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const addBalanceToUser = async () => {
+    if (!selectedUser || !addBalanceAmount) return;
+    const amount = Number(addBalanceAmount);
+    if (amount <= 0) return showToast(isBn ? 'পরিমাণ ০ এর বেশি হতে হবে' : 'Amount must be greater than 0', 'error');
+    setSaving(true);
+    try {
+      const newBalance = Number(selectedUser.balance) + amount;
+      const res = await fetch(`${API_URL}/api/admin/users/${selectedUser.id}`, {
+        method: 'PATCH', headers: authHeaders,
+        body: JSON.stringify({ balance: newBalance }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(isBn ? `৳${amount} ব্যালেন্স যোগ হয়েছে` : `৳${amount} balance added`);
+        fetchUsers();
+        fetchMyQuota();
+        setAddBalanceAmount('');
+        setSelectedUser(prev => ({ ...prev, balance: data.user.balance }));
       } else { showApiError(data); }
     } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setSaving(false); }
@@ -525,6 +569,33 @@ export default function AdminScreen({ user, showToast, lang }) {
             </button>
           </div>
 
+          {/* User-admin quota card */}
+          {!isMainAdmin && myQuota && (
+            <div className="card" style={{ marginBottom: 12, borderColor: 'rgba(14,203,129,0.3)', background: 'rgba(14,203,129,0.05)' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
+                {isBn ? '📊 আজকের ব্যালেন্স কোটা' : '📊 Your Daily Balance Quota'}
+              </div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <span style={{ color: 'var(--text2)' }}>{isBn ? 'বাকি বার: ' : 'Adds left: '}</span>
+                  <strong>{myQuota.remaining_adds}/3</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text2)' }}>{isBn ? 'দৈনিক লিমিট: ' : 'Daily limit: '}</span>
+                  <strong>৳{myQuota.daily_limit}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text2)' }}>{isBn ? 'আজ ব্যবহৃত: ' : 'Used today: '}</span>
+                  <strong>৳{myQuota.used_today}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text2)' }}>{isBn ? 'অবশিষ্ট: ' : 'Remaining: '}</span>
+                  <strong style={{ color: '#0ECB81' }}>৳{myQuota.remaining_amount}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Stats */}
           <div className="stats-row">
             <div className="stat-box">
@@ -555,7 +626,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 { id: 'all', label: lang === 'bn' ? 'সকল' : 'All' },
                 { id: 'active', label: lang === 'bn' ? 'সক্রিয়' : 'Active' },
                 { id: 'banned', label: lang === 'bn' ? 'নিষিদ্ধ' : 'Banned' },
-                { id: 'admin', label: lang === 'bn' ? 'অ্যাডমিন' : 'Admin' },
+                ...(isMainAdmin ? [{ id: 'admin', label: lang === 'bn' ? 'অ্যাডমিন' : 'Admin' }] : []),
               ].map(f => (
                 <button key={f.id}
                   className={`btn ${userStatusFilter === f.id ? 'btn-primary' : 'btn-outline'}`}
@@ -609,14 +680,21 @@ export default function AdminScreen({ user, showToast, lang }) {
               </div>
               )}
 
-              {/* Admin toggle */}
+              {/* Admin toggle + balance limit (main admin only) */}
               {isMainAdmin && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <label className="input-label" style={{ marginBottom: 0 }}>{t.admin_admin_label}</label>
+              <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: editIsAdmin ? 8 : 12 }}>
+                <label className="input-label" style={{ marginBottom: 0 }}>
+                  {isBn ? 'ইউজার এডমিন' : 'User Admin'}
+                </label>
                 <div
                   onClick={() => {
                     if (selectedUser.id === user.id) {
                       showToast(t.admin_cannot_self_demote);
+                      return;
+                    }
+                    if (selectedUser.is_main_admin) {
+                      showToast(isBn ? 'Main Admin পরিবর্তন করা যায় না' : 'Cannot change Main Admin');
                       return;
                     }
                     setEditIsAdmin(!editIsAdmin);
@@ -624,7 +702,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                   style={{
                     width: 44, height: 24, borderRadius: 12,
                     background: editIsAdmin ? '#0ECB81' : 'var(--border)',
-                    cursor: selectedUser.id === user.id ? 'not-allowed' : 'pointer',
+                    cursor: (selectedUser.id === user.id || selectedUser.is_main_admin) ? 'not-allowed' : 'pointer',
                     position: 'relative', transition: 'background 0.2s',
                   }}
                 >
@@ -636,6 +714,49 @@ export default function AdminScreen({ user, showToast, lang }) {
                   }} />
                 </div>
                 {editIsAdmin && <span className="badge badge-green">{t.admin_admin_label}</span>}
+              </div>
+              {editIsAdmin && !selectedUser.is_main_admin && (
+                <div className="input-wrap" style={{ marginBottom: 12 }}>
+                  <label className="input-label">
+                    {isBn ? 'দৈনিক ব্যালেন্স লিমিট (৳)' : 'Daily Balance Limit (৳)'}
+                  </label>
+                  <input className="inp" type="number" value={editBalanceLimit}
+                    onChange={e => setEditBalanceLimit(e.target.value)}
+                    placeholder={isBn ? 'সর্বোচ্চ কত টাকা যোগ করতে পারবে/দিন' : 'Max amount this admin can add per day'} />
+                  <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
+                    {isBn ? 'এই এডমিন দিনে সর্বোচ্চ ৩ বার, মোট এই পরিমাণ পর্যন্ত ব্যালেন্স যোগ করতে পারবে।' : 'This admin can add balance max 3 times/day, up to this total amount.'}
+                  </div>
+                </div>
+              )}
+              </>
+              )}
+
+              {/* User-admin: Add balance section */}
+              {!isMainAdmin && !selectedUser.is_admin && (
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'rgba(14,203,129,0.07)', border: '1px solid rgba(14,203,129,0.2)' }}>
+                <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8 }}>
+                  {isBn ? '💰 ব্যালেন্স যোগ করুন' : '💰 Add Balance'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>
+                  {isBn ? `বর্তমান ব্যালেন্স: ${formatMoney(selectedUser.balance)}` : `Current: ${formatMoney(selectedUser.balance)}`}
+                </div>
+                {myQuota && (
+                  <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--text2)', marginBottom: 8, flexWrap: 'wrap' }}>
+                    <span>{isBn ? `আজ বাকি: ${myQuota.remaining_adds}/৩ বার` : `Today: ${myQuota.remaining_adds}/3 remaining`}</span>
+                    <span>{isBn ? `লিমিট: ৳${myQuota.daily_limit}` : `Limit: ৳${myQuota.daily_limit}`}</span>
+                    <span>{isBn ? `বাকি: ৳${myQuota.remaining_amount}` : `Left: ৳${myQuota.remaining_amount}`}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input className="inp" type="number" value={addBalanceAmount}
+                    onChange={e => setAddBalanceAmount(e.target.value)}
+                    placeholder={isBn ? 'পরিমাণ লিখুন' : 'Enter amount'}
+                    style={{ flex: 1 }} />
+                  <button className="btn btn-success" onClick={addBalanceToUser} disabled={saving || !addBalanceAmount}
+                    style={{ fontSize: 12, padding: '6px 16px' }}>
+                    {saving ? '...' : (isBn ? 'যোগ করুন' : 'Add')}
+                  </button>
+                </div>
               </div>
               )}
 

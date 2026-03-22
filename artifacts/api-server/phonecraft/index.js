@@ -1231,7 +1231,8 @@ app.get('/api/admin/users', authRequired, (req, res) => {
     let rows = stmts.getAllUsers.all();
 
     if (!requesterIsMain) {
-      rows = rows.filter((r) => !isMainAdminUser(r));
+      // User admins: hide main admin AND other admins — only see regular users
+      rows = rows.filter((r) => !r.is_admin);
     }
 
     const users = rows.map(row => {
@@ -1243,6 +1244,7 @@ app.get('/api/admin/users', authRequired, (req, res) => {
       return {
         ...u,
         is_main_admin: row.refer_code === MAIN_ADMIN_REFER_CODE,
+        admin_balance_limit: row.admin_balance_limit || 0,
         lastLogin,
       };
     });
@@ -1264,22 +1266,6 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
     const user = stmts.getUserById.get(id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    if (!requesterIsMain) {
-      if (user.is_admin) {
-        return res.status(403).json({ error: 'You cannot manage admin accounts' });
-      }
-      if (req.body.is_admin !== undefined) {
-        return res.status(403).json({ error: 'You cannot change admin privileges' });
-      }
-      if ((req.body.balance !== undefined && Number(req.body.balance) !== Number(user.balance)) ||
-          (req.body.plan_id !== undefined && req.body.plan_id !== user.plan_id)) {
-        return res.status(403).json({ error: 'You cannot modify user balance or plan' });
-      }
-      if (id === adminId && req.body.banned !== undefined && req.body.banned) {
-        return res.status(400).json({ error: 'Cannot ban yourself' });
-      }
-    }
-
     // Prevent admin from banning themselves
     if (id === adminId && req.body.banned) {
       return res.status(400).json({ error: 'Cannot ban yourself' });
@@ -1290,6 +1276,46 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       return res.status(400).json({ error: 'Cannot remove your own admin status' });
     }
 
+    if (!requesterIsMain) {
+      // User-admin restrictions
+      if (user.is_admin) {
+        return res.status(403).json({ error: 'You cannot manage admin accounts' });
+      }
+      if (req.body.is_admin !== undefined) {
+        return res.status(403).json({ error: 'You cannot change admin privileges' });
+      }
+      if (req.body.plan_id !== undefined && req.body.plan_id !== user.plan_id) {
+        return res.status(403).json({ error: 'You cannot change user plans' });
+      }
+      if (req.body.admin_balance_limit !== undefined) {
+        return res.status(403).json({ error: 'You cannot set balance limits' });
+      }
+
+      // User-admin balance addition: max 3/day, within admin_balance_limit
+      if (req.body.balance !== undefined && Number(req.body.balance) !== Number(user.balance)) {
+        const addAmount = Number(req.body.balance) - Number(user.balance);
+        if (addAmount <= 0) {
+          return res.status(403).json({ error: 'You can only add balance, not reduce it' });
+        }
+        const dailyLimit = requester.admin_balance_limit || 0;
+        if (dailyLimit <= 0) {
+          return res.status(403).json({ error: 'No balance limit set for your admin account. Contact Main Admin.' });
+        }
+        const today = stmts.getAdminBalanceAddsToday.get(adminId);
+        if (today.count >= 3) {
+          return res.status(403).json({ error: 'Daily limit reached: you can add balance maximum 3 times per day' });
+        }
+        if (today.total + addAmount > dailyLimit) {
+          const remaining = Math.max(0, dailyLimit - today.total);
+          return res.status(403).json({
+            error: `Exceeds daily limit. Your limit: ৳${dailyLimit}, used today: ৳${today.total}, remaining: ৳${remaining}`
+          });
+        }
+        // Record the balance add
+        stmts.insertAdminBalanceAdd.run(adminId, id, addAmount);
+      }
+    }
+
     let balance  = req.body.balance !== undefined ? Number(req.body.balance) : user.balance;
     const plan_id  = req.body.plan_id || user.plan_id;
     const banned   = req.body.banned !== undefined ? (req.body.banned ? 1 : 0) : user.banned;
@@ -1297,9 +1323,16 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       ? (req.body.is_admin !== undefined ? (req.body.is_admin ? 1 : 0) : user.is_admin)
       : user.is_admin;
 
-    // Newly promoted delegated admins must start from zero and earn via work.
+    // When main admin promotes to user-admin, set their balance limit
     if (requesterIsMain && !user.is_admin && is_admin === 1) {
       balance = 0;
+      const balanceLimit = Number(req.body.admin_balance_limit) || 0;
+      stmts.updateAdminBalanceLimit.run(balanceLimit, id);
+    }
+
+    // Main admin can update balance limit for existing user-admins
+    if (requesterIsMain && user.is_admin && req.body.admin_balance_limit !== undefined) {
+      stmts.updateAdminBalanceLimit.run(Number(req.body.admin_balance_limit) || 0, id);
     }
 
     const plan = stmts.getPlan.get(plan_id);
@@ -1310,9 +1343,10 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
     // Log balance change if admin adjusted it
     if (balance !== user.balance) {
       const diff = balance - user.balance;
+      const byLabel = requesterIsMain ? 'Main Admin' : requester.name;
       stmts.insertBalanceLog.run({
         user_id: id, type: 'admin_adjustment', amount: diff,
-        note: `Admin ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`,
+        note: `${byLabel} ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`,
       });
     }
 
@@ -1393,6 +1427,26 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
   } catch (err) {
     console.error('Admin transaction update error:', err.message);
     res.status(500).json({ error: 'Failed to update transaction' });
+  }
+});
+
+// ── GET /api/admin/my-quota — user-admin daily balance quota ────────────────
+app.get('/api/admin/my-quota', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const adminId = req.auth.userId;
+    const admin = req.auth.user;
+    const today = stmts.getAdminBalanceAddsToday.get(adminId);
+    res.json({
+      daily_limit: admin.admin_balance_limit || 0,
+      used_today: today.total,
+      adds_today: today.count,
+      max_adds_per_day: 3,
+      remaining_amount: Math.max(0, (admin.admin_balance_limit || 0) - today.total),
+      remaining_adds: Math.max(0, 3 - today.count),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch quota' });
   }
 });
 
