@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1280">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2563EB"/><stop offset="1" stop-color="#F59E0B"/></linearGradient></defs>
+  <rect width="720" height="1280" fill="url(#bg)"/>
+  <circle cx="360" cy="590" r="132" fill="none" stroke="#DC2626" stroke-width="14"/>
+  <rect x="300" y="525" width="120" height="120" rx="22" fill="#E5E7EB"/>
+  <rect x="318" y="545" width="84" height="84" rx="14" fill="#6366F1"/>
+  <text x="280" y="690" fill="#E5E7EB" font-size="48" font-family="Arial" font-weight="700">PhoneCraft</text>
+  <text x="70" y="220" fill="#23AF91" font-size="48" font-family="Arial" font-weight="700">Step 4</text>
+  <text x="70" y="280" fill="#F3F4F6" font-size="32" font-family="Arial">Open app icon from home screen</text>
+</svg>

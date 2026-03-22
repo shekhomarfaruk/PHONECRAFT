@@ -24,3 +24,13 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[nix]
+channel = "stable-25_05"
+packages = ["python3"]
+
+[userenv]
+
+[userenv.shared]
+WEBHOOK_URL = "https://f98b6bc6-1eb7-4a9c-a3c8-3d2e976614dd-00-3kc1gekpg3hwx.picard.replit.dev"
+AUTH_SECRET = "a14d27bff49cd428d71a59e6e9c275d93dc5b1f10c3e56668fd08cc5f7c4d141"
