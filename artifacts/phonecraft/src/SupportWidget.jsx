@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import Icons from './Icons.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -115,7 +116,7 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
           <div className="sw-box">
             {/* Header */}
             <div className="sw-head">
-              <div style={{ width:32, height:32, borderRadius:'50%', background:'rgba(35,175,145,.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>💬</div>
+              <div style={{ width:32, height:32, borderRadius:'50%', background:'rgba(35,175,145,.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Icons.Chat size={18} /></div>
               <div style={{ flex:1 }}>
                 <div style={{ fontFamily:'Space Grotesk', fontWeight:700, fontSize:13, color:'#EAECEF' }}>
                   {isBn ? 'লাইভ সাপোর্ট' : 'Live Support'}
@@ -155,7 +156,7 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
         {/* Floating button */}
         <button className="sw-btn" onClick={() => setOpen(p => !p)} title={isBn ? 'লাইভ সাপোর্ট' : 'Live Support'}>
           <div className="sw-pulse" />
-          {open ? '×' : '💬'}
+          {open ? '×' : <Icons.Chat size={22} />}
         </button>
       </div>
     </>

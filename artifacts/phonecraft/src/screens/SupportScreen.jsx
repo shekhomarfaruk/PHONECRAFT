@@ -83,10 +83,10 @@ function SupportScreen({ user, showToast, lang }) {
 
       <div className="tabs" style={{ marginBottom: 0 }}>
         <div className={`tab ${tab === 'chat' ? 'active' : ''}`} onClick={() => setTab('chat')}>
-          💬 {lang === 'bn' ? 'লাইভ চ্যাট' : 'Live Chat'}
+          <Icons.Chat size={14}/> {lang === 'bn' ? 'লাইভ চ্যাট' : 'Live Chat'}
         </div>
         <div className={`tab ${tab === 'faq' ? 'active' : ''}`} onClick={() => setTab('faq')}>
-          ❓ FAQ
+          <Icons.Info size={14}/> FAQ
         </div>
       </div>
 

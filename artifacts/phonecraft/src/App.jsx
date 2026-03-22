@@ -176,7 +176,7 @@ export default function App() {
           id:   n.id,
           type: n.type,
           meta: n.meta || null,
-          icon: n.type === 'sold' ? '💰' : n.type === 'success' ? '📱' : n.type === 'registration_request' ? '🔔' : 'ℹ️',
+          iconKey: n.type === 'sold' ? 'Dollar' : n.type === 'success' ? 'Smartphone' : n.type === 'registration_request' ? 'Bell' : 'Info',
           rawText: n.message,
           text: convertCurrencyText(n.message, lang),
           time: formatRelativeTime(n.created_at, lang),

@@ -211,7 +211,7 @@ function NotifScreen({items, setItems, user, setUser, lang, showToast}) {
               transition:'background .2s',
             }}
           >
-            <div style={{fontSize:22,flexShrink:0,lineHeight:1}}>{n.icon}</div>
+            <div style={{flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',width:36,height:36,borderRadius:10,background:'rgba(35,175,145,.1)'}}>{(() => { const IC = Icons[n.iconKey]; return IC ? <IC size={20} /> : <Icons.Info size={20} />; })()}</div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{ fontSize:13, fontWeight:n.read?400:600, lineHeight:1.45, color:n.read?'var(--text2)':'var(--text)' }}>{convertCurrencyText(n.rawText || n.text, lang)}</div>
               <div style={{fontSize:11,color:'var(--text2)',marginTop:3}}>{n.time}</div>

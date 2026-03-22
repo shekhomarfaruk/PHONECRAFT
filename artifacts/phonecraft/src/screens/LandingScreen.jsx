@@ -136,9 +136,9 @@ const LD_TEXT = {
     vid_live: 'LIVE FACTORY',
     how_title: 'How It Works',
     steps: [
-      { step:'01', icon:'🔐', title:'Create Account',   desc:'Sign up with a referral code & choose your manufacturing plan' },
-      { step:'02', icon:'⚙️', title:'Build Phones',     desc:'Complete daily virtual manufacturing tasks on your shift' },
-      { step:'03', icon:'💰', title:'Earn & Withdraw',  desc:'Collect your earnings and withdraw to your mobile banking' },
+      { step:'01', iconKey:'ShieldLock', title:'Create Account',   desc:'Sign up with a referral code & choose your manufacturing plan' },
+      { step:'02', iconKey:'Cpu',        title:'Build Phones',     desc:'Complete daily virtual manufacturing tasks on your shift' },
+      { step:'03', iconKey:'Dollar',     title:'Earn & Withdraw',  desc:'Collect your earnings and withdraw to your mobile banking' },
     ],
     plans_title: 'Investment Plans',
     plans_sub: 'Choose the plan that fits your earning goal',
@@ -152,12 +152,12 @@ const LD_TEXT = {
     act_gold:  'Activate GOLD',  act_plat:    'Activate PLATINUM',
     trust_title: 'Why Trust PhoneCraft',
     trust_badges: [
-      { icon:'🔒', title:'Secure Platform',    desc:'256-bit AES encrypted data & secure payments' },
-      { icon:'📄', title:'Legal Documents',    desc:'Full Terms of Service & Privacy Policy' },
-      { icon:'⚡', title:'Daily Payouts',      desc:'Earnings credited instantly after task completion' },
-      { icon:'🌍', title:'Global Members',     desc:'Trusted by 84,000+ users across 20 countries' },
-      { icon:'🎯', title:'Transparent Rates',  desc:'Fixed plan rates, no hidden fees' },
-      { icon:'💬', title:'24/7 Support',       desc:'Dedicated support team always available' },
+      { iconKey:'Shield', title:'Secure Platform',    desc:'256-bit AES encrypted data & secure payments' },
+      { iconKey:'Document', title:'Legal Documents',    desc:'Full Terms of Service & Privacy Policy' },
+      { iconKey:'Zap', title:'Daily Payouts',      desc:'Earnings credited instantly after task completion' },
+      { iconKey:'Globe', title:'Global Members',     desc:'Trusted by 84,000+ users across 20 countries' },
+      { iconKey:'Target', title:'Transparent Rates',  desc:'Fixed plan rates, no hidden fees' },
+      { iconKey:'Headset', title:'24/7 Support',       desc:'Dedicated support team always available' },
     ],
     legal_title:   'Legal Documents',
     legal_heading: 'Official Legal Terms',
@@ -205,9 +205,9 @@ const LD_TEXT = {
     vid_live: 'লাইভ ফ্যাক্টরি',
     how_title: 'কিভাবে কাজ করে',
     steps: [
-      { step:'০১', icon:'🔐', title:'অ্যাকাউন্ট তৈরি',  desc:'রেফারেল কোড দিয়ে সাইন আপ করুন ও আপনার ম্যানুফ্যাকচারিং প্ল্যান বেছে নিন' },
-      { step:'০২', icon:'⚙️', title:'ফোন তৈরি করুন',   desc:'আপনার শিফটে প্রতিদিনের ভার্চুয়াল ম্যানুফ্যাকচারিং টাস্ক সম্পন্ন করুন' },
-      { step:'০৩', icon:'💰', title:'আয় ও উইথড্র',    desc:'আপনার আয় সংগ্রহ করুন এবং মোবাইল ব্যাংকিংয়ে উইথড্র করুন' },
+      { step:'০১', iconKey:'ShieldLock', title:'অ্যাকাউন্ট তৈরি',  desc:'রেফারেল কোড দিয়ে সাইন আপ করুন ও আপনার ম্যানুফ্যাকচারিং প্ল্যান বেছে নিন' },
+      { step:'০২', iconKey:'Cpu',        title:'ফোন তৈরি করুন',   desc:'আপনার শিফটে প্রতিদিনের ভার্চুয়াল ম্যানুফ্যাকচারিং টাস্ক সম্পন্ন করুন' },
+      { step:'০৩', iconKey:'Dollar',     title:'আয় ও উইথড্র',    desc:'আপনার আয় সংগ্রহ করুন এবং মোবাইল ব্যাংকিংয়ে উইথড্র করুন' },
     ],
     plans_title: 'বিনিয়োগ পরিকল্পনা',
     plans_sub: 'আপনার আয়ের লক্ষ্য অনুযায়ী প্ল্যান বেছে নিন',
@@ -221,12 +221,12 @@ const LD_TEXT = {
     act_gold:  'GOLD সক্রিয় করুন',  act_plat:    'PLATINUM সক্রিয় করুন',
     trust_title: 'কেন ফোনক্রাফট বিশ্বাসযোগ্য',
     trust_badges: [
-      { icon:'🔒', title:'নিরাপদ প্ল্যাটফর্ম',  desc:'২৫৬-বিট AES এনক্রিপ্টেড ডেটা ও নিরাপদ পেমেন্ট' },
-      { icon:'📄', title:'আইনি দলিল',           desc:'সম্পূর্ণ সেবার শর্তাবলী ও গোপনীয়তা নীতি' },
-      { icon:'⚡', title:'দৈনিক পেআউট',         desc:'টাস্ক সম্পন্নের সাথে সাথে আয় যোগ হয়' },
-      { icon:'🌍', title:'বৈশ্বিক সদস্য',        desc:'২০ দেশে ৮৪,০০০+ ব্যবহারকারীর বিশ্বাস' },
-      { icon:'🎯', title:'স্বচ্ছ রেট',           desc:'নির্ধারিত প্ল্যান রেট, কোনো লুকানো ফি নেই' },
-      { icon:'💬', title:'২৪/৭ সাপোর্ট',        desc:'সর্বদা উপলব্ধ ডেডিকেটেড সাপোর্ট টিম' },
+      { iconKey:'Shield', title:'নিরাপদ প্ল্যাটফর্ম',  desc:'২৫৬-বিট AES এনক্রিপ্টেড ডেটা ও নিরাপদ পেমেন্ট' },
+      { iconKey:'Document', title:'আইনি দলিল',           desc:'সম্পূর্ণ সেবার শর্তাবলী ও গোপনীয়তা নীতি' },
+      { iconKey:'Zap', title:'দৈনিক পেআউট',         desc:'টাস্ক সম্পন্নের সাথে সাথে আয় যোগ হয়' },
+      { iconKey:'Globe', title:'বৈশ্বিক সদস্য',        desc:'২০ দেশে ৮৪,০০০+ ব্যবহারকারীর বিশ্বাস' },
+      { iconKey:'Target', title:'স্বচ্ছ রেট',           desc:'নির্ধারিত প্ল্যান রেট, কোনো লুকানো ফি নেই' },
+      { iconKey:'Headset', title:'২৪/৭ সাপোর্ট',        desc:'সর্বদা উপলব্ধ ডেডিকেটেড সাপোর্ট টিম' },
     ],
     legal_title:   'আইনি দলিল',
     legal_heading: 'অফিশিয়াল আইনি শর্তাবলী',
@@ -901,7 +901,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           <div className="ld-steps-grid">
             {t.steps.map((s, i) => (
               <div key={i} style={{ textAlign:'center', padding:'clamp(16px,2.5vw,24px) clamp(10px,2vw,18px)', borderRadius:14, border:'1px solid rgba(43,49,57,0.9)', background:'rgba(22,26,37,.7)' }}>
-                <div style={{ fontSize:'clamp(26px,3.5vw,38px)', marginBottom:8 }}>{s.icon}</div>
+                <div style={{ display:'flex', justifyContent:'center', marginBottom:8 }}>{(() => { const IC = Icons[s.iconKey]; return IC ? <IC size={Math.min(38, window.innerWidth * 0.035 + 26)} /> : null; })()}</div>
                 <div style={{ fontFamily:'Space Grotesk', fontSize:'clamp(10px,0.9vw,13px)', fontWeight:700, color:'#23AF91', letterSpacing:1.5, marginBottom:6 }}>STEP {s.step}</div>
                 <div style={{ fontWeight:700, fontSize:'clamp(13px,1.4vw,17px)', marginBottom:6 }}>{s.title}</div>
                 <div style={{ fontSize:'clamp(12px,1.1vw,15px)', color:'#707A8A', lineHeight:1.65 }}>{s.desc}</div>
@@ -1129,7 +1129,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:12 }}>
             {t.trust_badges.map((b, i) => (
               <div key={i} className="ld-trust-badge">
-                <span style={{ fontSize:18, flexShrink:0 }}>{b.icon}</span>
+                <span style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:10, background:'rgba(35,175,145,.08)' }}>{(() => { const IC = Icons[b.iconKey]; return IC ? <IC size={20} /> : null; })()}</span>
                 <div>
                   <div style={{ fontWeight:700, fontSize:'clamp(13px,1.2vw,16px)' }}>{b.title}</div>
                   <div style={{ fontSize:'clamp(12px,1vw,14px)', color:'#707A8A', marginTop:2, lineHeight:1.5 }}>{b.desc}</div>
