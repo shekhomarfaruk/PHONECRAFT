@@ -17,11 +17,18 @@ jobs:
         with:
           node-version: '20.x'
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install all dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Build frontend
-        run: |
-          cd artifacts/phonecraft
-          npm install
-          npm run build
+        run: PORT=3000 pnpm --filter @workspace/phonecraft run build
+        env:
+          NODE_ENV: production
 
       - name: Prepare server directory
         run: |
@@ -40,7 +47,7 @@ jobs:
           sed -i "s|res.status(404).json({ error: 'Not found' });|res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));|" server/index.js
 
       - name: Copy dist from frontend build
-        run: cp -r artifacts/phonecraft/dist dist
+        run: cp -r artifacts/phonecraft/dist/public dist
 
       - name: Archive production artifacts
         run: zip -r release.zip server dist
