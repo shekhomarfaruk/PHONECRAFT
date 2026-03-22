@@ -245,7 +245,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
           </div>
         ) : (
           log.map((entry, i) => {
-            const meta = LOG_META[entry.type] || { icon: '📋', colorPos: entry.amount >= 0 };
+            const meta = LOG_META[entry.type] || { iconKey: 'Document', colorPos: entry.amount >= 0 };
             const isCredit = entry.amount >= 0;
             return (
               <div key={entry.id} style={{

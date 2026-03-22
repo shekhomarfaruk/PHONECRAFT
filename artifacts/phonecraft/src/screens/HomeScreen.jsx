@@ -87,15 +87,16 @@ function EarningsTicker({ lang = 'en' }) {
   );
 }
 
+const LIVE_COLORS = ['#23AF91','#6366F1','#F59E0B','#EF4444','#3B82F6','#EC4899','#10B981','#8B5CF6'];
 const LIVE_ITEMS = [
-  { icon: '🇧🇩', text: 'R***** from Bangladesh bought NovaTech Pro 4G!',   time: 'Just now'  },
-  { icon: '🇮🇳', text: 'S***** from India bought QuantumX Ultra 5G!',      time: '1 min ago' },
-  { icon: '🇲🇾', text: 'J***** from Malaysia bought ByteCore Lite 3G!',    time: '3 min ago' },
-  { icon: '🇵🇰', text: 'K***** from Pakistan bought NexGen Max 4G!',       time: '5 min ago' },
-  { icon: '🇳🇬', text: 'A***** from Nigeria bought StellarPhone Max 4G!',  time: '6 min ago' },
-  { icon: '🇵🇭', text: 'M***** from Philippines bought OrbTech Pro 5G!',   time: '8 min ago' },
-  { icon: '🇮🇩', text: 'F***** from Indonesia bought NanoCore Ultra 4G!',  time: '9 min ago' },
-  { icon: '🇹🇷', text: 'E***** from Turkey bought ByteCore X1 5G!',        time: '11 min ago'},
+  { code: 'BD', text: 'R***** from Bangladesh bought NovaTech Pro 4G!',   time: 'Just now'  },
+  { code: 'IN', text: 'S***** from India bought QuantumX Ultra 5G!',      time: '1 min ago' },
+  { code: 'MY', text: 'J***** from Malaysia bought ByteCore Lite 3G!',    time: '3 min ago' },
+  { code: 'PK', text: 'K***** from Pakistan bought NexGen Max 4G!',       time: '5 min ago' },
+  { code: 'NG', text: 'A***** from Nigeria bought StellarPhone Max 4G!',  time: '6 min ago' },
+  { code: 'PH', text: 'M***** from Philippines bought OrbTech Pro 5G!',   time: '8 min ago' },
+  { code: 'ID', text: 'F***** from Indonesia bought NanoCore Ultra 4G!',  time: '9 min ago' },
+  { code: 'TR', text: 'E***** from Turkey bought ByteCore X1 5G!',        time: '11 min ago'},
 ];
 
 function LiveActivityTicker({ t }) {
@@ -116,7 +117,7 @@ function LiveActivityTicker({ t }) {
         <div className="live-track">
           {items.map((a, i) => (
             <div key={i} className="live-row">
-              <span style={{ fontSize: 20, flexShrink: 0 }}>{a.icon}</span>
+              <span style={{ width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg, ${LIVE_COLORS[i % LIVE_COLORS.length]}, ${LIVE_COLORS[(i+3) % LIVE_COLORS.length]})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', letterSpacing: 0.5, flexShrink: 0 }}>{a.code}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.text}</div>
                 <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 1 }}>{a.time}</div>
@@ -182,7 +183,7 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
                 background: 'linear-gradient(135deg, #F6465D, #F59E0B)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 20, flexShrink: 0,
-              }}>🔔</div>
+              }}><Icons.Bell size={20} color="#fff" /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--text)' }}>
                   {lang === 'bn' ? 'নতুন রেজিস্ট্রেশন অনুরোধ!' : 'New Registration Request!'}
@@ -198,14 +199,14 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
                 className="btn btn-success"
                 style={{ flex: 1, fontSize: 13, padding: '10px 0', fontWeight: 700, borderRadius: 10 }}
               >
-                {lang === 'bn' ? '✅ Accept' : '✅ Accept'}
+                {lang === 'bn' ? 'Accept' : 'Accept'}
               </button>
               <button
                 onClick={() => setRegModalNotif(notif)}
                 className="btn btn-danger"
                 style={{ flex: 1, fontSize: 13, padding: '10px 0', fontWeight: 700, borderRadius: 10 }}
               >
-                {lang === 'bn' ? '❌ Decline' : '❌ Decline'}
+                {lang === 'bn' ? 'Decline' : 'Decline'}
               </button>
             </div>
           </div>
@@ -236,7 +237,7 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: 'Space Grotesk', fontWeight: 800, fontSize: 14 }}>
-            {lang === 'bn' ? '📲 হোম স্ক্রিনে অ্যাপ ইনস্টল করুন' : '📲 Install App to Home Screen'}
+            {lang === 'bn' ? 'হোম স্ক্রিনে অ্যাপ ইনস্টল করুন' : 'Install App to Home Screen'}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
             {lang === 'bn' ? 'ট্যাপ করে Android/iPhone install guide দেখুন' : 'Tap to open Android/iPhone install guide'}

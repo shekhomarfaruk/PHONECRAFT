@@ -143,9 +143,9 @@ const LD_TEXT = {
     plans_title: 'Investment Plans',
     plans_sub: 'Choose the plan that fits your earning goal',
     plan_basic_badge:   'STARTER PLAN',
-    plan_premium_badge: '⭐ MOST POPULAR',
-    plan_gold_badge:    '🏆 RECOMMENDED',
-    plan_plat_badge:    '💎 POWER USER',
+    plan_premium_badge: 'MOST POPULAR',
+    plan_gold_badge:    'RECOMMENDED',
+    plan_plat_badge:    'POWER USER',
     popular_ribbon: 'POPULAR',
     one_time: 'one-time investment',
     act_basic: 'Activate BASIC', act_premium: 'Activate PREMIUM',
@@ -162,28 +162,28 @@ const LD_TEXT = {
     legal_title:   'Legal Documents',
     legal_heading: 'Official Legal Terms',
     legal_body: 'PhoneCraft operates under comprehensive legal terms. All financial transactions, membership agreements, and platform usage are governed by our legally binding documents.',
-    terms_btn: '📄 Terms of Service',
-    privacy_btn: '🔒 Privacy Policy',
+    terms_btn: 'Terms of Service',
+    privacy_btn: 'Privacy Policy',
     disclaimer: 'PhoneCraft is a real earning platform. Earnings are based on completing in-app manufacturing tasks. Income varies by plan and daily performance. Investment in any plan carries risk. Please read all legal documents before registering.',
     cta_title: 'Ready to Start Earning?',
     cta_body: 'Join 84,000+ members who earn daily from the comfort of their home. Registration requires a referral code.',
     cta_btn: 'Create Account Now',
     install_banner_title: 'PhoneCraft App',
     install_banner_sub: 'Install for the best experience — works offline too!',
-    install_btn: '⬇ Install',
+    install_btn: 'Install',
     install_guide_title: 'Install App on Your Phone',
     install_guide_sub: 'Add PhoneCraft to your home screen in seconds — works like a native app, no Play Store or App Store needed.',
     install_tab_android: 'Android',
     install_tab_ios: 'iPhone / iPad',
     install_android_steps: [
-      { num: '01', icon: '⋮', title: 'Open Browser Menu', desc: 'Tap the three-dot (⋮) menu button at the top-right corner of Chrome browser' },
-      { num: '02', icon: '📲', title: 'Add to Home Screen', desc: 'Find and tap \'Add to Home Screen\' or \'Install App\' from the dropdown menu' },
-      { num: '03', icon: '✅', title: 'Confirm & Launch', desc: 'Tap \'Add\' or \'Install\' in the popup — the PhoneCraft icon will appear on your home screen' },
+      { num: '01', iconKey: 'MoreVertical', title: 'Open Browser Menu', desc: 'Tap the three-dot (⋮) menu button at the top-right corner of Chrome browser' },
+      { num: '02', iconKey: 'Download', title: 'Add to Home Screen', desc: 'Find and tap \'Add to Home Screen\' or \'Install App\' from the dropdown menu' },
+      { num: '03', iconKey: 'CheckCircle', title: 'Confirm & Launch', desc: 'Tap \'Add\' or \'Install\' in the popup — the PhoneCraft icon will appear on your home screen' },
     ],
     install_ios_steps: [
-      { num: '01', icon: '📤', title: 'Tap the Share Button', desc: 'Tap the Share icon (rectangle with an arrow pointing up) at the bottom toolbar of Safari' },
-      { num: '02', icon: '📲', title: 'Add to Home Screen', desc: 'Scroll down in the share menu and tap \'Add to Home Screen\'' },
-      { num: '03', icon: '✅', title: 'Confirm & Launch', desc: 'Tap \'Add\' in the top-right corner — the PhoneCraft icon will appear on your home screen' },
+      { num: '01', iconKey: 'Upload', title: 'Tap the Share Button', desc: 'Tap the Share icon (rectangle with an arrow pointing up) at the bottom toolbar of Safari' },
+      { num: '02', iconKey: 'Download', title: 'Add to Home Screen', desc: 'Scroll down in the share menu and tap \'Add to Home Screen\'' },
+      { num: '03', iconKey: 'CheckCircle', title: 'Confirm & Launch', desc: 'Tap \'Add\' in the top-right corner — the PhoneCraft icon will appear on your home screen' },
     ],
     install_note: 'Once installed, open PhoneCraft from your home screen for the full app experience — fast, offline-ready, and no browser bar.',
     footer_terms: 'Terms of Service',
@@ -212,9 +212,9 @@ const LD_TEXT = {
     plans_title: 'বিনিয়োগ পরিকল্পনা',
     plans_sub: 'আপনার আয়ের লক্ষ্য অনুযায়ী প্ল্যান বেছে নিন',
     plan_basic_badge:   'স্টার্টার প্ল্যান',
-    plan_premium_badge: '⭐ সবচেয়ে জনপ্রিয়',
-    plan_gold_badge:    '🏆 প্রস্তাবিত',
-    plan_plat_badge:    '💎 পাওয়ার ইউজার',
+    plan_premium_badge: 'সবচেয়ে জনপ্রিয়',
+    plan_gold_badge:    'প্রস্তাবিত',
+    plan_plat_badge:    'পাওয়ার ইউজার',
     popular_ribbon: 'জনপ্রিয়',
     one_time: 'একবারের বিনিয়োগ',
     act_basic: 'BASIC সক্রিয় করুন', act_premium: 'PREMIUM সক্রিয় করুন',
@@ -231,28 +231,28 @@ const LD_TEXT = {
     legal_title:   'আইনি দলিল',
     legal_heading: 'অফিশিয়াল আইনি শর্তাবলী',
     legal_body: 'ফোনক্রাফট ব্যাপক আইনি শর্তাবলীর অধীনে পরিচালিত হয়। সমস্ত আর্থিক লেনদেন, সদস্যপদ চুক্তি এবং প্ল্যাটফর্ম ব্যবহার আমাদের আইনত বাধ্যকর দলিল দ্বারা পরিচালিত হয়।',
-    terms_btn: '📄 সেবার শর্তাবলী',
-    privacy_btn: '🔒 গোপনীয়তা নীতি',
+    terms_btn: 'সেবার শর্তাবলী',
+    privacy_btn: 'গোপনীয়তা নীতি',
     disclaimer: 'ফোনক্রাফট একটি বাস্তব আয়ের প্ল্যাটফর্ম। আয় ইন-অ্যাপ ম্যানুফ্যাকচারিং টাস্ক সম্পন্নের উপর নির্ভর করে। আয় প্ল্যান ও দৈনিক কর্মক্ষমতা অনুযায়ী পরিবর্তিত হয়। যেকোনো প্ল্যানে বিনিয়োগে ঝুঁকি রয়েছে। নিবন্ধনের আগে সকল আইনি দলিল পড়ুন।',
     cta_title: 'আয় শুরু করতে প্রস্তুত?',
     cta_body: '৮৪,০০০+ সদস্যের সাথে যোগ দিন যারা প্রতিদিন ঘরে বসে আয় করছেন। নিবন্ধনের জন্য রেফারেল কোড প্রয়োজন।',
     cta_btn: 'এখনই অ্যাকাউন্ট তৈরি করুন',
     install_banner_title: 'ফোনক্রাফট অ্যাপ',
     install_banner_sub: 'সেরা অভিজ্ঞতার জন্য ইনস্টল করুন — অফলাইনেও চলে!',
-    install_btn: '⬇ ইনস্টল',
+    install_btn: 'ইনস্টল',
     install_guide_title: 'ফোনে অ্যাপ ইনস্টল করুন',
     install_guide_sub: 'মাত্র কয়েক সেকেন্ডে ফোনক্রাফট হোম স্ক্রিনে যোগ করুন — Play Store বা App Store ছাড়াই native app-এর মতো চলবে।',
     install_tab_android: 'অ্যান্ড্রয়েড',
     install_tab_ios: 'আইফোন / আইপ্যাড',
     install_android_steps: [
-      { num: '০১', icon: '⋮', title: 'ব্রাউজার মেনু খুলুন', desc: 'Chrome ব্রাউজারের উপরের ডান কোণে তিন-ডট (⋮) মেনু বাটনে ট্যাপ করুন' },
-      { num: '০২', icon: '📲', title: 'হোম স্ক্রিনে যোগ করুন', desc: 'ড্রপডাউন মেনু থেকে \'Add to Home Screen\' বা \'Install App\' খুঁজে ট্যাপ করুন' },
-      { num: '০৩', icon: '✅', title: 'নিশ্চিত করুন ও চালু করুন', desc: 'পপআপে \'Add\' বা \'Install\' ট্যাপ করুন — হোম স্ক্রিনে ফোনক্রাফট আইকন যোগ হয়ে যাবে' },
+      { num: '০১', iconKey: 'MoreVertical', title: 'ব্রাউজার মেনু খুলুন', desc: 'Chrome ব্রাউজারের উপরের ডান কোণে তিন-ডট (⋮) মেনু বাটনে ট্যাপ করুন' },
+      { num: '০২', iconKey: 'Download', title: 'হোম স্ক্রিনে যোগ করুন', desc: 'ড্রপডাউন মেনু থেকে \'Add to Home Screen\' বা \'Install App\' খুঁজে ট্যাপ করুন' },
+      { num: '০৩', iconKey: 'CheckCircle', title: 'নিশ্চিত করুন ও চালু করুন', desc: 'পপআপে \'Add\' বা \'Install\' ট্যাপ করুন — হোম স্ক্রিনে ফোনক্রাফট আইকন যোগ হয়ে যাবে' },
     ],
     install_ios_steps: [
-      { num: '০১', icon: '📤', title: 'শেয়ার বাটন চাপুন', desc: 'Safari ব্রাউজারের নিচের টুলবারে Share আইকনে (উপরে তীর সহ আয়তক্ষেত্র) ট্যাপ করুন' },
-      { num: '০২', icon: '📲', title: 'হোম স্ক্রিনে যোগ করুন', desc: 'শেয়ার মেনু স্ক্রল করে \'Add to Home Screen\' খুঁজে ট্যাপ করুন' },
-      { num: '০৩', icon: '✅', title: 'নিশ্চিত করুন ও চালু করুন', desc: 'উপরের ডান কোণে \'Add\' ট্যাপ করুন — হোম স্ক্রিনে ফোনক্রাফট আইকন যোগ হয়ে যাবে' },
+      { num: '০১', iconKey: 'Upload', title: 'শেয়ার বাটন চাপুন', desc: 'Safari ব্রাউজারের নিচের টুলবারে Share আইকনে (উপরে তীর সহ আয়তক্ষেত্র) ট্যাপ করুন' },
+      { num: '০২', iconKey: 'Download', title: 'হোম স্ক্রিনে যোগ করুন', desc: 'শেয়ার মেনু স্ক্রল করে \'Add to Home Screen\' খুঁজে ট্যাপ করুন' },
+      { num: '০৩', iconKey: 'CheckCircle', title: 'নিশ্চিত করুন ও চালু করুন', desc: 'উপরের ডান কোণে \'Add\' ট্যাপ করুন — হোম স্ক্রিনে ফোনক্রাফট আইকন যোগ হয়ে যাবে' },
     ],
     install_note: 'একবার ইনস্টল করলে হোম স্ক্রিন থেকে সরাসরি খুলুন — দ্রুত, অফলাইন-রেডি, ব্রাউজার বার ছাড়াই।',
     footer_terms: 'সেবার শর্তাবলী',
@@ -806,7 +806,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
               <div className="auth-logo-ring2" />
               <div className="auth-logo-glow" />
               <div className="auth-logo-svg">
-                <img src="/logo.png" alt="PhoneCraft" style={{ width:110, height:110, objectFit:'contain' }} onError={e=>{ e.target.style.display='none'; e.target.parentElement.innerHTML='📱'; }} />
+                <img src="/logo.png" alt="PhoneCraft" style={{ width:110, height:110, objectFit:'contain' }} onError={e=>{ e.target.style.display='none'; }} />
               </div>
               <span className="auth-orbit-dot" />
               <span className="auth-orbit-dot" />
@@ -1149,7 +1149,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           </div>
           <div style={{ borderRadius:14, border:'1px solid rgba(43,49,57,0.9)', background:'rgba(22,26,37,.7)', padding:'16px 16px 12px', marginBottom:14 }}>
             <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-              <span style={{ fontSize:24, flexShrink:0 }}>📋</span>
+              <span style={{ flexShrink:0 }}><Icons.Document size={24} /></span>
               <div style={{ flex:1 }}>
                 <div style={{ fontWeight:700, fontSize:14, marginBottom:4 }}>{t.legal_heading}</div>
                 <p style={{ fontSize:13, color:'#707A8A', lineHeight:1.7, marginBottom:12 }}>
@@ -1175,7 +1175,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           {/* Disclaimer */}
           <div style={{ padding:'12px 14px', borderRadius:10, background:'rgba(240,185,11,.04)', border:'1px solid rgba(240,185,11,.15)' }}>
             <div style={{ fontSize:12, color:'rgba(240,185,11,.7)', lineHeight:1.75 }}>
-              <strong style={{ color:'rgba(240,185,11,.9)' }}>⚠️ Disclaimer:</strong> {t.disclaimer}
+              <strong style={{ color:'rgba(240,185,11,.9)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icons.AlertTriangle size={14} color="rgba(240,185,11,.9)" /> Disclaimer:</strong> {t.disclaimer}
             </div>
           </div>
           </div>{/* end ld-wrap */}

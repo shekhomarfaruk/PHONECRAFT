@@ -82,7 +82,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
         }),
       });
       const data = await res.json();
-      if (!res.ok) { showToast('⚠️ ' + data.error); setStarting(false); return; }
+      if (!res.ok) { showToast(data.error, 'error'); setStarting(false); return; }
 
       jobRef.current = data.job;
       resumeElapsedRef.current = 0;
@@ -90,7 +90,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
       setDailyLimit(data.dailyLimit);
       setPhase('terminal');
     } catch {
-      showToast('⚠️ ' + t.toast_connection_error);
+      showToast(t.toast_connection_error, 'error');
     }
     setStarting(false);
   }, [canStart, user.id, deviceName, brand, ram, rom, color, showToast, t]);
@@ -144,7 +144,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
         body: JSON.stringify({ userId: user.id, jobId: jobRef.current.id }),
       });
       const data = await res.json();
-      if (!res.ok) { showToast('⚠️ ' + data.error); return; }
+      if (!res.ok) { showToast(data.error, 'error'); return; }
 
       resultRef.current = data;
       setDailyDone(data.dailyDone);
@@ -156,13 +156,13 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
       // Push notification to app notification list
       addNotif({
         type: 'success',
-        icon: '📱',
+        iconKey: 'Smartphone',
         text: `${deviceName} — ${t.device_posted} $${Math.min(data.marketPrice, 10)}`,
       });
 
       setPhase('success');
     } catch {
-      showToast('⚠️ ' + t.toast_connection_error);
+      showToast(t.toast_connection_error, 'error');
     }
   };
 
@@ -312,7 +312,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
 
         {/* Device info */}
         <div className="device-preview">
-          <div className="phone-mockup">📱</div>
+          <div className="phone-mockup"><Icons.Smartphone size={36} /></div>
           <div style={{ fontFamily:'Space Grotesk', fontSize:14, fontWeight:700 }}>{deviceName}</div>
           <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{brand} · {ram} · {rom}</div>
         </div>
@@ -362,7 +362,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
 
       {/* Success banner */}
       <div className="card" style={{ background:'linear-gradient(135deg,rgba(14,203,129,.1),rgba(35,175,145,.1))', borderColor:'rgba(14,203,129,.3)', textAlign:'center' }}>
-        <div style={{ fontSize:40, marginBottom:8 }}>✅</div>
+        <div style={{ marginBottom:8 }}><Icons.CheckCircle size={40} /></div>
         <div style={{ fontFamily:'Space Grotesk', fontSize:16, fontWeight:900, color:'var(--green)', marginBottom:4 }}>
           {t.processing_done}
         </div>
@@ -373,7 +373,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
 
       {/* Device preview */}
       <div className="device-preview">
-        <div className="phone-mockup">📱</div>
+        <div className="phone-mockup"><Icons.Smartphone size={36} /></div>
         <div style={{ fontFamily:'Space Grotesk', fontSize:15, fontWeight:700 }}>{job?.device_name || deviceName}</div>
         <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>
           {job?.brand || brand} · {job?.ram || ram} · {job?.rom || rom}

@@ -75,7 +75,7 @@ function ProfileScreen({ user, setUser, navigate, doLogout, lang, showToast }) {
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageChange} />
 
         <div style={{ fontSize: 10, color: 'var(--text2)', marginBottom: 10 }}>
-          {lang === 'bn' ? '📷 ট্যাপ করে ছবি পরিবর্তন করুন' : '📷 Tap to change photo'}
+          {lang === 'bn' ? 'ট্যাপ করে ছবি পরিবর্তন করুন' : 'Tap to change photo'}
         </div>
 
         <div style={{ fontFamily: 'Space Grotesk', fontSize: 'clamp(16px,4vw,20px)', fontWeight: 700 }}>{user.name}</div>

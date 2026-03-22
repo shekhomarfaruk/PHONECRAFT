@@ -35,7 +35,7 @@ export function mapApiUser(apiUser, plan, authToken, previousUser = null) {
     dailyLimit: plan?.daily || previousUser?.dailyLimit || 0,
     referCode: apiUser.refer_code || previousUser?.referCode || '',
     devices: previousUser?.devices || [],
-    avatar: apiUser.avatar || previousUser?.avatar || '🧑',
+    avatar: apiUser.avatar || previousUser?.avatar || 'A',
     avatarImg: apiUser.avatar_img || previousUser?.avatarImg || null,
     teamMembers: previousUser?.teamMembers || [],
     isAdmin: typeof apiUser.is_admin === 'number' ? !!apiUser.is_admin : !!previousUser?.isAdmin,

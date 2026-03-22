@@ -155,11 +155,7 @@ export default function App() {
   }, [pendingRegId, lang]);
 
   const showToast = useCallback((msg, type) => {
-    const t = type || (
-      /✅|🎉|🌟/.test(msg) ? 'success' :
-      /❌|🚫/.test(msg)     ? 'error'   :
-      /⚠️|⚠/.test(msg)     ? 'warning' : 'info'
-    );
+    const t = type || 'info';
     setToast({ msg, type: t });
     setTimeout(() => setToast(null), 3500);
   }, []);

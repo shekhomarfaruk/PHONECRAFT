@@ -21,9 +21,9 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
       const data = await res.json();
       if (!res.ok) {
         if (data.error === 'insufficient_balance') {
-          showToast('⚠️ ' + (lang === 'bn' ? 'অপর্যাপ্ত ব্যালেন্স' : 'Insufficient Balance'));
+          showToast(lang === 'bn' ? 'অপর্যাপ্ত ব্যালেন্স' : 'Insufficient Balance', 'error');
         } else {
-          showToast('⚠️ ' + (data.error || (lang === 'bn' ? 'ব্যর্থ হয়েছে' : 'Failed')));
+          showToast(data.error || (lang === 'bn' ? 'ব্যর্থ হয়েছে' : 'Failed'), 'error');
         }
         setLoading('');
         return;
@@ -41,10 +41,10 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
       fetch(`${API_URL}/api/user/${userId}/notifications/${notif.id}/read`, { method: 'PATCH' }).catch(() => {});
       setItems(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
       showToast(action === 'approve'
-        ? '✅ ' + (lang === 'bn' ? 'নিবন্ধন অনুমোদন করা হয়েছে' : 'Registration approved')
-        : '❌ ' + (lang === 'bn' ? 'প্রত্যাখ্যান করা হয়েছে' : 'Registration declined'));
+        ? (lang === 'bn' ? 'নিবন্ধন অনুমোদন করা হয়েছে' : 'Registration approved')
+        : (lang === 'bn' ? 'প্রত্যাখ্যান করা হয়েছে' : 'Registration declined'), action === 'approve' ? 'success' : 'error');
     } catch (_) {
-      showToast('⚠️ ' + (lang === 'bn' ? 'নেটওয়ার্ক ত্রুটি হয়েছে' : 'Network error'));
+      showToast(lang === 'bn' ? 'নেটওয়ার্ক ত্রুটি হয়েছে' : 'Network error', 'error');
       setLoading('');
     }
   };
@@ -73,8 +73,8 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
       >
         {done ? (
           <>
-            <div style={{ textAlign: 'center', fontSize: 48, marginBottom: 12 }}>
-              {done === 'approve' ? '✅' : '❌'}
+            <div style={{ textAlign: 'center', marginBottom: 12 }}>
+              {done === 'approve' ? <Icons.CheckCircle size={48} /> : <Icons.X size={48} />}
             </div>
             <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 700, marginBottom: 20 }}>
               {done === 'approve'
@@ -118,14 +118,14 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
                 disabled={!!loading}
                 style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#23AF91,#1a8f75)', color: '#fff', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: loading ? .6 : 1 }}
               >
-                {loading === 'approve' ? '...' : (lang === 'bn' ? '✅ সম্মত' : '✅ Agree')}
+                {loading === 'approve' ? '...' : (lang === 'bn' ? 'সম্মত' : 'Agree')}
               </button>
               <button
                 onClick={() => act('decline')}
                 disabled={!!loading}
                 style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1px solid rgba(246,70,93,.5)', background: 'rgba(246,70,93,.08)', color: '#F6465D', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: loading ? .6 : 1 }}
               >
-                {loading === 'decline' ? '...' : (lang === 'bn' ? '❌ বাতিল' : '❌ Cancel')}
+                {loading === 'decline' ? '...' : (lang === 'bn' ? 'বাতিল' : 'Cancel')}
               </button>
             </div>
           </>
@@ -217,7 +217,7 @@ function NotifScreen({items, setItems, user, setUser, lang, showToast}) {
               <div style={{fontSize:11,color:'var(--text2)',marginTop:3}}>{n.time}</div>
               {n.type === 'registration_request' && !n.read && (
                 <div style={{ marginTop:6, fontSize:11, color:'var(--accent)', fontWeight:600 }}>
-                  {lang === 'bn' ? '👆 ট্যাপ করুন অনুমোদন/বাতিল করতে' : '👆 Tap to approve or cancel'}
+                  {lang === 'bn' ? 'ট্যাপ করুন অনুমোদন/বাতিল করতে' : 'Tap to approve or cancel'}
                 </div>
               )}
             </div>

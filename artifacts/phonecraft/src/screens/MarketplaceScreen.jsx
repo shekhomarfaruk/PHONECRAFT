@@ -27,7 +27,7 @@ function MarketplaceScreen({ user, lang }) {
     id:     item.id,
     name:   item.device_name,
     brand:  item.brand,
-    img:    '📱',
+    iconKey: 'Smartphone',
     specs:  item.specs,
     price:  item.price,
     seller: t.you,
@@ -76,7 +76,7 @@ function MarketplaceScreen({ user, lang }) {
                 }}>{t.sold_label}</span>
               </div>
             )}
-            <div className="mp-img">{item.img}</div>
+            <div className="mp-img">{(() => { const IC = Icons[item.iconKey]; return IC ? <IC size={32} /> : null; })()}</div>
             <div className="mp-body">
               <div className="mp-name">{item.name}</div>
               <div className="mp-specs">{item.specs || `${item.brand}`}</div>

@@ -167,7 +167,7 @@ export default function AdminScreen({ user, showToast, lang }) {
         body: JSON.stringify({ settings: settingsData }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok) showToast('✅ ' + (lang === 'bn' ? 'সেটিংস সংরক্ষিত!' : 'Settings saved!'), 'success');
+      if (res.ok) showToast(lang === 'bn' ? 'সেটিংস সংরক্ষিত!' : 'Settings saved!', 'success');
       else showApiError(data, lang === 'bn' ? 'সংরক্ষণ ব্যর্থ' : 'Failed to save');
     } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setSettingsSaving(false); }
@@ -264,7 +264,7 @@ export default function AdminScreen({ user, showToast, lang }) {
         setSupportReply('');
         fetchSupportMessages(activeSupportSession);
         fetchSupportSessions();
-        showToast(lang === 'bn' ? '✅ উত্তর পাঠানো হয়েছে' : '✅ Reply sent', 'success');
+        showToast(lang === 'bn' ? 'উত্তর পাঠানো হয়েছে' : 'Reply sent', 'success');
       } else showApiError(data, 'Reply failed');
     } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setSupportReplying(false); }
@@ -479,7 +479,7 @@ export default function AdminScreen({ user, showToast, lang }) {
             padding: '2px', transition: 'all 0.3s', justifyContent: 'center', gap: 4,
           }}
         >
-          <span style={{ fontSize: 14 }}>{adminThemeDark ? '🌙' : '☀️'}</span>
+          {adminThemeDark ? <Icons.Moon size={14} /> : <Icons.Sun size={14} />}
         </div>
       </div>
 
@@ -565,7 +565,7 @@ export default function AdminScreen({ user, showToast, lang }) {
             <button className="btn btn-primary btn-full" onClick={sendAdminMessage} disabled={messageSending}>
               {messageSending
                 ? (lang === 'bn' ? 'পাঠানো হচ্ছে...' : 'Sending...')
-                : (lang === 'bn' ? '📨 পাঠান' : '📨 Send Message')}
+                : (lang === 'bn' ? 'পাঠান' : 'Send Message')}
             </button>
           </div>
 
@@ -573,7 +573,7 @@ export default function AdminScreen({ user, showToast, lang }) {
           {!isMainAdmin && myQuota && (
             <div className="card" style={{ marginBottom: 12, borderColor: 'rgba(14,203,129,0.3)', background: 'rgba(14,203,129,0.05)' }}>
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
-                {isBn ? '📊 আজকের ব্যালেন্স কোটা' : '📊 Your Daily Balance Quota'}
+                <Icons.BarChart size={13} /> {isBn ? 'আজকের ব্যালেন্স কোটা' : 'Your Daily Balance Quota'}
               </div>
               <div style={{ display: 'flex', gap: 16, fontSize: 12, flexWrap: 'wrap' }}>
                 <div>
@@ -735,7 +735,7 @@ export default function AdminScreen({ user, showToast, lang }) {
               {!isMainAdmin && !selectedUser.is_admin && (
               <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'rgba(14,203,129,0.07)', border: '1px solid rgba(14,203,129,0.2)' }}>
                 <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8 }}>
-                  {isBn ? '💰 ব্যালেন্স যোগ করুন' : '💰 Add Balance'}
+                  <Icons.Dollar size={13} /> {isBn ? 'ব্যালেন্স যোগ করুন' : 'Add Balance'}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>
                   {isBn ? `বর্তমান ব্যালেন্স: ${formatMoney(selectedUser.balance)}` : `Current: ${formatMoney(selectedUser.balance)}`}
@@ -1018,7 +1018,7 @@ export default function AdminScreen({ user, showToast, lang }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>
-                {isBn ? '📋 অপারেশন SOP' : '📋 Operations SOP'}
+                <Icons.Document size={13} /> {isBn ? 'অপারেশন SOP' : 'Operations SOP'}
               </h2>
               <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text2)' }}>
                 {isBn ? 'Admin টিমের কাজ প্রক্রিয়া এবং লক্ষ্য' : 'Team workflow and targets'}
@@ -1035,14 +1035,14 @@ export default function AdminScreen({ user, showToast, lang }) {
                 transform: adminThemeDark ? 'translateX(22px)' : 'translateX(0)',
                 transition: 'transform 0.3s', fontSize: 12,
               }}>
-                {adminThemeDark ? '🌙' : '☀️'}
+                {adminThemeDark ? <Icons.Moon size={12} /> : <Icons.Sun size={12} />}
               </div>
             </div>
           </div>
 
           {/* Admin Roles Overview */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title">👥 {isBn ? 'Admin ভূমিকা' : 'Admin Roles'}</div>
+            <div className="card-title"><Icons.People size={14} /> {isBn ? 'Admin ভূমিকা' : 'Admin Roles'}</div>
             {adminRoles.map((role, i) => (
               <div key={i} style={{
                 padding: '12px', marginBottom: i < adminRoles.length - 1 ? 8 : 0,
@@ -1068,14 +1068,14 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Daily Operations Checklist */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title">✅ {isBn ? 'দৈনিক কাজের তালিকা' : 'Daily Checklist'}</div>
+            <div className="card-title"><Icons.CheckCircle size={14} /> {isBn ? 'দৈনিক কাজের তালিকা' : 'Daily Checklist'}</div>
             {opsChecklist.map((item, i) => (
               <div key={i} style={{
                 display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 0',
                 borderBottom: i < opsChecklist.length - 1 ? '1px solid var(--border)' : 'none',
               }}>
-                <div style={{ fontSize: 16, flexShrink: 0, marginTop: 2 }}>
-                  {['🌅', '🌞', '🌙'][i]}
+                <div style={{ flexShrink: 0, marginTop: 2 }}>
+                  {[<Icons.Sun key="s1" size={16} />, <Icons.Sun key="s2" size={16} color="#F59E0B" />, <Icons.Moon key="m" size={16} />][i]}
                 </div>
                 <div style={{ flex: 1, fontSize: 13 }}>{item}</div>
               </div>
@@ -1084,7 +1084,7 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Finance Operations SOP */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title">💳 {isBn ? 'ফিনান্স অপারেশন SOP' : 'Finance Operations SOP'}</div>
+            <div className="card-title"><Icons.CreditCard size={14} /> {isBn ? 'ফিনান্স অপারেশন SOP' : 'Finance Operations SOP'}</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
               {isBn ? 'ডিপোজিট/উইথড্র রিকোয়েস্ট প্রসেস করার নিয়ম' : 'How to process deposit/withdraw requests'}
             </div>
@@ -1103,7 +1103,7 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Support Operations SOP */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title">💬 {isBn ? 'সাপোর্ট অপারেশন SOP' : 'Support Operations SOP'}</div>
+            <div className="card-title"><Icons.Chat size={14} /> {isBn ? 'সাপোর্ট অপারেশন SOP' : 'Support Operations SOP'}</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
               {isBn ? 'লাইভ চ্যাট এবং Telegram সাপোর্ট হ্যান্ডলিং নিয়ম' : 'How to handle live chat and Telegram support'}
             </div>
@@ -1122,7 +1122,7 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* KPI Targets */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title">🎯 {isBn ? 'KPI টার্গেট' : 'KPI Targets'}</div>
+            <div className="card-title"><Icons.Target size={14} /> {isBn ? 'KPI টার্গেট' : 'KPI Targets'}</div>
             <div className="stats-row">
               <div className="stat-box" style={{ background: 'rgba(240, 253, 250, 0.1)' }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: '#14B8A6' }}>98%</div>
@@ -1153,13 +1153,13 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Fraud Control Rules */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title">🛡️ {isBn ? 'ফ্রড নিয়ন্ত্রণ' : 'Fraud Control Rules'}</div>
+            <div className="card-title"><Icons.Shield size={14} /> {isBn ? 'ফ্রড নিয়ন্ত্রণ' : 'Fraud Control Rules'}</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
               {isBn ? 'সন্দেহজনক কার্যকলাপ সনাক্ত এবং ব্লক করার নিয়ম' : 'How to identify and handle suspicious activities'}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div style={{ padding: 10, borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                <div style={{ fontWeight: 700, fontSize: 11, color: '#EF4444', marginBottom: 6 }}>⚠️ HIGH RISK</div>
+                <div style={{ fontWeight: 700, fontSize: 11, color: '#EF4444', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}><Icons.AlertTriangle size={12} color="#EF4444" /> HIGH RISK</div>
                 <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--text2)' }}>
                   <li>{isBn ? 'একই ডিভাইস থেকে অনেক একাউন্ট' : 'Many accounts from same device'}</li>
                   <li>{isBn ? 'দ্রুত ডিপোজিট-উইথড্র' : 'Rapid deposit-withdraw'}</li>
@@ -1167,7 +1167,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 </ul>
               </div>
               <div style={{ padding: 10, borderRadius: 8, background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
-                <div style={{ fontWeight: 700, fontSize: 11, color: '#F59E0B', marginBottom: 6 }}>🚩 ACTION</div>
+                <div style={{ fontWeight: 700, fontSize: 11, color: '#F59E0B', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}><Icons.AlertTriangle size={12} color="#F59E0B" /> ACTION</div>
                 <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--text2)' }}>
                   <li>{isBn ? 'একাউন্টে মার্ক করুন' : 'Mark account risk flag'}</li>
                   <li>{isBn ? 'বড় লেনদেন হোল্ড করুন' : 'Hold large transactions'}</li>
@@ -1179,7 +1179,7 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Weekly Review */}
           <div className="card">
-            <div className="card-title">📅 {isBn ? 'সাপ্তাহিক পর্যালোচনা' : 'Weekly Review Points'}</div>
+            <div className="card-title"><Icons.BarChart size={14} /> {isBn ? 'সাপ্তাহিক পর্যালোচনা' : 'Weekly Review Points'}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ padding: 10, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 4 }}>1. Payout Reconciliation</div>
@@ -1303,7 +1303,7 @@ export default function AdminScreen({ user, showToast, lang }) {
               {/* Support stats */}
               {stats.support && (
                 <div className="card">
-                  <div className="card-title">💬 {lang === 'bn' ? 'সাপোর্ট সারসংক্ষেপ' : 'Support Summary'}</div>
+                  <div className="card-title"><Icons.Chat size={14} /> {lang === 'bn' ? 'সাপোর্ট সারসংক্ষেপ' : 'Support Summary'}</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                     <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', textAlign: 'center' }}>
                       <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#6366F1' }}>
@@ -1330,7 +1330,7 @@ export default function AdminScreen({ user, showToast, lang }) {
               {/* Top Earners */}
               {stats.topEarners && stats.topEarners.length > 0 && (
                 <div className="card">
-                  <div className="card-title">🏆 {lang === 'bn' ? 'শীর্ষ উপার্জনকারী' : 'Top Earners'}</div>
+                  <div className="card-title"><Icons.Trophy size={14} /> {lang === 'bn' ? 'শীর্ষ উপার্জনকারী' : 'Top Earners'}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {stats.topEarners.map((u, i) => (
                       <div key={i} style={{
@@ -1366,11 +1366,11 @@ export default function AdminScreen({ user, showToast, lang }) {
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div className="card-title" style={{ marginBottom: 0 }}>
-                  💬 {lang === 'bn' ? 'সাপোর্ট সেশন' : 'Support Sessions'}
+                  <Icons.Chat size={14} /> {lang === 'bn' ? 'সাপোর্ট সেশন' : 'Support Sessions'}
                 </div>
                 <button className="btn btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}
                   onClick={fetchSupportSessions} disabled={supportLoading}>
-                  {lang === 'bn' ? '🔄 রিফ্রেশ' : '🔄 Refresh'}
+                  <Icons.Refresh size={12} /> {lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}
                 </button>
               </div>
 
@@ -1398,13 +1398,13 @@ export default function AdminScreen({ user, showToast, lang }) {
                         }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>
-                            👤 {displayName}
+                            <Icons.User size={12} /> {displayName}
                           </div>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <span className={`badge ${hasReply ? 'badge-green' : 'badge-orange'}`} style={{ fontSize: 10 }}>
                               {hasReply
                                 ? (lang === 'bn' ? '✓ উত্তর দেওয়া' : '✓ Replied')
-                                : (lang === 'bn' ? '⚠ অপেক্ষায়' : '⚠ Pending')}
+                                : (lang === 'bn' ? 'অপেক্ষায়' : 'Pending')}
                             </span>
                           </div>
                         </div>
@@ -1412,8 +1412,8 @@ export default function AdminScreen({ user, showToast, lang }) {
                           {sess.last_message || '—'}
                         </div>
                         <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text2)' }}>
-                          <span>💬 {sess.user_msgs} {lang === 'bn' ? 'মেসেজ' : 'msgs'}</span>
-                          <span>↩ {sess.admin_replies} {lang === 'bn' ? 'উত্তর' : 'replies'}</span>
+                          <span><Icons.Chat size={11} /> {sess.user_msgs} {lang === 'bn' ? 'মেসেজ' : 'msgs'}</span>
+                          <span><Icons.Reply size={11} /> {sess.admin_replies} {lang === 'bn' ? 'উত্তর' : 'replies'}</span>
                           <span style={{ marginLeft: 'auto' }}>{sess.last_active ? new Date(sess.last_active + 'Z').toLocaleString() : ''}</span>
                         </div>
                       </div>
@@ -1436,7 +1436,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 </button>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>
-                    👤 {supportSessions.find(s => s.session_id === activeSupportSession)?.user_name || (lang === 'bn' ? 'অজ্ঞাত' : 'Unknown')}
+                    <Icons.User size={13} /> {supportSessions.find(s => s.session_id === activeSupportSession)?.user_name || (lang === 'bn' ? 'অজ্ঞাত' : 'Unknown')}
                   </div>
                   <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>
                     {activeSupportSession.slice(0, 28)}...
@@ -1444,7 +1444,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 </div>
                 <button className="btn btn-outline" style={{ fontSize: 11, padding: '4px 10px' }}
                   onClick={() => fetchSupportMessages(activeSupportSession)} disabled={supportMsgsLoading}>
-                  🔄
+                  <Icons.Refresh size={14} />
                 </button>
               </div>
 
@@ -1473,7 +1473,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                       color: 'var(--text)',
                     }}>
                       <div style={{ fontSize: 10, color: 'var(--text2)', marginBottom: 3 }}>
-                        {m.sender === 'user' ? `👤 ${m.sender_name || 'User'}` : `🛡 ${m.sender_name || 'Admin'}`}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>{m.sender === 'user' ? <><Icons.User size={10} /> {m.sender_name || 'User'}</> : <><Icons.Shield size={10} /> {m.sender_name || 'Admin'}</>}</span>
                         {' · '}{m.created_at ? new Date(m.created_at + 'Z').toLocaleTimeString() : ''}
                       </div>
                       {m.message}
@@ -1509,7 +1509,7 @@ export default function AdminScreen({ user, showToast, lang }) {
       {activeTab === 'settings' && (
         <>
           <div className="card">
-            <div className="card-title">💳 {lang === 'bn' ? 'ডিপোজিট নম্বর সেটিংস' : 'Deposit Payment Numbers'}</div>
+            <div className="card-title"><Icons.CreditCard size={14} /> {lang === 'bn' ? 'ডিপোজিট নম্বর সেটিংস' : 'Deposit Payment Numbers'}</div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
               {lang === 'bn' ? 'ব্যবহারকারীরা ডিপোজিটের সময় এই নম্বরগুলো দেখতে পাবেন।' : 'Users will see these numbers on the deposit screen.'}
             </div>
@@ -1536,7 +1536,7 @@ export default function AdminScreen({ user, showToast, lang }) {
             >
               {settingsSaving
                 ? (lang === 'bn' ? 'সংরক্ষণ হচ্ছে...' : 'Saving...')
-                : (lang === 'bn' ? '💾 সংরক্ষণ করুন' : '💾 Save Settings')
+                : (lang === 'bn' ? 'সংরক্ষণ করুন' : 'Save Settings')
               }
             </button>
           </div>

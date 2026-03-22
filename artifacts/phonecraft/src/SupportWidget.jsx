@@ -46,8 +46,8 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
           setMessages([{
             id: 0, sender: 'bot',
             message: isBn
-              ? '👋 হ্যালো! ফোনক্রাফট সাপোর্টে স্বাগতম। আপনার প্রশ্ন লিখুন।'
-              : '👋 Hello! Welcome to PhoneCraft Support. How can we help you?',
+              ? 'হ্যালো! ফোনক্রাফট সাপোর্টে স্বাগতম। আপনার প্রশ্ন লিখুন।'
+              : 'Hello! Welcome to PhoneCraft Support. How can we help you?',
             created_at: new Date().toISOString(),
           }]);
         }

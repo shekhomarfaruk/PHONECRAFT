@@ -83,7 +83,7 @@ export function generateTerminalLines(deviceName, ram, rom) {
 }
 
 // ─── Avatars ─────────────────────────────────────────────────────────────────
-export const AVATARS = ['🧑','👦','👧','🧔','👩','🧕','👨‍💻','👩‍💻','🧑‍🚀','👨‍🎤'];
+export const AVATARS = ['A','B','C','D','E','F','G','H','J','K'];
 
 // ─── Random names for auto-notifications ─────────────────────────────────────
 export const RANDOM_NAMES = [

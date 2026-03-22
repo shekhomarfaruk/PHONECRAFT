@@ -418,6 +418,152 @@ const Icons = {
       </svg>
     );
   },
+  Download: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#23AF91"/><stop offset="100%" stopColor="#4ADE80"/></linearGradient></defs>
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points="7 10 12 15 17 10" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <line x1="12" y1="15" x2="12" y2="3" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  Upload: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#6366F1"/><stop offset="100%" stopColor="#818CF8"/></linearGradient></defs>
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points="17 8 12 3 7 8" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <line x1="12" y1="3" x2="12" y2="15" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  Note: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F59E0B"/><stop offset="100%" stopColor="#FBBF24"/></linearGradient></defs>
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill={color||`url(#${id})`} opacity="0.1" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinejoin="round"/>
+        <polyline points="14 2 14 8 20 8" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <line x1="8" y1="13" x2="16" y2="13" stroke={color||`url(#${id})`} strokeWidth="1.5" strokeLinecap="round"/>
+        <line x1="8" y1="17" x2="13" y2="17" stroke={color||`url(#${id})`} strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  Trophy: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F59E0B"/><stop offset="100%" stopColor="#F97316"/></linearGradient></defs>
+        <path d="M6 9H3a1 1 0 01-1-1V5a1 1 0 011-1h3" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M18 9h3a1 1 0 001-1V5a1 1 0 00-1-1h-3" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M6 4h12v6a6 6 0 01-12 0V4z" fill={color||`url(#${id})`} opacity="0.12" stroke={color||`url(#${id})`} strokeWidth="1.8"/>
+        <path d="M12 16v3" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M8 21h8" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  Diamond: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#818CF8"/><stop offset="100%" stopColor="#C084FC"/></linearGradient></defs>
+        <path d="M6 3h12l4 7-10 12L2 10z" fill={color||`url(#${id})`} opacity="0.12" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinejoin="round"/>
+        <path d="M2 10h20" stroke={color||`url(#${id})`} strokeWidth="1.5"/>
+        <path d="M12 22l4-12M12 22l-4-12M10 3l2 7 2-7" stroke={color||`url(#${id})`} strokeWidth="1.2" opacity="0.5"/>
+      </svg>
+    );
+  },
+  AlertTriangle: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F59E0B"/><stop offset="100%" stopColor="#EF4444"/></linearGradient></defs>
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" fill={color||`url(#${id})`} opacity="0.1" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinejoin="round"/>
+        <line x1="12" y1="9" x2="12" y2="13" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <circle cx="12" cy="17" r="1" fill={color||`url(#${id})`}/>
+      </svg>
+    );
+  },
+  Refresh: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#23AF91"/><stop offset="100%" stopColor="#6366F1"/></linearGradient></defs>
+        <polyline points="23 4 23 10 17 10" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  },
+  Reply: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#6366F1"/><stop offset="100%" stopColor="#818CF8"/></linearGradient></defs>
+        <polyline points="9 17 4 12 9 7" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M20 18v-2a4 4 0 00-4-4H4" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  },
+  Smile: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F59E0B"/><stop offset="100%" stopColor="#FBBF24"/></linearGradient></defs>
+        <circle cx="12" cy="12" r="10" fill={color||`url(#${id})`} opacity="0.1" stroke={color||`url(#${id})`} strokeWidth="1.8"/>
+        <path d="M8 14s1.5 2 4 2 4-2 4-2" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinecap="round"/>
+        <circle cx="9" cy="9.5" r="1.2" fill={color||`url(#${id})`}/>
+        <circle cx="15" cy="9.5" r="1.2" fill={color||`url(#${id})`}/>
+      </svg>
+    );
+  },
+  FontSize: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#6366F1"/><stop offset="100%" stopColor="#818CF8"/></linearGradient></defs>
+        <path d="M4 7V4h16v3" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <line x1="12" y1="4" x2="12" y2="20" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="8" y1="20" x2="16" y2="20" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  CreditCard: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#23AF91"/><stop offset="100%" stopColor="#4ADE80"/></linearGradient></defs>
+        <rect x="1" y="4" width="22" height="16" rx="2" fill={color||`url(#${id})`} opacity="0.1" stroke={color||`url(#${id})`} strokeWidth="1.8"/>
+        <line x1="1" y1="10" x2="23" y2="10" stroke={color||`url(#${id})`} strokeWidth="1.8"/>
+        <line x1="5" y1="15" x2="10" y2="15" stroke={color||`url(#${id})`} strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  Language: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#23AF91"/><stop offset="100%" stopColor="#6366F1"/></linearGradient></defs>
+        <circle cx="12" cy="12" r="10" stroke={color||`url(#${id})`} strokeWidth="1.8"/>
+        <ellipse cx="12" cy="12" rx="4" ry="10" stroke={color||`url(#${id})`} strokeWidth="1.5"/>
+        <line x1="2" y1="12" x2="22" y2="12" stroke={color||`url(#${id})`} strokeWidth="1.5"/>
+        <path d="M4.5 7h15M4.5 17h15" stroke={color||`url(#${id})`} strokeWidth="1" opacity="0.5"/>
+      </svg>
+    );
+  },
+  MoreVertical: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#23AF91"/><stop offset="100%" stopColor="#4ADE80"/></linearGradient></defs>
+        <circle cx="12" cy="5" r="1.5" fill={color||`url(#${id})`}/>
+        <circle cx="12" cy="12" r="1.5" fill={color||`url(#${id})`}/>
+        <circle cx="12" cy="19" r="1.5" fill={color||`url(#${id})`}/>
+      </svg>
+    );
+  },
   Logo: ({ size = 40 }) => (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       <defs>

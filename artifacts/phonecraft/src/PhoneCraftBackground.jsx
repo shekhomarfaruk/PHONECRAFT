@@ -134,7 +134,7 @@ class CircuitTrace {
 }
 
 // ── Floating manufacturing symbol ─────────────────────────────────────────────
-const MFG_SYMBOLS = ['⚙', '📱', '🔧', '⚡', '◈', '⬡', '◉', '▣'];
+const MFG_SYMBOLS = ['◈', '⬡', '◉', '▣', '△', '○', '□', '⧫'];
 class FloatSymbol {
   constructor(w, h) { this.init(w, h, true); }
   init(w, h, first = false) {

@@ -28,7 +28,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
   const updatePass = async () => {
     if (!curPass || !newPass || !conPass) { showToast(t.pass_empty); return; }
     if (newPass !== conPass) { showToast(t.pass_no_match); return; }
-    if (newPass.length < 6) { showToast(lang === 'bn' ? '⚠️ পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে' : '⚠️ Password must be at least 6 characters'); return; }
+    if (newPass.length < 6) { showToast(lang === 'bn' ? 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে' : 'Password must be at least 6 characters', 'error'); return; }
     try {
       const res = await fetch(`${API_URL}/api/user/${user.id}/change-password`, {
         method: 'PATCH',
@@ -49,13 +49,13 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
         } else if (!msg) {
           msg = lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন ব্যর্থ' : 'Failed to change password';
         }
-        showToast(`❌ ${msg}`, 'error');
+        showToast(msg, 'error');
         return;
       }
-      showToast('✅ ' + (lang === 'bn' ? 'পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!' : 'Password changed successfully!'), 'success');
+      showToast(lang === 'bn' ? 'পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!' : 'Password changed successfully!', 'success');
       setCurPass(''); setNewPass(''); setConPass('');
     } catch {
-      showToast('❌ ' + (lang === 'bn' ? 'সংযোগ ত্রুটি' : 'Connection error'), 'error');
+      showToast(lang === 'bn' ? 'সংযোগ ত্রুটি' : 'Connection error', 'error');
     }
   };
 
@@ -68,7 +68,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
         body: JSON.stringify({ avatar: av }),
       });
     } catch (_) {}
-    showToast('✅ ' + (lang === 'bn' ? 'অবতার সংরক্ষিত' : 'Avatar saved!'), 'success');
+    showToast(lang === 'bn' ? 'অবতার সংরক্ষিত' : 'Avatar saved!', 'success');
   };
 
   return (
@@ -77,7 +77,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
 
       {/* ─── Language ─── */}
       <div className="card">
-        <div className="card-title">🌐 {t.language_lbl}</div>
+        <div className="card-title"><Icons.Language size={14} /> {t.language_lbl}</div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>{t.language_hint}</div>
         <div style={{ display: 'flex', gap: 10 }}>
           <div onClick={() => setLang('en')} style={{
@@ -86,7 +86,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
             background: lang === 'en' ? 'var(--input-bg)' : 'transparent',
             boxShadow: lang === 'en' ? 'var(--glow)' : 'none', transition: 'all .2s',
           }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>🇬🇧</div>
+            <div style={{ fontSize: 16, marginBottom: 6, fontWeight: 800, color: 'var(--accent)', fontFamily: 'Space Grotesk', letterSpacing: 1 }}>EN</div>
             <div style={{ fontFamily: 'Space Grotesk', fontSize: 11, color: lang === 'en' ? 'var(--accent)' : 'var(--text2)', letterSpacing: 1 }}>ENGLISH</div>
           </div>
           <div onClick={() => setLang('bn')} style={{
@@ -95,7 +95,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
             background: lang === 'bn' ? 'var(--input-bg)' : 'transparent',
             boxShadow: lang === 'bn' ? 'var(--glow)' : 'none', transition: 'all .2s',
           }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>🇧🇩</div>
+            <div style={{ fontSize: 16, marginBottom: 6, fontWeight: 800, color: 'var(--accent)', fontFamily: 'Space Grotesk', letterSpacing: 1 }}>বাং</div>
             <div style={{ fontFamily: 'Space Grotesk', fontSize: 11, color: lang === 'bn' ? 'var(--accent)' : 'var(--text2)', letterSpacing: 1 }}>বাংলা</div>
           </div>
         </div>
@@ -103,7 +103,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
 
       {/* ─── Font Size ─── */}
       <div className="card">
-        <div className="card-title">🔡 {lang === 'bn' ? 'ফন্ট সাইজ' : 'Font Size'}</div>
+        <div className="card-title"><Icons.FontSize size={14} /> {lang === 'bn' ? 'ফন্ট সাইজ' : 'Font Size'}</div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 4 }}>
           {lang === 'bn' ? 'টেক্সটের আকার বেছে নিন — পুরো অ্যাপে প্রযোজ্য হবে।' : 'Choose text size — applies across the entire app.'}
         </div>
@@ -156,26 +156,40 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
 
       {/* ─── Avatar ─── */}
       <div className="card">
-        <div className="card-title">😀 {t.choose_avatar}</div>
+        <div className="card-title"><Icons.Smile size={14} /> {t.choose_avatar}</div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>{t.select_av_hint}</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-          {AVATARS.map((av, i) => (
-            <div key={i} onClick={() => saveAvatar(av)}
-              style={{
-                fontSize: 28, textAlign: 'center', padding: 8, borderRadius: 12, cursor: 'pointer',
-                border: `2px solid ${user.avatar === av ? 'var(--accent)' : 'var(--border)'}`,
-                background: user.avatar === av ? 'var(--input-bg)' : 'transparent',
-                transform: user.avatar === av ? 'scale(1.1)' : 'scale(1)',
-                boxShadow: user.avatar === av ? 'var(--glow)' : 'none',
-                transition: 'all .15s',
-              }}>
-              {av}
-            </div>
-          ))}
+          {AVATARS.map((av, i) => {
+            const colors = ['#23AF91','#6366F1','#F59E0B','#EF4444','#EC4899','#8B5CF6','#14B8A6','#F97316','#3B82F6','#10B981'];
+            return (
+              <div key={i} onClick={() => saveAvatar(av)}
+                style={{
+                  textAlign: 'center', padding: 8, borderRadius: 12, cursor: 'pointer',
+                  border: `2px solid ${user.avatar === av ? 'var(--accent)' : 'var(--border)'}`,
+                  background: user.avatar === av ? 'var(--input-bg)' : 'transparent',
+                  transform: user.avatar === av ? 'scale(1.1)' : 'scale(1)',
+                  boxShadow: user.avatar === av ? 'var(--glow)' : 'none',
+                  transition: 'all .15s',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: `linear-gradient(135deg, ${colors[i]}, ${colors[(i+3) % colors.length]})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 800, fontSize: 16, fontFamily: 'Space Grotesk',
+                }}>{av}</div>
+              </div>
+            );
+          })}
         </div>
         {user.avatar && (
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--input-bg)', borderRadius: 10, border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 32 }}>{user.avatar}</span>
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+              background: 'linear-gradient(135deg, #23AF91, #6366F1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff', fontWeight: 800, fontSize: 18, fontFamily: 'Space Grotesk',
+            }}>{user.avatar}</div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14 }}>{user.name}</div>
               <div style={{ fontSize: 11, color: 'var(--text2)' }}>{user.identifier}</div>
@@ -224,7 +238,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
 
       {/* ─── Account / Danger ─── */}
       <div className="card">
-        <div className="card-title">⚠️ {t.danger_zone}</div>
+        <div className="card-title"><Icons.AlertTriangle size={14} /> {t.danger_zone}</div>
         <button className="btn btn-danger btn-full" onClick={doLogout}>
           <Icons.Logout size={16} /> {t.logout}
         </button>
