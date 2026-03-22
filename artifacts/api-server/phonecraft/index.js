@@ -1602,7 +1602,18 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Telegram] Admin chat ids configured: ${ADMIN_CHAT_IDS.length}`);
 
   // Auto-register Telegram webhooks on startup
-  const webhookBase = process.env.WEBHOOK_URL;
+  // Use REPLIT_DEV_DOMAIN automatically if available, fall back to WEBHOOK_URL
+  const replitDomain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS;
+  const webhookBase = replitDomain
+    ? `https://${replitDomain}`
+    : process.env.WEBHOOK_URL;
+
+  if (webhookBase) {
+    console.log(`[Telegram] Using webhook base: ${webhookBase}`);
+  } else {
+    console.warn('[Telegram] No webhook base configured (set WEBHOOK_URL or run on Replit)');
+  }
+
   if (SUPPORT_BOT && webhookBase) {
     const webhookUrl = `${webhookBase}/webhook/telegram`;
     fetch(`https://api.telegram.org/bot${SUPPORT_BOT}/setWebhook`, {
