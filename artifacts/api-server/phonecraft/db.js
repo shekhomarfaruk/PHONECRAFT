@@ -185,6 +185,8 @@ try {
         SELECT 0, tg_message_id, session_id, created_at FROM tg_msg_map_old;
       DROP TABLE tg_msg_map_old;
     `);
+    // NOTE: legacy rows are migrated with chat_id=0; replies to pre-migration forwarded
+    // messages will not match new chat-scoped lookups — only new messages are affected.
     console.log('[DB] tg_msg_map migrated to composite (chat_id, tg_message_id) primary key');
   }
 } catch (e) {
