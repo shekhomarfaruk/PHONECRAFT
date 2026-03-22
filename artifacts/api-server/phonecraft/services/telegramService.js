@@ -314,9 +314,10 @@ class TelegramService {
       chatIds: this.supportChatIds,
     });
 
-    const primaryDelivery = deliveries[0];
-    if (primaryDelivery?.result?.message_id) {
-      this.stmts.insertTgMsgMap.run(primaryDelivery.result.message_id, `session:${sessionId}`);
+    for (const delivery of deliveries) {
+      if (delivery?.result?.message_id) {
+        this.stmts.insertTgMsgMap.run(delivery.result.message_id, `session:${sessionId}`);
+      }
     }
 
     this.logAction('forwardSupportMessage', true, `session=${sessionId} deliveries=${deliveries.length}`);
@@ -400,9 +401,10 @@ class TelegramService {
       chatIds: [...this.adminChatIds],
     });
 
-    const primaryDelivery = deliveries[0];
-    if (primaryDelivery?.result?.message_id) {
-      this.stmts.insertTgMsgMap.run(primaryDelivery.result.message_id, `tguser:${chatId}`);
+    for (const delivery of deliveries) {
+      if (delivery?.result?.message_id) {
+        this.stmts.insertTgMsgMap.run(delivery.result.message_id, `tguser:${chatId}`);
+      }
     }
 
     this.logAction('handleSupportUpdate', true, `from=${chatId} deliveries=${deliveries.length}`);
