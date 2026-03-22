@@ -47,3 +47,8 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# SQLite databases and WAL/SHM files
+*.db
+*.db-wal
+*.db-shm
