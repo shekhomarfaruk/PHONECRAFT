@@ -303,7 +303,7 @@ const telegramService = new TelegramService({
   stmts,
   processTransactionAction,
   onSupportSessionReply: ({ sessionId, text }) => {
-    stmts.insertSupportMsg.run(sessionId, 'admin', String(text || '').trim());
+    stmts.insertSupportMsg.run(sessionId, 'admin', String(text || '').trim(), 'Telegram Admin');
   },
 });
 
@@ -1114,7 +1114,7 @@ app.post('/api/support/message', supportLimiter, async (req, res) => {
   const { sessionId, message, senderName } = req.body || {};
   if (!sessionId || !message) return res.status(400).json({ error: 'Missing fields' });
   try {
-    stmts.insertSupportMsg.run(sessionId, 'user', message.trim());
+    stmts.insertSupportMsg.run(sessionId, 'user', message.trim(), senderName || null);
 
     await telegramService.forwardSupportMessage({
       sessionId,
@@ -1516,8 +1516,17 @@ app.post('/api/admin/support/reply', authRequired, async (req, res) => {
   const { sessionId, message } = req.body || {};
   const text = String(message || '').trim();
   if (!sessionId || !text) return res.status(400).json({ error: 'sessionId and message required' });
+  const adminName = req.auth.user?.name || 'Admin';
   try {
-    stmts.insertSupportMsg.run(sessionId, 'admin', text);
+    stmts.insertSupportMsg.run(sessionId, 'admin', text, adminName);
+
+    // Also forward to Telegram support group so Telegram-based admins see web-panel replies
+    const tgMsg = `💬 Web Admin Reply\n👤 ${adminName}\nSession: ${sessionId.slice(0, 12)}...\n\n${text}`;
+    telegramService.sendMessage(tgMsg, {
+      botToken: SUPPORT_BOT,
+      chatIds: SUPPORT_CHAT_IDS,
+    }).catch(err => console.warn('[Support] Telegram notify admin reply failed:', err.message));
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to send reply' });

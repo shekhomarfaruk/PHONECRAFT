@@ -151,9 +151,21 @@ db.exec(`
     session_id  TEXT NOT NULL,
     sender      TEXT NOT NULL,
     message     TEXT NOT NULL,
+    sender_name TEXT,
     created_at  TEXT DEFAULT (datetime('now'))
   );
 `);
+
+// Migrate existing support_chats if sender_name column is missing
+try {
+  const scCols = db.prepare('PRAGMA table_info(support_chats)').all();
+  if (!scCols.some(c => c.name === 'sender_name')) {
+    db.exec('ALTER TABLE support_chats ADD COLUMN sender_name TEXT');
+    console.log('[DB] support_chats: added sender_name column');
+  }
+} catch (e) {
+  console.warn('[DB] support_chats migration skipped:', e.message);
+}
 
 // Telegram (chat_id, message_id) → support session mapping (for webhook replies)
 // Note: Telegram message_ids are scoped per-chat, so we use a composite key to avoid collisions
@@ -474,7 +486,7 @@ const stmts = {
     WHERE banned = 0 AND is_admin = 0
     ORDER BY id ASC
   `),
-  insertSupportMsg:   db.prepare('INSERT INTO support_chats (session_id, sender, message) VALUES (?, ?, ?)'),
+  insertSupportMsg:   db.prepare('INSERT INTO support_chats (session_id, sender, message, sender_name) VALUES (?, ?, ?, ?)'),
   getSupportMsgs:     db.prepare('SELECT * FROM support_chats WHERE session_id = ? ORDER BY id ASC LIMIT 100'),
   insertTgMsgMap:     db.prepare('INSERT OR IGNORE INTO tg_msg_map (chat_id, tg_message_id, session_id) VALUES (?, ?, ?)'),
   getSessionByTgMsg:  db.prepare('SELECT session_id FROM tg_msg_map WHERE chat_id = ? AND tg_message_id = ?'),
@@ -487,7 +499,8 @@ const stmts = {
       MAX(sc.created_at) AS last_active,
       SUM(CASE WHEN sc.sender = 'user' THEN 1 ELSE 0 END) AS user_msgs,
       SUM(CASE WHEN sc.sender = 'admin' THEN 1 ELSE 0 END) AS admin_replies,
-      (SELECT sc2.message FROM support_chats sc2 WHERE sc2.session_id = sc.session_id ORDER BY sc2.id DESC LIMIT 1) AS last_message
+      (SELECT sc2.message FROM support_chats sc2 WHERE sc2.session_id = sc.session_id ORDER BY sc2.id DESC LIMIT 1) AS last_message,
+      (SELECT sc3.sender_name FROM support_chats sc3 WHERE sc3.session_id = sc.session_id AND sc3.sender = 'user' AND sc3.sender_name IS NOT NULL ORDER BY sc3.id ASC LIMIT 1) AS user_name
     FROM support_chats sc
     GROUP BY sc.session_id
     ORDER BY MAX(sc.id) DESC

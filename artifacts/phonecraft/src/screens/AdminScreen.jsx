@@ -264,6 +264,13 @@ export default function AdminScreen({ user, showToast, lang }) {
     fetchSupportMessages(sessionId);
   };
 
+  // Auto-refresh messages every 5s when a session is open
+  useEffect(() => {
+    if (!activeSupportSession) return;
+    const interval = setInterval(() => fetchSupportMessages(activeSupportSession), 5000);
+    return () => clearInterval(interval);
+  }, [activeSupportSession, fetchSupportMessages]);
+
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   useEffect(() => {
@@ -689,20 +696,22 @@ export default function AdminScreen({ user, showToast, lang }) {
             </div>
           ) : (
             filtered.map(u => (
-              <div key={u.id} className="card" onClick={() => selectUser(u)}
+              <div key={u.id} className="card"
                 style={{
-                  cursor: 'pointer', padding: '12px 16px',
+                  padding: '12px 16px',
                   borderColor: selectedUser?.id === u.id ? 'var(--accent)' : undefined,
-                  opacity: u.banned ? 0.6 : 1,
+                  opacity: u.banned ? 0.7 : 1,
                 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 16, fontWeight: 700, flexShrink: 0,
-                  }}>{u.avatar || u.name[0]}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    onClick={() => selectUser(u)}
+                    style={{
+                      width: 40, height: 40, borderRadius: '50%', cursor: 'pointer',
+                      background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 16, fontWeight: 700, flexShrink: 0,
+                    }}>{u.avatar || u.name[0]}</div>
+                  <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => selectUser(u)}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</span>
                       {u.is_admin ? <span className="badge badge-blue" style={{ fontSize: 8, padding: '1px 5px' }}>{t.admin_admin_label}</span> : null}
@@ -724,6 +733,16 @@ export default function AdminScreen({ user, showToast, lang }) {
                       </div>
                     )}
                   </div>
+                  {/* Quick ban/unban button */}
+                  <button
+                    className={`btn ${u.banned ? 'btn-success' : 'btn-danger'}`}
+                    style={{ fontSize: 10, padding: '4px 10px', flexShrink: 0, whiteSpace: 'nowrap' }}
+                    onClick={e => { e.stopPropagation(); toggleBan(u); }}
+                  >
+                    {u.banned
+                      ? (lang === 'bn' ? 'আনব্যান' : 'Unban')
+                      : (lang === 'bn' ? 'ব্যান' : 'Ban')}
+                  </button>
                 </div>
               </div>
             ))
@@ -1246,6 +1265,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {supportSessions.map(sess => {
                     const hasReply = sess.admin_replies > 0;
+                    const displayName = sess.user_name || (lang === 'bn' ? 'অজ্ঞাত ব্যবহারকারী' : 'Unknown User');
                     return (
                       <div key={sess.session_id}
                         onClick={() => openSupportSession(sess.session_id)}
@@ -1256,8 +1276,8 @@ export default function AdminScreen({ user, showToast, lang }) {
                           transition: 'opacity .15s',
                         }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                          <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text2)' }}>
-                            {sess.session_id.slice(0, 20)}...
+                          <div style={{ fontWeight: 700, fontSize: 13 }}>
+                            👤 {displayName}
                           </div>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <span className={`badge ${hasReply ? 'badge-green' : 'badge-orange'}`} style={{ fontSize: 10 }}>
@@ -1295,7 +1315,10 @@ export default function AdminScreen({ user, showToast, lang }) {
                 </button>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>
-                    {lang === 'bn' ? 'সেশন:' : 'Session:'} <span style={{ fontFamily: 'monospace', fontWeight: 400 }}>{activeSupportSession.slice(0, 24)}...</span>
+                    👤 {supportSessions.find(s => s.session_id === activeSupportSession)?.user_name || (lang === 'bn' ? 'অজ্ঞাত' : 'Unknown')}
+                  </div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>
+                    {activeSupportSession.slice(0, 28)}...
                   </div>
                 </div>
                 <button className="btn btn-outline" style={{ fontSize: 11, padding: '4px 10px' }}
@@ -1329,7 +1352,8 @@ export default function AdminScreen({ user, showToast, lang }) {
                       color: 'var(--text)',
                     }}>
                       <div style={{ fontSize: 10, color: 'var(--text2)', marginBottom: 3 }}>
-                        {m.sender === 'user' ? '👤 User' : '🛡 Admin'} · {m.created_at ? new Date(m.created_at + 'Z').toLocaleTimeString() : ''}
+                        {m.sender === 'user' ? `👤 ${m.sender_name || 'User'}` : `🛡 ${m.sender_name || 'Admin'}`}
+                        {' · '}{m.created_at ? new Date(m.created_at + 'Z').toLocaleTimeString() : ''}
                       </div>
                       {m.message}
                     </div>
