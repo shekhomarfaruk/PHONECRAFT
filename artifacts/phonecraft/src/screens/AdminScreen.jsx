@@ -174,6 +174,15 @@ export default function AdminScreen({ user, showToast, lang }) {
   const [stats, setStats]             = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
+  // Support tab state
+  const [supportSessions, setSupportSessions] = useState([]);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [activeSupportSession, setActiveSupportSession] = useState(null);
+  const [supportMessages, setSupportMessages] = useState([]);
+  const [supportMsgsLoading, setSupportMsgsLoading] = useState(false);
+  const [supportReply, setSupportReply] = useState('');
+  const [supportReplying, setSupportReplying] = useState(false);
+
   // ── Data fetchers ──────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -208,12 +217,60 @@ export default function AdminScreen({ user, showToast, lang }) {
     finally { setStatsLoading(false); }
   }, [user?.authToken, lang]);
 
+  const fetchSupportSessions = useCallback(async () => {
+    setSupportLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/support/sessions`, { headers: authHeaders });
+      const data = await res.json();
+      if (res.ok) setSupportSessions(data.sessions || []);
+      else showApiError(data);
+    } catch { showToast(t.toast_connection_error, 'error'); }
+    finally { setSupportLoading(false); }
+  }, [user?.authToken]);
+
+  const fetchSupportMessages = useCallback(async (sessionId) => {
+    setSupportMsgsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/support/messages/${sessionId}`, { headers: authHeaders });
+      const data = await res.json();
+      if (res.ok) setSupportMessages(data.messages || []);
+    } catch {}
+    finally { setSupportMsgsLoading(false); }
+  }, [user?.authToken]);
+
+  const sendSupportReply = async () => {
+    const text = supportReply.trim();
+    if (!text || !activeSupportSession) return;
+    setSupportReplying(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/support/reply`, {
+        method: 'POST', headers: authHeaders,
+        body: JSON.stringify({ sessionId: activeSupportSession, message: text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSupportReply('');
+        fetchSupportMessages(activeSupportSession);
+        fetchSupportSessions();
+        showToast(lang === 'bn' ? '✅ উত্তর পাঠানো হয়েছে' : '✅ Reply sent', 'success');
+      } else showApiError(data, 'Reply failed');
+    } catch { showToast(t.toast_connection_error, 'error'); }
+    finally { setSupportReplying(false); }
+  };
+
+  const openSupportSession = (sessionId) => {
+    setActiveSupportSession(sessionId);
+    setSupportMessages([]);
+    fetchSupportMessages(sessionId);
+  };
+
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   useEffect(() => {
     if (activeTab === 'transactions') fetchTransactions();
     if (activeTab === 'dashboard') fetchStats();
     if (activeTab === 'settings') fetchSettings();
+    if (activeTab === 'support') fetchSupportSessions();
   }, [activeTab]);
 
   useEffect(() => {
@@ -342,13 +399,20 @@ export default function AdminScreen({ user, showToast, lang }) {
   };
 
   // ── Filters ────────────────────────────────────────────────────────────────
-  const filtered = searchQuery
-    ? users.filter(u =>
-        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.identifier.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.refer_code.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : users;
+  const [userStatusFilter, setUserStatusFilter] = useState('all');
+  const filtered = users.filter(u => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = !q ||
+      u.name.toLowerCase().includes(q) ||
+      u.identifier.toLowerCase().includes(q) ||
+      u.refer_code.toLowerCase().includes(q);
+    const matchesStatus =
+      userStatusFilter === 'all' ||
+      (userStatusFilter === 'banned' && u.banned) ||
+      (userStatusFilter === 'admin' && u.is_admin) ||
+      (userStatusFilter === 'active' && !u.banned && !u.is_admin);
+    return matchesSearch && matchesStatus;
+  });
 
   const messageCandidates = users.filter(u => !u.banned && (!u.is_admin || u.id === user.id));
 
@@ -377,6 +441,7 @@ export default function AdminScreen({ user, showToast, lang }) {
           { id: 'users', label: t.admin_users, icon: <Icons.User size={14} /> },
           ...(isMainAdmin ? [{ id: 'admins', label: t.admin_admins, icon: <Icons.Shield size={14} /> }] : []),
           { id: 'transactions', label: t.admin_transactions, icon: <Icons.Wallet size={14} /> },
+          { id: 'support', label: lang === 'bn' ? 'সাপোর্ট' : 'Support', icon: <Icons.Bell size={14} /> },
           { id: 'ops', label: 'Ops', icon: <Icons.Info size={14} /> },
           ...(isMainAdmin ? [{ id: 'dashboard', label: t.admin_dashboard, icon: <Icons.TrendUp size={14} /> }] : []),
           ...(isMainAdmin ? [{ id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: <Icons.Settings size={14} /> }] : []),
@@ -477,7 +542,26 @@ export default function AdminScreen({ user, showToast, lang }) {
           <div className="card" style={{ padding: '12px 16px' }}>
             <input className="inp" placeholder={t.admin_search_ph}
               value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              style={{ marginBottom: 0 }} />
+              style={{ marginBottom: 8 }} />
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[
+                { id: 'all', label: lang === 'bn' ? 'সকল' : 'All' },
+                { id: 'active', label: lang === 'bn' ? 'সক্রিয়' : 'Active' },
+                { id: 'banned', label: lang === 'bn' ? 'নিষিদ্ধ' : 'Banned' },
+                { id: 'admin', label: lang === 'bn' ? 'অ্যাডমিন' : 'Admin' },
+              ].map(f => (
+                <button key={f.id}
+                  className={`btn ${userStatusFilter === f.id ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6 }}
+                  onClick={() => setUserStatusFilter(f.id)}>
+                  {f.label}
+                  {f.id === 'all' && ` (${users.length})`}
+                  {f.id === 'active' && ` (${users.filter(u => !u.banned && !u.is_admin).length})`}
+                  {f.id === 'banned' && ` (${users.filter(u => u.banned).length})`}
+                  {f.id === 'admin' && ` (${users.filter(u => u.is_admin).length})`}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Selected user detail panel */}
@@ -1045,7 +1129,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 </div>
               </div>
 
-              {/* Daily users summary */}
+              {/* Users overview */}
               <div className="card">
                 <div className="card-title"><Icons.User size={14} /> {t.admin_users_overview}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1057,9 +1141,9 @@ export default function AdminScreen({ user, showToast, lang }) {
                   </div>
                   <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(14,203,129,0.1)', textAlign: 'center' }}>
                     <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#0ECB81' }}>
-                      {users.filter(u => u.is_admin).length}
+                      {stats.newUsersToday ?? '—'}
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_admins}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'আজ নতুন' : 'New Today'}</div>
                   </div>
                   <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(246,70,93,0.1)', textAlign: 'center' }}>
                     <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#F6465D' }}>
@@ -1067,15 +1151,209 @@ export default function AdminScreen({ user, showToast, lang }) {
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_banned}</div>
                   </div>
-                  <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', textAlign: 'center' }}>
-                    <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#6366F1' }}>
-                      {stats.referralCount}
+                  <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(252,213,53,0.1)', textAlign: 'center' }}>
+                    <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#FCD535' }}>
+                      {stats.activeToday ?? '—'}
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_referred}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'আজ সক্রিয়' : 'Active Today'}</div>
                   </div>
                 </div>
               </div>
+
+              {/* Support stats */}
+              {stats.support && (
+                <div className="card">
+                  <div className="card-title">💬 {lang === 'bn' ? 'সাপোর্ট সারসংক্ষেপ' : 'Support Summary'}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                    <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#6366F1' }}>
+                        {stats.support.totalSessions}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'মোট সেশন' : 'Sessions'}</div>
+                    </div>
+                    <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(246,70,93,0.1)', textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#F6465D' }}>
+                        {stats.support.unrepliedSessions}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'উত্তরবিহীন' : 'Unanswered'}</div>
+                    </div>
+                    <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(14,203,129,0.1)', textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#0ECB81' }}>
+                        {stats.support.adminReplies}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'উত্তর দেওয়া' : 'Replies Sent'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Top Earners */}
+              {stats.topEarners && stats.topEarners.length > 0 && (
+                <div className="card">
+                  <div className="card-title">🏆 {lang === 'bn' ? 'শীর্ষ উপার্জনকারী' : 'Top Earners'}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {stats.topEarners.map((u, i) => (
+                      <div key={i} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '7px 10px', borderRadius: 8, background: 'rgba(35,175,145,0.07)',
+                        border: '1px solid rgba(35,175,145,0.12)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 700, color: '#FCD535', minWidth: 20, fontSize: 13 }}>#{i + 1}</span>
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</span>
+                          {u.plan_id && <span className="badge badge-blue" style={{ fontSize: 10 }}>P{u.plan_id}</span>}
+                        </div>
+                        <span style={{ fontFamily: 'Space Grotesk', fontSize: 13, fontWeight: 700, color: '#0ECB81' }}>
+                          {formatMoney(u.balance)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
+          )}
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* SUPPORT TAB */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'support' && (
+        <>
+          {/* Session list */}
+          {!activeSupportSession ? (
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div className="card-title" style={{ marginBottom: 0 }}>
+                  💬 {lang === 'bn' ? 'সাপোর্ট সেশন' : 'Support Sessions'}
+                </div>
+                <button className="btn btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}
+                  onClick={fetchSupportSessions} disabled={supportLoading}>
+                  {lang === 'bn' ? '🔄 রিফ্রেশ' : '🔄 Refresh'}
+                </button>
+              </div>
+
+              {supportLoading ? (
+                <div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 13 }}>
+                  {lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}
+                </div>
+              ) : supportSessions.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 13 }}>
+                  {lang === 'bn' ? 'কোনো সাপোর্ট সেশন নেই।' : 'No support sessions yet.'}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {supportSessions.map(sess => {
+                    const hasReply = sess.admin_replies > 0;
+                    return (
+                      <div key={sess.session_id}
+                        onClick={() => openSupportSession(sess.session_id)}
+                        style={{
+                          padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                          background: hasReply ? 'rgba(14,203,129,0.07)' : 'rgba(246,70,93,0.07)',
+                          border: `1px solid ${hasReply ? 'rgba(14,203,129,0.2)' : 'rgba(246,70,93,0.2)'}`,
+                          transition: 'opacity .15s',
+                        }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text2)' }}>
+                            {sess.session_id.slice(0, 20)}...
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <span className={`badge ${hasReply ? 'badge-green' : 'badge-orange'}`} style={{ fontSize: 10 }}>
+                              {hasReply
+                                ? (lang === 'bn' ? '✓ উত্তর দেওয়া' : '✓ Replied')
+                                : (lang === 'bn' ? '⚠ অপেক্ষায়' : '⚠ Pending')}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 4, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                          {sess.last_message || '—'}
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text2)' }}>
+                          <span>💬 {sess.user_msgs} {lang === 'bn' ? 'মেসেজ' : 'msgs'}</span>
+                          <span>↩ {sess.admin_replies} {lang === 'bn' ? 'উত্তর' : 'replies'}</span>
+                          <span style={{ marginLeft: 'auto' }}>{sess.last_active ? new Date(sess.last_active + 'Z').toLocaleString() : ''}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Chat thread view */
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{
+                padding: '12px 16px', borderBottom: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: 'rgba(35,175,145,0.08)',
+              }}>
+                <button className="icon-btn" onClick={() => { setActiveSupportSession(null); setSupportMessages([]); }}>
+                  <Icons.X size={16} />
+                </button>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>
+                    {lang === 'bn' ? 'সেশন:' : 'Session:'} <span style={{ fontFamily: 'monospace', fontWeight: 400 }}>{activeSupportSession.slice(0, 24)}...</span>
+                  </div>
+                </div>
+                <button className="btn btn-outline" style={{ fontSize: 11, padding: '4px 10px' }}
+                  onClick={() => fetchSupportMessages(activeSupportSession)} disabled={supportMsgsLoading}>
+                  🔄
+                </button>
+              </div>
+
+              {/* Messages */}
+              <div style={{ height: 300, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {supportMsgsLoading ? (
+                  <div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 13 }}>
+                    {lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}
+                  </div>
+                ) : supportMessages.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 13 }}>
+                    {lang === 'bn' ? 'কোনো মেসেজ নেই।' : 'No messages.'}
+                  </div>
+                ) : (
+                  supportMessages.map((m, i) => (
+                    <div key={m.id || i} style={{
+                      alignSelf: m.sender === 'user' ? 'flex-start' : 'flex-end',
+                      maxWidth: '80%',
+                      padding: '8px 12px',
+                      borderRadius: 12,
+                      fontSize: 13,
+                      background: m.sender === 'user'
+                        ? 'rgba(43,49,57,0.7)'
+                        : 'linear-gradient(135deg,rgba(35,175,145,0.3),rgba(35,175,145,0.15))',
+                      border: m.sender === 'admin' ? '1px solid rgba(35,175,145,0.3)' : '1px solid rgba(43,49,57,0.5)',
+                      color: 'var(--text)',
+                    }}>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', marginBottom: 3 }}>
+                        {m.sender === 'user' ? '👤 User' : '🛡 Admin'} · {m.created_at ? new Date(m.created_at + 'Z').toLocaleTimeString() : ''}
+                      </div>
+                      {m.message}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Reply box */}
+              <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
+                <input
+                  className="inp"
+                  style={{ flex: 1, marginBottom: 0 }}
+                  placeholder={lang === 'bn' ? 'উত্তর লিখুন...' : 'Type your reply...'}
+                  value={supportReply}
+                  onChange={e => setSupportReply(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && sendSupportReply()}
+                  disabled={supportReplying}
+                />
+                <button className="btn btn-primary" style={{ flexShrink: 0 }}
+                  onClick={sendSupportReply} disabled={!supportReply.trim() || supportReplying}>
+                  {supportReplying ? '...' : (lang === 'bn' ? 'পাঠান' : 'Send')}
+                </button>
+              </div>
+            </div>
           )}
         </>
       )}

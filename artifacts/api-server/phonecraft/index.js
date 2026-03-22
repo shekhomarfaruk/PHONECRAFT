@@ -1402,6 +1402,39 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
   if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
   try {
     const stats = stmts.getFinancialStats.get();
+
+    // Extra stats for improved dashboard
+    const today = todayDate();
+    const activeToday = db.prepare(`
+      SELECT COUNT(DISTINCT user_id) AS cnt FROM login_logs
+      WHERE DATE(login_at) = ?
+    `).get(today)?.cnt || 0;
+
+    const newUsersToday = db.prepare(`
+      SELECT COUNT(*) AS cnt FROM users WHERE DATE(created_at) = ?
+    `).get(today)?.cnt || 0;
+
+    const topEarners = db.prepare(`
+      SELECT name, balance, plan_id FROM users
+      WHERE banned = 0 AND is_admin = 0
+      ORDER BY balance DESC LIMIT 5
+    `).all();
+
+    const supportStats = db.prepare(`
+      SELECT
+        COUNT(DISTINCT session_id) AS total_sessions,
+        SUM(CASE WHEN sender = 'user' THEN 1 ELSE 0 END) AS user_msgs,
+        SUM(CASE WHEN sender = 'admin' THEN 1 ELSE 0 END) AS admin_replies
+      FROM support_chats
+    `).get();
+
+    const unrepliedSessions = db.prepare(`
+      SELECT COUNT(DISTINCT session_id) AS cnt FROM support_chats
+      WHERE session_id NOT IN (
+        SELECT DISTINCT session_id FROM support_chats WHERE sender = 'admin'
+      )
+    `).get()?.cnt || 0;
+
     res.json({
       withdrawals: { count: stats.withdraw_count, sum: stats.withdraw_sum },
       deposits: { count: stats.deposit_count, sum: stats.deposit_sum },
@@ -1410,10 +1443,56 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
       todayEarnings: stats.today_earnings,
       alltimeEarnings: stats.alltime_earnings,
       profitLoss: stats.deposit_sum - stats.withdraw_sum,
+      activeToday,
+      newUsersToday,
+      topEarners,
+      support: {
+        totalSessions: supportStats?.total_sessions || 0,
+        userMessages: supportStats?.user_msgs || 0,
+        adminReplies: supportStats?.admin_replies || 0,
+        unrepliedSessions,
+      },
     });
   } catch (err) {
     console.error('Admin stats error:', err.message);
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// ── GET /api/admin/support/sessions — list all support chat sessions ─────────
+app.get('/api/admin/support/sessions', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const sessions = stmts.getAllSupportSessions.all();
+    res.json({ sessions });
+  } catch (err) {
+    console.error('Admin support sessions error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch support sessions' });
+  }
+});
+
+// ── GET /api/admin/support/messages/:sessionId — messages for a session ──────
+app.get('/api/admin/support/messages/:sessionId', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const msgs = stmts.getSupportMsgs.all(req.params.sessionId);
+    res.json({ messages: msgs });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+// ── POST /api/admin/support/reply — admin sends a reply to a session ─────────
+app.post('/api/admin/support/reply', authRequired, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { sessionId, message } = req.body || {};
+  const text = String(message || '').trim();
+  if (!sessionId || !text) return res.status(400).json({ error: 'sessionId and message required' });
+  try {
+    stmts.insertSupportMsg.run(sessionId, 'admin', text);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send reply' });
   }
 });
 

@@ -449,6 +449,21 @@ const stmts = {
   getSupportMsgs:     db.prepare('SELECT * FROM support_chats WHERE session_id = ? ORDER BY id ASC LIMIT 100'),
   insertTgMsgMap:     db.prepare('INSERT OR IGNORE INTO tg_msg_map (tg_message_id, session_id) VALUES (?, ?)'),
   getSessionByTgMsg:  db.prepare('SELECT session_id FROM tg_msg_map WHERE tg_message_id = ?'),
+
+  // Admin support session queries
+  getAllSupportSessions: db.prepare(`
+    SELECT
+      sc.session_id,
+      COUNT(sc.id) AS msg_count,
+      MAX(sc.created_at) AS last_active,
+      SUM(CASE WHEN sc.sender = 'user' THEN 1 ELSE 0 END) AS user_msgs,
+      SUM(CASE WHEN sc.sender = 'admin' THEN 1 ELSE 0 END) AS admin_replies,
+      (SELECT sc2.message FROM support_chats sc2 WHERE sc2.session_id = sc.session_id ORDER BY sc2.id DESC LIMIT 1) AS last_message
+    FROM support_chats sc
+    GROUP BY sc.session_id
+    ORDER BY MAX(sc.id) DESC
+    LIMIT 100
+  `),
   insertTelegramLog:  db.prepare(`
     INSERT INTO telegram_action_logs (action, ok, details)
     VALUES (@action, @ok, @details)
