@@ -489,25 +489,30 @@ export default function AdminScreen({ user, showToast, lang }) {
         border: '1px solid var(--border)', background: 'var(--card)',
       }}>
         {[
-          { id: 'users', label: t.admin_users, icon: <Icons.User size={14} /> },
-          ...(isMainAdmin ? [{ id: 'admins', label: t.admin_admins, icon: <Icons.Shield size={14} /> }] : []),
-          { id: 'transactions', label: t.admin_transactions, icon: <Icons.Wallet size={14} /> },
-          { id: 'support', label: lang === 'bn' ? 'সাপোর্ট' : 'Support', icon: <Icons.Bell size={14} /> },
-          { id: 'ops', label: 'Ops', icon: <Icons.Info size={14} /> },
-          ...(isMainAdmin ? [{ id: 'dashboard', label: t.admin_dashboard, icon: <Icons.TrendUp size={14} /> }] : []),
-          ...(isMainAdmin ? [{ id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: <Icons.Settings size={14} /> }] : []),
-        ].map(tab => (
-          <div key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-            flex: 1, padding: '10px 8px', textAlign: 'center', cursor: 'pointer',
-            fontSize: 12, fontWeight: 700, letterSpacing: 0.5,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            background: activeTab === tab.id ? 'var(--accent)' : 'transparent',
-            color: activeTab === tab.id ? '#fff' : 'var(--text2)',
-            transition: 'all 0.2s',
-          }}>
-            {tab.icon} {tab.label}
-          </div>
-        ))}
+          { id: 'users', label: t.admin_users, icon: Icons.People },
+          ...(isMainAdmin ? [{ id: 'admins', label: t.admin_admins, icon: Icons.Shield }] : []),
+          { id: 'transactions', label: t.admin_transactions, icon: Icons.Transfer },
+          { id: 'support', label: lang === 'bn' ? 'সাপোর্ট' : 'Support', icon: Icons.Headset },
+          { id: 'ops', label: 'Ops', icon: Icons.Target },
+          ...(isMainAdmin ? [{ id: 'dashboard', label: t.admin_dashboard, icon: Icons.BarChart }] : []),
+          ...(isMainAdmin ? [{ id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: Icons.Settings }] : []),
+        ].map(tab => {
+          const active = activeTab === tab.id;
+          const TabIcon = tab.icon;
+          return (
+            <div key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+              flex: 1, padding: '9px 6px', textAlign: 'center', cursor: 'pointer',
+              fontSize: 11, fontWeight: 700, letterSpacing: 0.3,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+              background: active ? 'var(--accent)' : 'transparent',
+              color: active ? '#fff' : 'var(--text2)',
+              transition: 'all 0.2s',
+            }}>
+              <TabIcon size={16} color={active ? '#fff' : undefined} />
+              <span style={{ lineHeight: 1 }}>{tab.label}</span>
+            </div>
+          );
+        })}
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
