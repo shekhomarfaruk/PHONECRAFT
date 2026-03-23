@@ -84,7 +84,7 @@ function SupportScreen({ user, showToast, lang }) {
 
       <div className="tabs" style={{ marginBottom: 0 }}>
         <div className={`tab ${tab === 'chat' ? 'active' : ''}`} onClick={() => setTab('chat')}>
-          <Icons.Chat size={14}/> {lang === 'bn' ? 'লাইভ চ্যাট' : 'Live Chat'}
+          <Icons.Chat size={14}/> {t.supp_live_chat}
         </div>
         <div className={`tab ${tab === 'faq' ? 'active' : ''}`} onClick={() => setTab('faq')}>
           <Icons.Info size={14}/> FAQ
@@ -121,7 +121,7 @@ function SupportScreen({ user, showToast, lang }) {
               <div style={{ fontWeight: 700, fontSize: 14 }}>PhoneCraft Support</div>
               <div style={{ fontSize: 11, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }}/>
-                {lang === 'bn' ? 'অনলাইন' : 'Online'}
+                {t.supp_online}
               </div>
             </div>
           </div>
@@ -133,12 +133,10 @@ function SupportScreen({ user, showToast, lang }) {
               <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--text2)' }}>
                 <div style={{ marginBottom: 8 }}><Icons.Chat size={36} /></div>
                 <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 15 }}>
-                  {lang === 'bn' ? 'হ্যালো! কীভাবে সাহায্য করতে পারি?' : 'Hi! How can we help?'}
+                  {t.supp_greeting}
                 </div>
                 <div style={{ fontSize: 12 }}>
-                  {lang === 'bn'
-                    ? 'আপনার সমস্যা লিখুন, সাপোর্ট টিম উত্তর দেবে।'
-                    : 'Type your issue below and our support team will reply.'}
+                  {t.supp_subgreeting}
                 </div>
               </div>
             )}
@@ -174,7 +172,7 @@ function SupportScreen({ user, showToast, lang }) {
                   }}>
                     {!isUser && (
                       <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 3, opacity: .65, textTransform: 'uppercase', letterSpacing: .3 }}>
-                        {isAdmin ? (lang === 'bn' ? 'সাপোর্ট' : 'Support') : 'Bot'}
+                        {isAdmin ? (t.supp_label) : 'Bot'}
                       </div>
                     )}
                     {msg.message}
@@ -196,7 +194,7 @@ function SupportScreen({ user, showToast, lang }) {
                   ))}
                 </div>
                 <span style={{ fontSize: 11, color: 'var(--text2)' }}>
-                  {lang === 'bn' ? 'সাপোর্ট টিম টাইপ করছে...' : 'Support is typing...'}
+                  {t.supp_typing}
                 </span>
               </div>
             )}
@@ -210,7 +208,7 @@ function SupportScreen({ user, showToast, lang }) {
               className="inp"
               rows={1}
               style={{ flex: 1, resize: 'none', borderRadius: 20, padding: '9px 14px', fontSize: 13, lineHeight: 1.4, maxHeight: 90, overflowY: 'auto' }}
-              placeholder={lang === 'bn' ? 'মেসেজ লিখুন...' : 'Type a message...'}
+              placeholder={t.supp_msg_ph}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}

@@ -176,7 +176,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
             <div className="input-wrap">
               <label className="input-label">
                 {method === 'bank'
-                  ? (lang === 'bn' ? 'ব্যাংক অ্যাকাউন্ট নম্বর' : 'Bank Account Number')
+                  ? (t.wallet_bank_account)
                   : t.account_number}
               </label>
               <input

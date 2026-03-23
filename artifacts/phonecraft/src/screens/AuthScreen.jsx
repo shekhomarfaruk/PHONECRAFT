@@ -117,8 +117,8 @@ export default function AuthScreen({ isDark, tab, setTab, loginForm, setLoginFor
                   <div className="plan-name" style={{color:plan.color}}>{plan.name}</div>
                   <div className="plan-price">{convertCurrency(plan.rate, lang)}</div>
                   <div style={{fontSize:11,color:'var(--text2)',marginTop:4,lineHeight:1.5}}>
-                    <div>{convertCurrency(plan.perTask, lang)}/{lang === 'bn' ? 'টাস্ক' : 'task'} &middot; {plan.daily} {lang === 'bn' ? 'টাস্ক/দিন' : 'tasks/day'}</div>
-                    <div style={{color:plan.color,fontWeight:700}}>{lang === 'bn' ? 'দৈনিক' : 'Daily'}: {convertCurrency(plan.dailyEarn, lang)}</div>
+                    <div>{convertCurrency(plan.perTask, lang)}/{t.auth_task} &middot; {plan.daily} {t.auth_tasks_day}</div>
+                    <div style={{color:plan.color,fontWeight:700}}>{t.auth_daily}: {convertCurrency(plan.dailyEarn, lang)}</div>
                   </div>
                 </div>
               ))}

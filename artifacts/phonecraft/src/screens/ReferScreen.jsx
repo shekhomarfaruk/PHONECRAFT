@@ -117,7 +117,7 @@ function ReferScreen({user, showToast, lang}) {
             <span style={{fontSize:11,color:'var(--accent)',fontWeight:700}}>{user.referCode}</span>
           </div>
           <button className="btn btn-outline" onClick={downloadQR} style={{fontSize:12}}>
-            <Icons.Download size={14} /> {lang === 'bn' ? 'QR ডাউনলোড করুন' : 'Download QR'}
+            <Icons.Download size={14} /> {t.ref_qr_download}
           </button>
         </div>
       </div>
@@ -131,15 +131,15 @@ function ReferScreen({user, showToast, lang}) {
         <div className="stats-row">
           <div className="stat-box">
             <div className="stat-num" style={{color:'var(--green)'}}>20%</div>
-            <div className="stat-label">{lang === 'bn' ? 'লেভেল ১' : 'LEVEL 1'}</div>
+            <div className="stat-label">{t.ref_level1}</div>
           </div>
           <div className="stat-box">
             <div className="stat-num" style={{color:'var(--accent)'}}>4%</div>
-            <div className="stat-label">{lang === 'bn' ? 'লেভেল ২' : 'LEVEL 2'}</div>
+            <div className="stat-label">{t.ref_level2}</div>
           </div>
           <div className="stat-box">
             <div className="stat-num" style={{color:'var(--accent2)'}}>1%</div>
-            <div className="stat-label">{lang === 'bn' ? 'লেভেল ৩' : 'LEVEL 3'}</div>
+            <div className="stat-label">{t.ref_level3}</div>
           </div>
         </div>
       </div>
@@ -207,7 +207,7 @@ function ReferScreen({user, showToast, lang}) {
             <div style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>{group.label}</div>
             {group.members.length === 0 && (
               <div style={{ fontSize: 12, color: 'var(--text2)', padding: '4px 0 8px' }}>
-                {lang === 'bn' ? 'এখনও কেউ নেই' : 'No members yet'}
+                {t.ref_no_members}
               </div>
             )}
             {group.members.map((member) => (

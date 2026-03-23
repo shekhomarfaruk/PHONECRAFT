@@ -57,7 +57,7 @@ function ProfileScreen({ user, setUser, navigate, doLogout, lang, showToast }) {
             overflow: 'hidden',
             position: 'relative',
           }}
-          title={lang === 'bn' ? 'ছবি পরিবর্তন করুন' : 'Change photo'}
+          title={t.prof_change_photo}
         >
           {(user.avatarImg || (user.avatar && user.avatar.startsWith('/')))
             ? <img src={user.avatarImg || user.avatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -76,7 +76,7 @@ function ProfileScreen({ user, setUser, navigate, doLogout, lang, showToast }) {
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageChange} />
 
         <div style={{ fontSize: 10, color: 'var(--text2)', marginBottom: 10 }}>
-          {lang === 'bn' ? 'ট্যাপ করে ছবি পরিবর্তন করুন' : 'Tap to change photo'}
+          {t.prof_tap_change}
         </div>
 
         <div style={{ fontFamily: 'Space Grotesk', fontSize: 'clamp(16px,4vw,20px)', fontWeight: 700 }}>{user.name}</div>

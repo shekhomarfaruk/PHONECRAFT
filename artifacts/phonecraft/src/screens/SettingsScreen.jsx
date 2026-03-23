@@ -29,7 +29,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
   const updatePass = async () => {
     if (!curPass || !newPass || !conPass) { showToast(t.pass_empty); return; }
     if (newPass !== conPass) { showToast(t.pass_no_match); return; }
-    if (newPass.length < 6) { showToast(lang === 'bn' ? 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে' : 'Password must be at least 6 characters', 'error'); return; }
+    if (newPass.length < 6) { showToast(t.settings_pass_short, 'error'); return; }
     try {
       const res = await authFetch(`${API_URL}/api/user/${user.id}/change-password`, {
         method: 'PATCH',
@@ -40,23 +40,23 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
       if (!res.ok) {
         let msg = data.error || '';
         if (msg === 'Current password is incorrect') {
-          msg = lang === 'bn' ? 'বর্তমান পাসওয়ার্ড সঠিক নয়' : 'Current password is incorrect';
+          msg = t.settings_wrong_pass;
         } else if (msg === 'Invalid or expired session') {
-          msg = lang === 'bn' ? 'সেশন মেয়াদোত্তীর্ণ হয়েছে, আবার লগইন করুন' : 'Session expired, please log in again';
+          msg = t.settings_session_exp;
         } else if (msg === 'Both passwords are required') {
-          msg = lang === 'bn' ? 'দুইটি পাসওয়ার্ডই প্রয়োজন' : 'Both passwords are required';
+          msg = t.settings_both_pass;
         } else if (msg === 'New password must be at least 6 characters') {
-          msg = lang === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে' : 'New password must be at least 6 characters';
+          msg = t.settings_new_pass_short;
         } else if (!msg) {
-          msg = lang === 'bn' ? 'পাসওয়ার্ড পরিবর্তন ব্যর্থ' : 'Failed to change password';
+          msg = t.settings_fail_change;
         }
         showToast(msg, 'error');
         return;
       }
-      showToast(lang === 'bn' ? 'পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!' : 'Password changed successfully!', 'success');
+      showToast(t.settings_pass_changed, 'success');
       setCurPass(''); setNewPass(''); setConPass('');
     } catch {
-      showToast(lang === 'bn' ? 'সংযোগ ত্রুটি' : 'Connection error', 'error');
+      showToast(t.settings_conn_error, 'error');
     }
   };
 
@@ -69,7 +69,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
         body: JSON.stringify({ avatar: av }),
       });
     } catch (_) {}
-    showToast(lang === 'bn' ? 'অবতার সংরক্ষিত' : 'Avatar saved!', 'success');
+    showToast(t.settings_avatar_saved, 'success');
   };
 
   return (
@@ -104,12 +104,12 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
 
       {/* ─── Font Size ─── */}
       <div className="card">
-        <div className="card-title"><Icons.FontSize size={14} /> {lang === 'bn' ? 'ফন্ট সাইজ' : 'Font Size'}</div>
+        <div className="card-title"><Icons.FontSize size={14} /> {t.settings_font_size}</div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 4 }}>
-          {lang === 'bn' ? 'টেক্সটের আকার বেছে নিন — পুরো অ্যাপে প্রযোজ্য হবে।' : 'Choose text size — applies across the entire app.'}
+          {t.settings_font_hint}
         </div>
         <div style={{ padding: '10px 14px', background: 'var(--input-bg)', borderRadius: 10, border: '1px solid var(--border)', marginBottom: 14, fontStyle: 'italic', color: 'var(--text2)', lineHeight: 1.5 }}>
-          {lang === 'bn' ? 'এটি একটি নমুনা টেক্সট — ফন্ট সাইজ পরিবর্তন করলে এরকম দেখাবে।' : 'This is a sample text — this is how your app will look at the selected size.'}
+          {t.settings_font_sample}
         </div>
         {[
           { key: 'small',  bn: 'ছোট',    en: 'Small',    preview: 'ক', px: '13px' },
@@ -161,7 +161,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>{t.select_av_hint}</div>
 
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
-          {lang === 'bn' ? '👦 পুরুষ' : '👦 Male'}
+          {t.settings_male}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
           {MALE_AVATARS.map((av) => (
@@ -180,7 +180,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
         </div>
 
         <div style={{ fontSize: 11, fontWeight: 700, color: '#EC4899', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
-          {lang === 'bn' ? '👧 মহিলা' : '👧 Female'}
+          {t.settings_female}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
           {FEMALE_AVATARS.map((av) => (

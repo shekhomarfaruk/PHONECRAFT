@@ -168,8 +168,8 @@ export default function AdminScreen({ user, showToast, lang }) {
         body: JSON.stringify({ settings: settingsData }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok) showToast(lang === 'bn' ? 'সেটিংস সংরক্ষিত!' : 'Settings saved!', 'success');
-      else showApiError(data, lang === 'bn' ? 'সংরক্ষণ ব্যর্থ' : 'Failed to save');
+      if (res.ok) showToast(t.admin_settings_saved, 'success');
+      else showApiError(data, t.admin_save_failed);
     } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setSettingsSaving(false); }
   };
@@ -265,7 +265,7 @@ export default function AdminScreen({ user, showToast, lang }) {
         setSupportReply('');
         fetchSupportMessages(activeSupportSession);
         fetchSupportSessions();
-        showToast(lang === 'bn' ? 'উত্তর পাঠানো হয়েছে' : 'Reply sent', 'success');
+        showToast(t.admin_reply_sent, 'success');
       } else showApiError(data, 'Reply failed');
     } catch { showToast(t.toast_connection_error, 'error'); }
     finally { setSupportReplying(false); }
@@ -351,7 +351,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const addBalanceToUser = async () => {
     if (!selectedUser || !addBalanceAmount) return;
     const amount = Number(addBalanceAmount);
-    if (amount <= 0) return showToast(isBn ? 'পরিমাণ ০ এর বেশি হতে হবে' : 'Amount must be greater than 0', 'error');
+    if (amount <= 0) return showToast(t.admin_amount_positive, 'error');
     setSaving(true);
     try {
       const newBalance = Number(selectedUser.balance) + amount;
@@ -361,7 +361,7 @@ export default function AdminScreen({ user, showToast, lang }) {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(isBn ? `৳${amount} ব্যালেন্স যোগ হয়েছে` : `৳${amount} balance added`);
+        showToast(`৳${amount} ${isBn ? 'ব্যালেন্স যোগ হয়েছে' : 'balance added'}`);
         fetchUsers();
         fetchMyQuota();
         setAddBalanceAmount('');
@@ -397,9 +397,7 @@ export default function AdminScreen({ user, showToast, lang }) {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(lang === 'bn'
-          ? `ট্রান্সঅ্যাকশন ${status === 'approved' ? 'অনুমোদিত' : 'প্রত্যাখ্যাত'}`
-          : `Transaction ${status}`);
+        showToast(isBn ? `ট্রান্সঅ্যাকশন ${status === 'approved' ? t.admin_approved_short : t.admin_rejected_short}` : `Transaction ${status}`);
         setAdminNote('');
         setProcessingTxId(null);
         fetchTransactions();
@@ -413,11 +411,11 @@ export default function AdminScreen({ user, showToast, lang }) {
   const sendAdminMessage = async () => {
     const text = messageText.trim();
     if (!text) {
-      showToast(lang === 'bn' ? 'মেসেজ লিখুন' : 'Enter a message', 'warning');
+      showToast(t.admin_enter_msg, 'warning');
       return;
     }
     if (messageTarget === 'user' && !messageUserId) {
-      showToast(lang === 'bn' ? 'একজন ব্যবহারকারী নির্বাচন করুন' : 'Select a user', 'warning');
+      showToast(t.admin_select_user_warn, 'warning');
       return;
     }
 
@@ -440,9 +438,7 @@ export default function AdminScreen({ user, showToast, lang }) {
 
       setMessageText('');
       if (messageTarget === 'user') setMessageUserId('');
-      showToast(lang === 'bn'
-        ? `মেসেজ পাঠানো হয়েছে (${data.delivered || 0} জন)`
-        : `Message sent (${data.delivered || 0} recipients)`, 'success');
+      showToast(t.admin_msg_sent_rcpt(data.delivered || 0), 'success');
     } catch {
       showToast(t.toast_connection_error, 'error');
     } finally {
@@ -494,10 +490,10 @@ export default function AdminScreen({ user, showToast, lang }) {
           { id: 'users', label: t.admin_users, icon: Icons.People },
           ...(isMainAdmin ? [{ id: 'admins', label: t.admin_admins, icon: Icons.Shield }] : []),
           { id: 'transactions', label: t.admin_transactions, icon: Icons.Transfer },
-          { id: 'support', label: lang === 'bn' ? 'সাপোর্ট' : 'Support', icon: Icons.Headset },
+          { id: 'support', label: t.nav_support, icon: Icons.Headset },
           ...(isMainAdmin ? [{ id: 'ops', label: 'Ops', icon: Icons.Target }] : []),
           ...(isMainAdmin ? [{ id: 'dashboard', label: t.admin_dashboard, icon: Icons.BarChart }] : []),
-          ...(isMainAdmin ? [{ id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: Icons.Settings }] : []),
+          ...(isMainAdmin ? [{ id: 'settings', label: t.settings, icon: Icons.Settings }] : []),
         ].map(tab => {
           const active = activeTab === tab.id;
           const TabIcon = tab.icon;
@@ -523,33 +519,33 @@ export default function AdminScreen({ user, showToast, lang }) {
       {activeTab === 'users' && (
         <>
           <div className="card">
-            <div className="card-title"><Icons.Bell size={14} /> {lang === 'bn' ? 'ব্যবহারকারীদের মেসেজ পাঠান' : 'Send Message to Users'}</div>
+            <div className="card-title"><Icons.Bell size={14} /> {t.admin_send_msg_users}</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <button
                 className={`btn ${messageTarget === 'all' ? 'btn-primary' : 'btn-outline'}`}
                 style={{ flex: 1 }}
                 onClick={() => setMessageTarget('all')}
               >
-                {lang === 'bn' ? 'সবার কাছে' : 'All Users'}
+                {t.admin_all_users_lbl}
               </button>
               <button
                 className={`btn ${messageTarget === 'user' ? 'btn-primary' : 'btn-outline'}`}
                 style={{ flex: 1 }}
                 onClick={() => setMessageTarget('user')}
               >
-                {lang === 'bn' ? 'একজন ব্যবহারকারী' : 'Single User'}
+                {t.admin_single_user}
               </button>
             </div>
 
             {messageTarget === 'user' && (
               <div className="input-wrap">
-                <label className="input-label">{lang === 'bn' ? 'ব্যবহারকারী নির্বাচন' : 'Select User'}</label>
+                <label className="input-label">{t.admin_select_user_lbl}</label>
                 <select
                   className="inp"
                   value={messageUserId}
                   onChange={e => setMessageUserId(e.target.value)}
                 >
-                  <option value="">{lang === 'bn' ? 'নির্বাচন করুন' : 'Choose a user'}</option>
+                  <option value="">{t.admin_choose_user}</option>
                   {messageCandidates.map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.identifier})</option>
                   ))}
@@ -558,12 +554,12 @@ export default function AdminScreen({ user, showToast, lang }) {
             )}
 
             <div className="input-wrap">
-              <label className="input-label">{lang === 'bn' ? 'মেসেজ' : 'Message'}</label>
+              <label className="input-label">{t.admin_message_lbl}</label>
               <textarea
                 className="inp"
                 rows={3}
                 maxLength={1000}
-                placeholder={lang === 'bn' ? 'এখানে মেসেজ লিখুন...' : 'Write your message...'}
+                placeholder={t.admin_msg_ph}
                 value={messageText}
                 onChange={e => setMessageText(e.target.value)}
               />
@@ -571,8 +567,8 @@ export default function AdminScreen({ user, showToast, lang }) {
 
             <button className="btn btn-primary btn-full" onClick={sendAdminMessage} disabled={messageSending}>
               {messageSending
-                ? (lang === 'bn' ? 'পাঠানো হচ্ছে...' : 'Sending...')
-                : (lang === 'bn' ? 'পাঠান' : 'Send Message')}
+                ? (t.admin_sending)
+                : (t.admin_send)}
             </button>
           </div>
 
@@ -580,23 +576,23 @@ export default function AdminScreen({ user, showToast, lang }) {
           {!isMainAdmin && myQuota && (
             <div className="card" style={{ marginBottom: 12, borderColor: 'rgba(14,203,129,0.3)', background: 'rgba(14,203,129,0.05)' }}>
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
-                <Icons.BarChart size={13} /> {isBn ? 'আজকের ব্যালেন্স কোটা' : 'Your Daily Balance Quota'}
+                <Icons.BarChart size={13} /> {t.admin_quota_title}
               </div>
               <div style={{ display: 'flex', gap: 16, fontSize: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <span style={{ color: 'var(--text2)' }}>{isBn ? 'বাকি বার: ' : 'Adds left: '}</span>
+                  <span style={{ color: 'var(--text2)' }}>{t.admin_adds_left}</span>
                   <strong>{myQuota.remaining_adds}/3</strong>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text2)' }}>{isBn ? 'দৈনিক লিমিট: ' : 'Daily limit: '}</span>
+                  <span style={{ color: 'var(--text2)' }}>{t.admin_daily_lim}</span>
                   <strong>৳{myQuota.daily_limit}</strong>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text2)' }}>{isBn ? 'আজ ব্যবহৃত: ' : 'Used today: '}</span>
+                  <span style={{ color: 'var(--text2)' }}>{t.admin_used_today}</span>
                   <strong>৳{myQuota.used_today}</strong>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text2)' }}>{isBn ? 'অবশিষ্ট: ' : 'Remaining: '}</span>
+                  <span style={{ color: 'var(--text2)' }}>{t.admin_quota_remaining}</span>
                   <strong style={{ color: '#0ECB81' }}>৳{myQuota.remaining_amount}</strong>
                 </div>
               </div>
@@ -612,7 +608,7 @@ export default function AdminScreen({ user, showToast, lang }) {
             {isMainAdmin && (
             <div className="stat-box">
               <div className="stat-num">{users.filter(u => u.is_admin && !u.is_main_admin).length}</div>
-              <div className="stat-label">{lang === 'bn' ? 'ইউজার অ্যাডমিন' : 'User Admins'}</div>
+              <div className="stat-label">{t.admin_user_admins_lbl}</div>
             </div>
             )}
             <div className="stat-box">
@@ -632,10 +628,10 @@ export default function AdminScreen({ user, showToast, lang }) {
               style={{ marginBottom: 8 }} />
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {[
-                { id: 'all', label: lang === 'bn' ? 'সকল' : 'All' },
-                { id: 'active', label: lang === 'bn' ? 'সক্রিয়' : 'Active' },
-                { id: 'banned', label: lang === 'bn' ? 'নিষিদ্ধ' : 'Banned' },
-                ...(isMainAdmin ? [{ id: 'admin', label: lang === 'bn' ? 'অ্যাডমিন' : 'Admin' }] : []),
+                { id: 'all', label: t.all },
+                { id: 'active', label: t.active },
+                { id: 'banned', label: t.admin_filter_banned },
+                ...(isMainAdmin ? [{ id: 'admin', label: t.admin_admin_label }] : []),
               ].map(f => (
                 <button key={f.id}
                   className={`btn ${userStatusFilter === f.id ? 'btn-primary' : 'btn-outline'}`}
@@ -694,7 +690,7 @@ export default function AdminScreen({ user, showToast, lang }) {
               <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: editIsAdmin ? 8 : 12 }}>
                 <label className="input-label" style={{ marginBottom: 0 }}>
-                  {isBn ? 'ইউজার এডমিন' : 'User Admin'}
+                  {t.admin_user_admin_lbl}
                 </label>
                 <div
                   onClick={() => {
@@ -703,7 +699,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                       return;
                     }
                     if (selectedUser.is_main_admin) {
-                      showToast(isBn ? 'Main Admin পরিবর্তন করা যায় না' : 'Cannot change Main Admin');
+                      showToast(t.admin_cannot_change_main);
                       return;
                     }
                     setEditIsAdmin(!editIsAdmin);
@@ -727,13 +723,13 @@ export default function AdminScreen({ user, showToast, lang }) {
               {editIsAdmin && !selectedUser.is_main_admin && (
                 <div className="input-wrap" style={{ marginBottom: 12 }}>
                   <label className="input-label">
-                    {isBn ? 'দৈনিক ব্যালেন্স লিমিট (৳)' : 'Daily Balance Limit (৳)'}
+                    {t.admin_daily_bal_limit}
                   </label>
                   <input className="inp" type="number" value={editBalanceLimit}
                     onChange={e => setEditBalanceLimit(e.target.value)}
-                    placeholder={isBn ? 'সর্বোচ্চ কত টাকা যোগ করতে পারবে/দিন' : 'Max amount this admin can add per day'} />
+                    placeholder={t.admin_limit_ph} />
                   <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
-                    {isBn ? 'এই এডমিন দিনে সর্বোচ্চ ৩ বার, মোট এই পরিমাণ পর্যন্ত ব্যালেন্স যোগ করতে পারবে।' : 'This admin can add balance max 3 times/day, up to this total amount.'}
+                    {t.admin_limit_hint}
                   </div>
                 </div>
               )}
@@ -744,7 +740,7 @@ export default function AdminScreen({ user, showToast, lang }) {
               {!isMainAdmin && !selectedUser.is_admin && (
               <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'rgba(14,203,129,0.07)', border: '1px solid rgba(14,203,129,0.2)' }}>
                 <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icons.Dollar size={13} /> {isBn ? 'ব্যালেন্স যোগ করুন' : 'Add Balance'}
+                  <Icons.Dollar size={13} /> {t.admin_add_balance}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>
                   {isBn ? `বর্তমান ব্যালেন্স: ${formatMoney(selectedUser.balance)}` : `Current: ${formatMoney(selectedUser.balance)}`}
@@ -760,15 +756,13 @@ export default function AdminScreen({ user, showToast, lang }) {
                     <div style={{ fontSize: 20, marginBottom: 4 }}>💳</div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#F6465D', marginBottom: 4 }}>
                       {myQuota.daily_limit === 0
-                        ? (isBn ? 'ব্যালেন্স লিমিট সেট করা নেই' : 'No balance limit assigned')
+                        ? t.admin_no_limit
                         : myQuota.remaining_adds <= 0
-                          ? (isBn ? 'আজকের ৩ বার লিমিট শেষ' : 'Daily 3-time limit reached')
-                          : (isBn ? 'আজকের লিমিট শেষ' : 'Daily limit exhausted')}
+                          ? t.admin_daily3_done
+                          : t.admin_daily_done}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.5 }}>
-                      {isBn
-                        ? 'এই ইউজারকে ম্যানুয়াল ডিপোজিট করতে বলুন।'
-                        : 'Please ask this user to make a manual deposit.'}
+                      {t.admin_ask_deposit}
                     </div>
                   </div>
                 ) : (
@@ -776,18 +770,18 @@ export default function AdminScreen({ user, showToast, lang }) {
                     {myQuota && (
                       <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--text2)', marginBottom: 8, flexWrap: 'wrap' }}>
                         <span>{isBn ? `আজ বাকি: ${myQuota.remaining_adds}/৩ বার` : `Today: ${myQuota.remaining_adds}/3 remaining`}</span>
-                        <span>{isBn ? `লিমিট: ৳${myQuota.daily_limit}` : `Limit: ৳${myQuota.daily_limit}`}</span>
-                        <span>{isBn ? `বাকি: ৳${myQuota.remaining_amount}` : `Left: ৳${myQuota.remaining_amount}`}</span>
+                        <span>{t.admin_daily_lim}৳{myQuota.daily_limit}</span>
+                        <span>{t.admin_quota_remaining}৳{myQuota.remaining_amount}</span>
                       </div>
                     )}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <input className="inp" type="number" value={addBalanceAmount}
                         onChange={e => setAddBalanceAmount(e.target.value)}
-                        placeholder={isBn ? 'পরিমাণ লিখুন' : 'Enter amount'}
+                        placeholder={t.admin_enter_amount}
                         style={{ flex: 1 }} />
                       <button className="btn btn-success" onClick={addBalanceToUser} disabled={saving || !addBalanceAmount}
                         style={{ fontSize: 12, padding: '6px 16px' }}>
-                        {saving ? '...' : (isBn ? 'যোগ করুন' : 'Add')}
+                        {saving ? '...' : t.admin_add_btn}
                       </button>
                     </div>
                   </>
@@ -879,7 +873,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                       </span>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
-                      {u.identifier} | REF: {u.refer_code} | {lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}: {formatMoney(u.balance)}
+                      {u.identifier} | REF: {u.refer_code} | {t.admin_balance}: {formatMoney(u.balance)}
                     </div>
                     {u.lastLogin && (
                       <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>
@@ -896,8 +890,8 @@ export default function AdminScreen({ user, showToast, lang }) {
                     onClick={e => { e.stopPropagation(); toggleBan(u); }}
                   >
                     {u.banned
-                      ? (lang === 'bn' ? 'আনব্যান' : 'Unban')
-                      : (lang === 'bn' ? 'ব্যান' : 'Ban')}
+                      ? (t.admin_unban_short)
+                      : (t.admin_ban_short)}
                   </button>
                 </div>
               </div>
@@ -959,12 +953,12 @@ export default function AdminScreen({ user, showToast, lang }) {
                     </div>
                     <div style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: 11, color: 'var(--text2)', flexWrap: 'wrap' }}>
                       <span>REF: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{u.refer_code}</span></span>
-                      <span>{lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{formatMoney(u.balance)}</span></span>
+                      <span>{t.admin_balance}: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{formatMoney(u.balance)}</span></span>
                       <span>Plan: <span style={{ color: u.plan_color || 'var(--accent)', fontWeight: 600 }}>{u.plan_name}</span></span>
                     </div>
                     {u.lastLogin && (
                       <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
-                        {lang === 'bn' ? 'সর্বশেষ লগইন' : 'Last login'}: {u.lastLogin.ip || 'local'}
+                        {t.admin_last_login}: {u.lastLogin.ip || 'local'}
                         {u.lastLogin.city ? ` — ${u.lastLogin.city}, ${u.lastLogin.country}` : ''}
                         {' | '}{parseDevice(u.lastLogin.user_agent)}
                       </div>
@@ -1014,7 +1008,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>
                   {formatStamp(tx.created_at)}
-                  {tx.admin_note ? ` | ${lang === 'bn' ? 'নোট' : 'Note'}: ${convertCurrencyText(tx.admin_note, lang)}` : ''}
+                  {tx.admin_note ? ` | ${t.admin_note_lbl}: ${convertCurrencyText(tx.admin_note, lang)}` : ''}
                 </div>
                 {tx.status === 'pending' && (
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1053,10 +1047,10 @@ export default function AdminScreen({ user, showToast, lang }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>
-                <Icons.Document size={13} /> {isBn ? 'অপারেশন SOP' : 'Operations SOP'}
+                <Icons.Document size={13} /> {t.admin_sop_title}
               </h2>
               <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text2)' }}>
-                {isBn ? 'Admin টিমের কাজ প্রক্রিয়া এবং লক্ষ্য' : 'Team workflow and targets'}
+                {t.admin_sop_sub}
               </p>
             </div>
             <div onClick={() => setAdminThemeDark(!adminThemeDark)} style={{
@@ -1077,7 +1071,7 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Admin Roles Overview */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title"><Icons.People size={14} /> {isBn ? 'Admin ভূমিকা' : 'Admin Roles'}</div>
+            <div className="card-title"><Icons.People size={14} /> {t.admin_roles_title}</div>
             {adminRoles.map((role, i) => (
               <div key={i} style={{
                 padding: '12px', marginBottom: i < adminRoles.length - 1 ? 8 : 0,
@@ -1103,7 +1097,7 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Daily Operations Checklist */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title"><Icons.CheckCircle size={14} /> {isBn ? 'দৈনিক কাজের তালিকা' : 'Daily Checklist'}</div>
+            <div className="card-title"><Icons.CheckCircle size={14} /> {t.admin_checklist_title}</div>
             {opsChecklist.map((item, i) => (
               <div key={i} style={{
                 display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 0',
@@ -1119,9 +1113,9 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Finance Operations SOP */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title"><Icons.CreditCard size={14} /> {isBn ? 'ফিনান্স অপারেশন SOP' : 'Finance Operations SOP'}</div>
+            <div className="card-title"><Icons.CreditCard size={14} /> {t.admin_finance_sop}</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
-              {isBn ? 'ডিপোজিট/উইথড্র রিকোয়েস্ট প্রসেস করার নিয়ম' : 'How to process deposit/withdraw requests'}
+              {t.admin_finance_sub}
             </div>
             <div style={{ background: 'var(--card)', borderRadius: 8, border: '1px solid var(--border)' }}>
               {financeSop.map((item, i) => (
@@ -1138,9 +1132,9 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Support Operations SOP */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title"><Icons.Chat size={14} /> {isBn ? 'সাপোর্ট অপারেশন SOP' : 'Support Operations SOP'}</div>
+            <div className="card-title"><Icons.Chat size={14} /> {t.admin_support_sop}</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
-              {isBn ? 'লাইভ চ্যাট এবং Telegram সাপোর্ট হ্যান্ডলিং নিয়ম' : 'How to handle live chat and Telegram support'}
+              {t.admin_support_sub}
             </div>
             <div style={{ background: 'var(--card)', borderRadius: 8, border: '1px solid var(--border)' }}>
               {supportSop.map((item, i) => (
@@ -1157,56 +1151,48 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* KPI Targets */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title"><Icons.Target size={14} /> {isBn ? 'KPI টার্গেট' : 'KPI Targets'}</div>
+            <div className="card-title"><Icons.Target size={14} /> {t.admin_kpi_title}</div>
             <div className="stats-row">
               <div className="stat-box" style={{ background: 'rgba(240, 253, 250, 0.1)' }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: '#14B8A6' }}>98%</div>
-                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
-                  {isBn ? 'Deposit সাফল্য' : 'Deposit Success'}
-                </div>
+                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_dep_success}</div>
               </div>
               <div className="stat-box" style={{ background: 'rgba(240, 253, 250, 0.1)' }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: '#14B8A6' }}>97%</div>
-                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
-                  {isBn ? 'Withdraw সাফল্য' : 'Withdraw Success'}
-                </div>
+                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_wd_success}</div>
               </div>
               <div className="stat-box" style={{ background: 'rgba(251, 191, 36, 0.1)' }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: '#F59E0B' }}>60 min</div>
-                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
-                  {isBn ? 'গড় Withdraw' : 'Avg Withdraw Time'}
-                </div>
+                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_avg_wd}</div>
               </div>
               <div className="stat-box" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: '#EF4444' }}>&lt;0.5%</div>
-                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
-                  {isBn ? 'ফ্রড লস' : 'Fraud Loss'}
-                </div>
+                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_fraud_loss}</div>
               </div>
             </div>
           </div>
 
           {/* Fraud Control Rules */}
           <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-title"><Icons.Shield size={14} /> {isBn ? 'ফ্রড নিয়ন্ত্রণ' : 'Fraud Control Rules'}</div>
+            <div className="card-title"><Icons.Shield size={14} /> {t.admin_fraud_ctrl}</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
-              {isBn ? 'সন্দেহজনক কার্যকলাপ সনাক্ত এবং ব্লক করার নিয়ম' : 'How to identify and handle suspicious activities'}
+              {t.admin_fraud_sub}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div style={{ padding: 10, borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
                 <div style={{ fontWeight: 700, fontSize: 11, color: '#EF4444', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}><Icons.AlertTriangle size={12} color="#EF4444" /> HIGH RISK</div>
                 <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--text2)' }}>
-                  <li>{isBn ? 'একই ডিভাইস থেকে অনেক একাউন্ট' : 'Many accounts from same device'}</li>
-                  <li>{isBn ? 'দ্রুত ডিপোজিট-উইথড্র' : 'Rapid deposit-withdraw'}</li>
-                  <li>{isBn ? 'অস্বাভাবিক রেফারেল বৃদ্ধি' : 'Abnormal referral growth'}</li>
+                  <li>{t.admin_fraud1}</li>
+                  <li>{t.admin_fraud2}</li>
+                  <li>{t.admin_fraud3}</li>
                 </ul>
               </div>
               <div style={{ padding: 10, borderRadius: 8, background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
                 <div style={{ fontWeight: 700, fontSize: 11, color: '#F59E0B', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}><Icons.AlertTriangle size={12} color="#F59E0B" /> ACTION</div>
                 <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--text2)' }}>
-                  <li>{isBn ? 'একাউন্টে মার্ক করুন' : 'Mark account risk flag'}</li>
-                  <li>{isBn ? 'বড় লেনদেন হোল্ড করুন' : 'Hold large transactions'}</li>
-                  <li>{isBn ? 'Manual KYC যাচাই' : 'Manual KYC verification'}</li>
+                  <li>{t.admin_action1}</li>
+                  <li>{t.admin_action2}</li>
+                  <li>{t.admin_action3}</li>
                 </ul>
               </div>
             </div>
@@ -1214,25 +1200,19 @@ export default function AdminScreen({ user, showToast, lang }) {
 
           {/* Weekly Review */}
           <div className="card">
-            <div className="card-title"><Icons.BarChart size={14} /> {isBn ? 'সাপ্তাহিক পর্যালোচনা' : 'Weekly Review Points'}</div>
+            <div className="card-title"><Icons.BarChart size={14} /> {t.admin_weekly_title}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ padding: 10, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 4 }}>1. Payout Reconciliation</div>
-                <div style={{ fontSize: 11, color: 'var(--text2)' }}>
-                  {isBn ? 'সব পেআউট এক্সপোর্ট করুন এবং রেকর্ড রাখুন' : 'Export all payouts and keep records'}
-                </div>
+                <div style={{ fontSize: 11, color: 'var(--text2)' }}>{t.admin_weekly1}</div>
               </div>
               <div style={{ padding: 10, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 4 }}>2. Fraud Pattern Review</div>
-                <div style={{ fontSize: 11, color: 'var(--text2)' }}>
-                  {isBn ? 'নতুন ফ্রড প্যাটার্ন খুঁজুন এবং রুল আপডেট করুন' : 'Find new fraud patterns, update rules'}
-                </div>
+                <div style={{ fontSize: 11, color: 'var(--text2)' }}>{t.admin_weekly2}</div>
               </div>
               <div style={{ padding: 10, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 4 }}>3. Retention Campaign</div>
-                <div style={{ fontSize: 11, color: 'var(--text2)' }}>
-                  {isBn ? 'নিষ্ক্রিয় ব্যবহারকারীদের জন্য অফার পাঠান' : 'Send offers to inactive users'}
-                </div>
+                <div style={{ fontSize: 11, color: 'var(--text2)' }}>{t.admin_weekly3}</div>
               </div>
             </div>
           </div>
@@ -1318,7 +1298,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                     <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#0ECB81' }}>
                       {stats.newUsersToday ?? '—'}
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'আজ নতুন' : 'New Today'}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_new_today}</div>
                   </div>
                   <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(246,70,93,0.1)', textAlign: 'center' }}>
                     <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#F6465D' }}>
@@ -1330,7 +1310,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                     <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#FCD535' }}>
                       {stats.activeToday ?? '—'}
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'আজ সক্রিয়' : 'Active Today'}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_active_today}</div>
                   </div>
                 </div>
               </div>
@@ -1338,25 +1318,25 @@ export default function AdminScreen({ user, showToast, lang }) {
               {/* Support stats */}
               {stats.support && (
                 <div className="card">
-                  <div className="card-title"><Icons.Chat size={14} /> {lang === 'bn' ? 'সাপোর্ট সারসংক্ষেপ' : 'Support Summary'}</div>
+                  <div className="card-title"><Icons.Chat size={14} /> {t.admin_support_summary}</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                     <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', textAlign: 'center' }}>
                       <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#6366F1' }}>
                         {stats.support.totalSessions}
                       </div>
-                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'মোট সেশন' : 'Sessions'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_sessions_lbl}</div>
                     </div>
                     <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(246,70,93,0.1)', textAlign: 'center' }}>
                       <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#F6465D' }}>
                         {stats.support.unrepliedSessions}
                       </div>
-                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'উত্তরবিহীন' : 'Unanswered'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_unanswered}</div>
                     </div>
                     <div style={{ padding: '10px', borderRadius: 8, background: 'rgba(14,203,129,0.1)', textAlign: 'center' }}>
                       <div style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 700, color: '#0ECB81' }}>
                         {stats.support.adminReplies}
                       </div>
-                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{lang === 'bn' ? 'উত্তর দেওয়া' : 'Replies Sent'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>{t.admin_replies_sent}</div>
                     </div>
                   </div>
                 </div>
@@ -1365,7 +1345,7 @@ export default function AdminScreen({ user, showToast, lang }) {
               {/* Top Earners */}
               {stats.topEarners && stats.topEarners.length > 0 && (
                 <div className="card">
-                  <div className="card-title"><Icons.Trophy size={14} /> {lang === 'bn' ? 'শীর্ষ উপার্জনকারী' : 'Top Earners'}</div>
+                  <div className="card-title"><Icons.Trophy size={14} /> {t.admin_top_earners}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {stats.topEarners.map((u, i) => (
                       <div key={i} style={{
@@ -1401,27 +1381,27 @@ export default function AdminScreen({ user, showToast, lang }) {
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div className="card-title" style={{ marginBottom: 0 }}>
-                  <Icons.Chat size={14} /> {lang === 'bn' ? 'সাপোর্ট সেশন' : 'Support Sessions'}
+                  <Icons.Chat size={14} /> {t.admin_support_sessions}
                 </div>
                 <button className="btn btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}
                   onClick={fetchSupportSessions} disabled={supportLoading}>
-                  <Icons.Refresh size={12} /> {lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}
+                  <Icons.Refresh size={12} /> {t.admin_refresh_lbl}
                 </button>
               </div>
 
               {supportLoading ? (
                 <div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 13 }}>
-                  {lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}
+                  {t.admin_loading}
                 </div>
               ) : supportSessions.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 13 }}>
-                  {lang === 'bn' ? 'কোনো সাপোর্ট সেশন নেই।' : 'No support sessions yet.'}
+                  {t.admin_no_sessions}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {supportSessions.map(sess => {
                     const hasReply = sess.admin_replies > 0;
-                    const displayName = sess.user_name || (lang === 'bn' ? 'অজ্ঞাত ব্যবহারকারী' : 'Unknown User');
+                    const displayName = sess.user_name || (t.admin_unknown_user);
                     return (
                       <div key={sess.session_id}
                         onClick={() => openSupportSession(sess.session_id)}
@@ -1438,8 +1418,8 @@ export default function AdminScreen({ user, showToast, lang }) {
                           <div style={{ display: 'flex', gap: 6 }}>
                             <span className={`badge ${hasReply ? 'badge-green' : 'badge-orange'}`} style={{ fontSize: 10 }}>
                               {hasReply
-                                ? (lang === 'bn' ? '✓ উত্তর দেওয়া' : '✓ Replied')
-                                : (lang === 'bn' ? 'অপেক্ষায়' : 'Pending')}
+                                ? (t.admin_replied_lbl)
+                                : (t.admin_pending_lbl)}
                             </span>
                           </div>
                         </div>
@@ -1447,8 +1427,8 @@ export default function AdminScreen({ user, showToast, lang }) {
                           {sess.last_message || '—'}
                         </div>
                         <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text2)' }}>
-                          <span><Icons.Chat size={11} /> {sess.user_msgs} {lang === 'bn' ? 'মেসেজ' : 'msgs'}</span>
-                          <span><Icons.Reply size={11} /> {sess.admin_replies} {lang === 'bn' ? 'উত্তর' : 'replies'}</span>
+                          <span><Icons.Chat size={11} /> {sess.user_msgs} {t.admin_msgs_lbl}</span>
+                          <span><Icons.Reply size={11} /> {sess.admin_replies} {t.admin_replies_lbl}</span>
                           <span style={{ marginLeft: 'auto' }}>{sess.last_active ? new Date(sess.last_active + 'Z').toLocaleString() : ''}</span>
                         </div>
                       </div>
@@ -1471,7 +1451,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 </button>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>
-                    <Icons.User size={13} /> {supportSessions.find(s => s.session_id === activeSupportSession)?.user_name || (lang === 'bn' ? 'অজ্ঞাত' : 'Unknown')}
+                    <Icons.User size={13} /> {supportSessions.find(s => s.session_id === activeSupportSession)?.user_name || (t.admin_unknown_short)}
                   </div>
                   <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>
                     {activeSupportSession.slice(0, 28)}...
@@ -1487,11 +1467,11 @@ export default function AdminScreen({ user, showToast, lang }) {
               <div style={{ height: 300, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {supportMsgsLoading ? (
                   <div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 13 }}>
-                    {lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}
+                    {t.admin_loading}
                   </div>
                 ) : supportMessages.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 13 }}>
-                    {lang === 'bn' ? 'কোনো মেসেজ নেই।' : 'No messages.'}
+                    {t.admin_no_msgs}
                   </div>
                 ) : (
                   supportMessages.map((m, i) => (
@@ -1522,7 +1502,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 <input
                   className="inp"
                   style={{ flex: 1, marginBottom: 0 }}
-                  placeholder={lang === 'bn' ? 'উত্তর লিখুন...' : 'Type your reply...'}
+                  placeholder={t.admin_reply_ph}
                   value={supportReply}
                   onChange={e => setSupportReply(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && sendSupportReply()}
@@ -1530,7 +1510,7 @@ export default function AdminScreen({ user, showToast, lang }) {
                 />
                 <button className="btn btn-primary" style={{ flexShrink: 0 }}
                   onClick={sendSupportReply} disabled={!supportReply.trim() || supportReplying}>
-                  {supportReplying ? '...' : (lang === 'bn' ? 'পাঠান' : 'Send')}
+                  {supportReplying ? '...' : (t.admin_reply_send)}
                 </button>
               </div>
             </div>
@@ -1544,15 +1524,15 @@ export default function AdminScreen({ user, showToast, lang }) {
       {activeTab === 'settings' && (
         <>
           <div className="card">
-            <div className="card-title"><Icons.CreditCard size={14} /> {lang === 'bn' ? 'ডিপোজিট নম্বর সেটিংস' : 'Deposit Payment Numbers'}</div>
+            <div className="card-title"><Icons.CreditCard size={14} /> {t.admin_deposit_title}</div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
-              {lang === 'bn' ? 'ব্যবহারকারীরা ডিপোজিটের সময় এই নম্বরগুলো দেখতে পাবেন।' : 'Users will see these numbers on the deposit screen.'}
+              {t.admin_deposit_desc}
             </div>
             {[
               { key: 'deposit_bkash',  label: 'bKash',   placeholder: '017XXXXXXXX' },
               { key: 'deposit_nagad',  label: 'Nagad',   placeholder: '016XXXXXXXX' },
               { key: 'deposit_rocket', label: 'Rocket',  placeholder: '018XXXXXXXX' },
-              { key: 'deposit_bank',   label: lang === 'bn' ? 'ব্যাংক অ্যাকাউন্ট' : 'Bank Account', placeholder: 'XXXXXXXXXXXXXXXX' },
+              { key: 'deposit_bank',   label: t.admin_bank_account, placeholder: 'XXXXXXXXXXXXXXXX' },
             ].map(({ key, label, placeholder }) => (
               <div key={key} className="input-wrap">
                 <label className="input-label">{label}</label>
@@ -1570,8 +1550,8 @@ export default function AdminScreen({ user, showToast, lang }) {
               onClick={saveSettings}
             >
               {settingsSaving
-                ? (lang === 'bn' ? 'সংরক্ষণ হচ্ছে...' : 'Saving...')
-                : (lang === 'bn' ? 'সংরক্ষণ করুন' : 'Save Settings')
+                ? (t.admin_saving)
+                : (t.admin_save_settings)
               }
             </button>
           </div>

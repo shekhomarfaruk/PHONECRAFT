@@ -70,7 +70,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
   const doTransfer = async () => {
     const amt = Number(transferAmt);
     if (!toIdentifier.trim() || !amt || amt <= 0) return;
-    if (amt > user.balance) { showToast(lang === 'bn' ? 'অপর্যাপ্ত ব্যালেন্স' : 'Insufficient balance', 'error'); return; }
+    if (amt > user.balance) { showToast(t.bal_insufficient, 'error'); return; }
     setTransferring(true);
     try {
       const r = await authFetch(`${API_URL}/api/transfer`, {
@@ -134,7 +134,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
         <div style={{ textAlign: 'center', marginBottom: 12 }}>
           <div style={{ fontFamily: 'Space Grotesk', fontSize: 24, fontWeight: 900, color: 'var(--green)' }}>{convertCurrency(totalEarnings, lang)}</div>
           <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
-            {user.dailyDone}/{plan.daily} {t.completed} · {convertCurrency(plan.perTask, lang)}/{lang === 'bn' ? 'টাস্ক' : 'task'}
+            {user.dailyDone}/{plan.daily} {t.completed} · {convertCurrency(plan.perTask, lang)}/{t.bal_task}
           </div>
         </div>
         {[
@@ -174,52 +174,52 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
 
       {/* Credit Transfer */}
       <div className="card">
-        <div className="card-title"><Icons.Link size={14} /> {lang === 'bn' ? 'ক্রেডিট ট্রান্সফার' : 'Credit Transfer'}</div>
+        <div className="card-title"><Icons.Link size={14} /> {t.bal_credit_transfer}</div>
         <div style={{
           background: isDark ? 'rgba(35,175,145,0.07)' : 'linear-gradient(135deg,rgba(35,175,145,.12),rgba(99,102,241,.12))',
           border: isDark ? '1px solid rgba(35,175,145,0.15)' : '1px solid rgba(35,175,145,.3)',
           borderRadius: 10, padding: 14, marginBottom: 16, textAlign: 'center'
         }}>
-          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>{lang === 'bn' ? 'পাঠানোযোগ্য ব্যালেন্স' : 'Available Balance'}</div>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>{t.bal_avail}</div>
           <div style={{ fontFamily: 'Space Grotesk', fontSize: 'clamp(20px,5vw,28px)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <Icons.Coin size={20} />{convertCurrency(user.balance, lang)}
           </div>
         </div>
         <div className="input-wrap">
-          <label className="input-label">{lang === 'bn' ? 'প্রাপকের ফোন / ইমেইল' : 'Recipient Phone / Email'}</label>
+          <label className="input-label">{t.bal_recipient}</label>
           <input
             className="inp"
-            placeholder={lang === 'bn' ? 'ফোন নম্বর বা ইমেইল লিখুন' : 'Enter phone or email'}
+            placeholder={t.bal_recipient_ph}
             value={toIdentifier}
             onChange={e => setToIdentifier(e.target.value)}
           />
           {toIdentifier.trim() && (
             <div style={{ marginTop: 6, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
               {lookupLoading ? (
-                <span style={{ color: 'var(--text2)' }}>{lang === 'bn' ? 'খোঁজা হচ্ছে...' : 'Looking up...'}</span>
+                <span style={{ color: 'var(--text2)' }}>{t.bal_searching}</span>
               ) : resolvedName ? (
                 <>
                   <span style={{ color: 'var(--green)' }}>✓</span>
                   <span style={{ color: 'var(--green)', fontWeight: 600 }}>{resolvedName}</span>
                 </>
               ) : (
-                <span style={{ color: 'var(--red)' }}>{lang === 'bn' ? 'ব্যবহারকারী পাওয়া যায়নি' : 'User not found'}</span>
+                <span style={{ color: 'var(--red)' }}>{t.bal_user_not_found}</span>
               )}
             </div>
           )}
         </div>
         <div className="input-wrap">
-          <label className="input-label">{lang === 'bn' ? 'পরিমাণ (৳)' : 'Amount (৳)'}</label>
+          <label className="input-label">{t.bal_amount}</label>
           <input
             className="inp"
             type="number"
-            placeholder={lang === 'bn' ? 'পরিমাণ লিখুন' : 'Enter amount'}
+            placeholder={t.bal_amount_ph}
             value={transferAmt}
             onChange={e => setTransferAmt(e.target.value)}
           />
         </div>
         <div style={{ background: 'rgba(217,119,6,.08)', border: '1px solid rgba(217,119,6,.2)', borderRadius: 10, padding: 12, marginBottom: 14, fontSize: 12, color: 'var(--yellow)' }}>
-          {lang === 'bn' ? 'ট্রান্সফার করা ক্রেডিট ফেরত নেওয়া যাবে না। সঠিক তথ্য নিশ্চিত করুন।' : 'Transferred credits cannot be reversed. Please verify recipient details.'}
+          {t.bal_irreversible}
         </div>
         <button
           className="btn btn-primary btn-full"
@@ -227,8 +227,8 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
           onClick={doTransfer}
         >
           {transferring
-            ? (lang === 'bn' ? 'প্রসেস হচ্ছে...' : 'Processing...')
-            : <><Icons.Link size={16} /> {lang === 'bn' ? 'ট্রান্সফার করুন' : 'Transfer'}</>
+            ? (t.bal_processing)
+            : <><Icons.Link size={16} /> {t.bal_transfer_btn}</>
           }
         </button>
       </div>
@@ -236,13 +236,13 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
       {/* Activity Log */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="card-title" style={{ padding: '14px 16px 10px' }}>
-          <Icons.TrendUp size={14} /> {lang === 'bn' ? 'ব্যালেন্স অ্যাক্টিভিটি' : 'Balance Activity'}
+          <Icons.TrendUp size={14} /> {t.bal_activity}
         </div>
         {loading ? (
           <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text2)', fontSize: 12 }}>...</div>
         ) : log.length === 0 ? (
           <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text2)', fontSize: 12 }}>
-            {lang === 'bn' ? 'কোনো অ্যাক্টিভিটি নেই।' : 'No activity yet.'}
+            {t.bal_no_activity}
           </div>
         ) : (
           log.map((entry, i) => {

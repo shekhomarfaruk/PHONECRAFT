@@ -24,7 +24,7 @@ function EarningsTicker({ lang = 'en' }) {
   return (
     <div className="card" style={{padding:'14px 0 14px'}}>
       <div className="card-title" style={{paddingLeft:16,marginBottom:10}}>
-        <Icons.TrendUp size={14}/> {lang === 'bn' ? 'ব্যবহারকারীরা এখন আয় করছেন' : 'Users Earning Now'}
+        <Icons.TrendUp size={14}/> {t.home_earning_now}
       </div>
 
       {/* inject keyframes */}
@@ -78,7 +78,7 @@ function EarningsTicker({ lang = 'en' }) {
               <div style={{
                 fontSize:8,fontWeight:700,letterSpacing:1.5,
                 color:'var(--green)',opacity:.7,
-              }}>{lang === 'bn' ? 'আজকের আয়' : 'EARNED TODAY'}</div>
+              }}>{t.home_earned_today}</div>
             </div>
           ))}
         </div>
@@ -197,7 +197,7 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
               }}><Icons.Bell size={20} color="#fff" /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--text)' }}>
-                  {lang === 'bn' ? 'নতুন রেজিস্ট্রেশন অনুরোধ!' : 'New Registration Request!'}
+                  {t.home_new_reg}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
                   <strong>{parsed.new_user_name || '?'}</strong> — {parsed.plan_name || '?'} ({convertCurrency(parsed.amount || 0, lang)})
@@ -210,14 +210,14 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
                 className="btn btn-success"
                 style={{ flex: 1, fontSize: 13, padding: '10px 0', fontWeight: 700, borderRadius: 10 }}
               >
-                {lang === 'bn' ? 'Accept' : 'Accept'}
+                'Accept'
               </button>
               <button
                 onClick={() => setRegModalNotif(notif)}
                 className="btn btn-danger"
                 style={{ flex: 1, fontSize: 13, padding: '10px 0', fontWeight: 700, borderRadius: 10 }}
               >
-                {lang === 'bn' ? 'Decline' : 'Decline'}
+                'Decline'
               </button>
             </div>
           </div>
@@ -248,10 +248,10 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: 'Space Grotesk', fontWeight: 800, fontSize: 14 }}>
-            {lang === 'bn' ? 'হোম স্ক্রিনে অ্যাপ ইনস্টল করুন' : 'Install App to Home Screen'}
+            {t.home_install_app}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
-            {lang === 'bn' ? 'ট্যাপ করে Android/iPhone install guide দেখুন' : 'Tap to open Android/iPhone install guide'}
+            {t.home_install_sub}
           </div>
         </div>
         <div style={{ color: 'var(--accent)', fontWeight: 900, fontSize: 18, flexShrink: 0 }}>›</div>
@@ -302,8 +302,8 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
             }}>
               <div style={{fontFamily:'Space Grotesk',fontSize:10,color:p.color,marginBottom:4}}>{p.name}</div>
               <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>{convertCurrency(p.rate, lang)}</div>
-              <div style={{fontSize:10,color:'var(--text2)'}}>{lang === 'bn' ? 'দৈনিক' : 'Daily'}: {convertCurrency(p.dailyEarn, lang)} ({p.daily} {lang === 'bn' ? 'টাস্ক' : 'tasks'})</div>
-              <div style={{fontSize:10,color:'var(--text2)',marginTop:2}}>{lang === 'bn' ? 'প্রতি টাস্ক' : 'Per task'}: {convertCurrency(p.perTask, lang)}</div>
+              <div style={{fontSize:10,color:'var(--text2)'}}>{t.home_daily}: {convertCurrency(p.dailyEarn, lang)} ({p.daily} {t.home_tasks_plural})</div>
+              <div style={{fontSize:10,color:'var(--text2)',marginTop:2}}>{t.home_per_task}: {convertCurrency(p.perTask, lang)}</div>
               <div style={{fontSize:10,color:'var(--text2)',marginTop:2}}>Ref: {p.l1}%/{p.l2}%/{p.l3}%</div>
             </div>
           ))}

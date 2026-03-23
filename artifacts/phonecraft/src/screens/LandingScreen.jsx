@@ -372,7 +372,7 @@ function VideoCard({ video, isActive, onEnded, lang }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#9AA4B2', fontSize: 13, background: 'rgba(0,0,0,.35)',
             }}>
-              {lang === 'bn' ? 'ভিডিও লোড হচ্ছে...' : 'Loading video...'}
+              {t.land_video_loading}
             </div>
           )}
           {hasError && (
@@ -381,7 +381,7 @@ function VideoCard({ video, isActive, onEnded, lang }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#EAECEF', fontSize: 13, background: 'rgba(0,0,0,.55)', textAlign: 'center', padding: 14,
             }}>
-              {lang === 'bn' ? 'এই ভিডিওটি আপনার ব্রাউজারে চলতে পারছে না' : 'This video cannot be played in your browser'}
+              {t.land_video_unsupported}
             </div>
           )}
           {needsTap && !hasError && (
@@ -399,7 +399,7 @@ function VideoCard({ video, isActive, onEnded, lang }) {
                   fontWeight: 700,
                 }}
               >
-                {lang === 'bn' ? '▶ ভিডিও চালান' : '▶ Play video'}
+                {t.land_play_video}
               </button>
             </div>
           )}
@@ -751,10 +751,10 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: 'Space Grotesk', fontSize: 13, fontWeight: 800, color: '#EAECEF' }}>
-            {lang === 'bn' ? 'অ্যাপ ইনস্টল গাইড দেখুন' : 'Open App Install Guide'}
+            {t.land_install_guide}
           </div>
           <div style={{ fontSize: 11, color: '#9AA4B2', marginTop: 1 }}>
-            {lang === 'bn' ? 'Android ও iPhone-এ হোম স্ক্রিনে যোগ করার ধাপ' : 'Step-by-step Android & iPhone home screen install'}
+            {t.land_install_sub}
           </div>
         </div>
         <span style={{ color: '#23AF91', fontSize: 17, fontWeight: 900, flexShrink: 0 }}>›</span>

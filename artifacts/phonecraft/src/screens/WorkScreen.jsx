@@ -353,7 +353,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
           {brand && (
             <>
               <label className="input-label">
-                {lang === 'bn' ? 'মডেল নির্বাচন করুন' : 'Select Model'}
+                {t.work_select_model}
                 {deviceName && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>✓</span>}
               </label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
