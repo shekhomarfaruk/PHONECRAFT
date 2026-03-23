@@ -356,13 +356,16 @@ export default function App() {
       {toast && (
         <div className={`toast toast-${toast.type}`}>
           <div className="toast-icon-wrap">
-            {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : toast.type === 'warning' ? '⚠️' : 'ℹ️'}
+            {toast.type === 'success' ? <Icons.CheckCircle size={22} /> : toast.type === 'error' ? <Icons.AlertCircle size={22} /> : toast.type === 'warning' ? <Icons.AlertTriangle size={22} /> : <Icons.Info size={22} />}
           </div>
           <div className="toast-body">
             <div className="toast-type-label">
-              {toast.type === 'success' ? '✓ সফল হয়েছে' : toast.type === 'error' ? '✗ ত্রুটি হয়েছে' : toast.type === 'warning' ? '⚠ সতর্কতা' : 'ℹ তথ্য'}
+              {toast.type === 'success' ? 'সফল' : toast.type === 'error' ? 'ত্রুটি' : toast.type === 'warning' ? 'সতর্কতা' : 'তথ্য'}
             </div>
             <div className="toast-msg-text">{toast.msg}</div>
+          </div>
+          <div className="toast-close" onClick={() => setToast(null)}>
+            <Icons.X size={16} />
           </div>
         </div>
       )}
@@ -394,13 +397,16 @@ export default function App() {
       {toast && (
         <div className={`toast toast-${toast.type}`}>
           <div className="toast-icon-wrap">
-            {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : toast.type === 'warning' ? '⚠️' : 'ℹ️'}
+            {toast.type === 'success' ? <Icons.CheckCircle size={22} /> : toast.type === 'error' ? <Icons.AlertCircle size={22} /> : toast.type === 'warning' ? <Icons.AlertTriangle size={22} /> : <Icons.Info size={22} />}
           </div>
           <div className="toast-body">
             <div className="toast-type-label">
-              {toast.type === 'success' ? '✓ সফল হয়েছে' : toast.type === 'error' ? '✗ ত্রুটি হয়েছে' : toast.type === 'warning' ? '⚠ সতর্কতা' : 'ℹ তথ্য'}
+              {toast.type === 'success' ? 'সফল' : toast.type === 'error' ? 'ত্রুটি' : toast.type === 'warning' ? 'সতর্কতা' : 'তথ্য'}
             </div>
             <div className="toast-msg-text">{toast.msg}</div>
+          </div>
+          <div className="toast-close" onClick={() => setToast(null)}>
+            <Icons.X size={16} />
           </div>
         </div>
       )}
@@ -574,13 +580,16 @@ export default function App() {
       {toast && (
         <div className={`toast toast-${toast.type}`}>
           <div className="toast-icon-wrap">
-            {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : toast.type === 'warning' ? '⚠️' : 'ℹ️'}
+            {toast.type === 'success' ? <Icons.CheckCircle size={22} /> : toast.type === 'error' ? <Icons.AlertCircle size={22} /> : toast.type === 'warning' ? <Icons.AlertTriangle size={22} /> : <Icons.Info size={22} />}
           </div>
           <div className="toast-body">
             <div className="toast-type-label">
-              {toast.type === 'success' ? '✓ সফল হয়েছে' : toast.type === 'error' ? '✗ ত্রুটি হয়েছে' : toast.type === 'warning' ? '⚠ সতর্কতা' : 'ℹ তথ্য'}
+              {toast.type === 'success' ? 'সফল' : toast.type === 'error' ? 'ত্রুটি' : toast.type === 'warning' ? 'সতর্কতা' : 'তথ্য'}
             </div>
             <div className="toast-msg-text">{toast.msg}</div>
+          </div>
+          <div className="toast-close" onClick={() => setToast(null)}>
+            <Icons.X size={16} />
           </div>
         </div>
       )}
