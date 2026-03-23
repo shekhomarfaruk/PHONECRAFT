@@ -447,7 +447,7 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
         name: pending.name, identifier: pending.identifier,
         password: pending.password_hash, plan_id: pending.plan_id,
         balance: 0, daily_done: 0,
-        refer_code: pending.new_refer_code, referred_by: pending.refer_code_used, avatar: '🧑',
+        refer_code: pending.new_refer_code, referred_by: pending.refer_code_used, avatar: '/avatars/male-1.png',
       });
 
       stmts.updatePendingStatus.run('approved', pendingId);

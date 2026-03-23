@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Icons from "../Icons.jsx";
-import { AVATARS } from "../data.jsx";
+import { MALE_AVATARS, FEMALE_AVATARS } from "../data.jsx";
 import { I18N } from "../i18n.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -158,38 +158,54 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
       <div className="card">
         <div className="card-title"><Icons.Smile size={14} /> {t.choose_avatar}</div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>{t.select_av_hint}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-          {AVATARS.map((av, i) => {
-            const colors = ['#23AF91','#6366F1','#F59E0B','#EF4444','#EC4899','#8B5CF6','#14B8A6','#F97316','#3B82F6','#10B981'];
-            return (
-              <div key={i} onClick={() => saveAvatar(av)}
-                style={{
-                  textAlign: 'center', padding: 8, borderRadius: 12, cursor: 'pointer',
-                  border: `2px solid ${user.avatar === av ? 'var(--accent)' : 'var(--border)'}`,
-                  background: user.avatar === av ? 'var(--input-bg)' : 'transparent',
-                  transform: user.avatar === av ? 'scale(1.1)' : 'scale(1)',
-                  boxShadow: user.avatar === av ? 'var(--glow)' : 'none',
-                  transition: 'all .15s',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: '50%',
-                  background: `linear-gradient(135deg, ${colors[i]}, ${colors[(i+3) % colors.length]})`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 800, fontSize: 16, fontFamily: 'Space Grotesk',
-                }}>{av}</div>
-              </div>
-            );
-          })}
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+          {lang === 'bn' ? '👦 পুরুষ' : '👦 Male'}
         </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
+          {MALE_AVATARS.map((av) => (
+            <div key={av} onClick={() => saveAvatar(av)}
+              style={{
+                textAlign: 'center', padding: 4, borderRadius: 14, cursor: 'pointer',
+                border: `2.5px solid ${user.avatar === av ? 'var(--accent)' : 'var(--border)'}`,
+                background: user.avatar === av ? 'var(--input-bg)' : 'transparent',
+                transform: user.avatar === av ? 'scale(1.08)' : 'scale(1)',
+                boxShadow: user.avatar === av ? 'var(--glow)' : 'none',
+                transition: 'all .2s',
+              }}>
+              <img src={av} alt="" style={{ width: '100%', aspectRatio: '1', borderRadius: 10, objectFit: 'cover' }} />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#EC4899', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+          {lang === 'bn' ? '👧 মহিলা' : '👧 Female'}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+          {FEMALE_AVATARS.map((av) => (
+            <div key={av} onClick={() => saveAvatar(av)}
+              style={{
+                textAlign: 'center', padding: 4, borderRadius: 14, cursor: 'pointer',
+                border: `2.5px solid ${user.avatar === av ? '#EC4899' : 'var(--border)'}`,
+                background: user.avatar === av ? 'var(--input-bg)' : 'transparent',
+                transform: user.avatar === av ? 'scale(1.08)' : 'scale(1)',
+                boxShadow: user.avatar === av ? '0 0 12px rgba(236,72,153,0.3)' : 'none',
+                transition: 'all .2s',
+              }}>
+              <img src={av} alt="" style={{ width: '100%', aspectRatio: '1', borderRadius: 10, objectFit: 'cover' }} />
+            </div>
+          ))}
+        </div>
+
         {user.avatar && (
-          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--input-bg)', borderRadius: 10, border: '1px solid var(--border)' }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg, #23AF91, #6366F1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 800, fontSize: 18, fontFamily: 'Space Grotesk',
-            }}>{user.avatar}</div>
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--input-bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', border: '2px solid var(--accent)' }}>
+              {user.avatar.startsWith('/') ? (
+                <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #23AF91, #6366F1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 18, fontFamily: 'Space Grotesk' }}>{user.avatar}</div>
+              )}
+            </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14 }}>{user.name}</div>
               <div style={{ fontSize: 11, color: 'var(--text2)' }}>{user.identifier}</div>

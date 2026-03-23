@@ -83,7 +83,15 @@ export function generateTerminalLines(deviceName, ram, rom) {
 }
 
 // ─── Avatars ─────────────────────────────────────────────────────────────────
-export const AVATARS = ['A','B','C','D','E','F','G','H','J','K'];
+export const MALE_AVATARS = [
+  '/avatars/male-1.png','/avatars/male-2.png','/avatars/male-3.png','/avatars/male-4.png','/avatars/male-5.png',
+  '/avatars/male-6.png','/avatars/male-7.png','/avatars/male-8.png','/avatars/male-9.png','/avatars/male-10.png',
+];
+export const FEMALE_AVATARS = [
+  '/avatars/female-1.png','/avatars/female-2.png','/avatars/female-3.png','/avatars/female-4.png','/avatars/female-5.png',
+  '/avatars/female-6.png','/avatars/female-7.png','/avatars/female-8.png','/avatars/female-9.png','/avatars/female-10.png',
+];
+export const AVATARS = [...MALE_AVATARS, ...FEMALE_AVATARS];
 
 // ─── Random names for auto-notifications ─────────────────────────────────────
 export const RANDOM_NAMES = [

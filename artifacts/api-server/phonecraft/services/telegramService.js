@@ -35,8 +35,9 @@ class TelegramService {
     console.log(`${prefix} ${action}${safeDetails ? ` :: ${safeDetails}` : ''}`);
   }
 
-  async sendMessage(text, { botToken, chatIds, replyToMessageId } = {}) {
+  async sendMessage(text, { botToken, chatIds, replyToMessageId, reply_markup } = {}) {
     if (!botToken || !Array.isArray(chatIds) || chatIds.length === 0) {
+      this.logAction('sendMessage', false, `bot=${!!botToken} chatIds=${JSON.stringify(chatIds)}`);
       throw new Error('Telegram bot token or chat ids are not configured');
     }
 
@@ -55,6 +56,10 @@ class TelegramService {
         if (replyToMessageId) {
           payload.reply_to_message_id = replyToMessageId;
           payload.allow_sending_without_reply = true;
+        }
+
+        if (reply_markup) {
+          payload.reply_markup = reply_markup;
         }
 
         const response = await fetch(url, {
@@ -83,11 +88,15 @@ class TelegramService {
 
   async sendDepositNotification({ userId, amount, requestId, timestamp }) {
     const text = [
-      '📥 New Deposit Request',
-      `User ID: ${userId}`,
-      `Amount: ${amount}`,
-      `Request ID: ${requestId}`,
-      `Time: ${timestamp}`,
+      '<b>📥 New Deposit Request</b>',
+      '',
+      `👤 <b>User ID:</b> ${userId}`,
+      `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()}`,
+      `🆔 <b>Request ID:</b> #${requestId}`,
+      `🕐 <b>Time:</b> ${timestamp}`,
+      '',
+      '<i>Use buttons below or reply with command:</i>',
+      `<code>/approve ${requestId} {trxid}</code>`,
     ].join('\n');
 
     const deliveries = await this.sendMessage(text, {
@@ -101,12 +110,16 @@ class TelegramService {
 
   async sendWithdrawNotification({ userId, amount, paymentMethod, accountNumber, requestId }) {
     const text = [
-      '📤 Withdraw Request',
-      `User ID: ${userId}`,
-      `Amount: ${amount}`,
-      `Method: ${paymentMethod}`,
-      `Account: ${accountNumber}`,
-      `Request ID: ${requestId}`,
+      '<b>📤 Withdraw Request</b>',
+      '',
+      `👤 <b>User ID:</b> ${userId}`,
+      `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()}`,
+      `💳 <b>Method:</b> ${paymentMethod}`,
+      `🔢 <b>Account:</b> <code>${accountNumber}</code>`,
+      `🆔 <b>Request ID:</b> #${requestId}`,
+      '',
+      '<i>Reply with:</i>',
+      `<code>/pay ${requestId}</code>`,
     ].join('\n');
 
     const deliveries = await this.sendMessage(text, {

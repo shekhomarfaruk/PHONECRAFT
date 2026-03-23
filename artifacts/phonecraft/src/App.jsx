@@ -435,8 +435,8 @@ export default function App() {
               <div className="sidebar-logo"><img src="/logo.png" alt="" style={{ width: 34, height: 34, objectFit: 'contain' }} /> PHONECRAFT</div>
               <div className="sidebar-user">
                 <div className="sidebar-avatar" style={{ overflow: 'hidden', padding: 0 }}>
-                  {user.avatarImg
-                    ? <img src={user.avatarImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  {(user.avatarImg || (user.avatar && user.avatar.startsWith('/')))
+                    ? <img src={user.avatarImg || user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                     : (user.avatar || user.name?.[0] || '?')}
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{user.name}</div>
@@ -492,12 +492,12 @@ export default function App() {
                 </div>
                 {!isDesktop && (
                   <div className="avatar-btn" onClick={() => setMenuOpen(true)} style={{ overflow: 'hidden', padding: 0 }}>
-                    {user.avatarImg ? <img src={user.avatarImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (user.avatar || user.name?.[0] || '?')}
+                    {(user.avatarImg || (user.avatar && user.avatar.startsWith('/'))) ? <img src={user.avatarImg || user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (user.avatar || user.name?.[0] || '?')}
                   </div>
                 )}
                 {isDesktop && (
                   <div className="avatar-btn" style={{ cursor: 'default', overflow: 'hidden', padding: 0 }}>
-                    {user.avatarImg ? <img src={user.avatarImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (user.avatar || user.name?.[0] || '?')}
+                    {(user.avatarImg || (user.avatar && user.avatar.startsWith('/'))) ? <img src={user.avatarImg || user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (user.avatar || user.name?.[0] || '?')}
                   </div>
                 )}
               </div>
@@ -547,7 +547,7 @@ export default function App() {
                 </div>
                 <div className="menu-user">
                   <div className="menu-avatar" style={{ overflow: 'hidden', padding: 0 }}>
-                    {user.avatarImg ? <img src={user.avatarImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : (user.avatar || user.name?.[0] || '?')}
+                    {(user.avatarImg || (user.avatar && user.avatar.startsWith('/'))) ? <img src={user.avatarImg || user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : (user.avatar || user.name?.[0] || '?')}
                   </div>
                   <div className="menu-name">{user.name}</div>
                   <div className="menu-code">ID: {user.referCode}</div>

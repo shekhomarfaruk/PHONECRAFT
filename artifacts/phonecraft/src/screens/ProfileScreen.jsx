@@ -47,7 +47,7 @@ function ProfileScreen({ user, setUser, navigate, doLogout, lang, showToast }) {
           style={{
             width: 'clamp(64px,15vw,88px)', height: 'clamp(64px,15vw,88px)',
             borderRadius: '50%',
-            background: user.avatarImg ? 'transparent' : 'linear-gradient(135deg,var(--accent),var(--accent2))',
+            background: (user.avatarImg || (user.avatar && user.avatar.startsWith('/'))) ? 'transparent' : 'linear-gradient(135deg,var(--accent),var(--accent2))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 'clamp(24px,6vw,34px)', fontWeight: 700,
             margin: '0 auto 6px',
@@ -58,8 +58,8 @@ function ProfileScreen({ user, setUser, navigate, doLogout, lang, showToast }) {
           }}
           title={lang === 'bn' ? 'ছবি পরিবর্তন করুন' : 'Change photo'}
         >
-          {user.avatarImg
-            ? <img src={user.avatarImg} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {(user.avatarImg || (user.avatar && user.avatar.startsWith('/')))
+            ? <img src={user.avatarImg || user.avatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : (user.avatar || user.name?.[0] || '?')}
           {/* Camera overlay */}
           <div style={{

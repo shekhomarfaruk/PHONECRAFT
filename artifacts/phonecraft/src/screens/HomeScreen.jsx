@@ -60,7 +60,7 @@ function EarningsTicker({ lang = 'en' }) {
           {items.map((e, i) => (
             <div key={i} className="earn-card">
               <div style={{display:'flex',alignItems:'center',gap:7}}>
-                <span style={{fontSize:18,lineHeight:1}}>{e.avatar}</span>
+                {e.avatar.startsWith('/') ? <img src={e.avatar} alt="" style={{width:24,height:24,borderRadius:'50%',objectFit:'cover'}} /> : <span style={{fontSize:18,lineHeight:1}}>{e.avatar}</span>}
                 <span style={{fontSize:18,lineHeight:1}}>{e.country.flag}</span>
               </div>
               <div style={{fontWeight:700,fontSize:12,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
