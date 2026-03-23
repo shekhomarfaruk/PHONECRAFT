@@ -458,7 +458,7 @@ export default function App() {
               <nav className="sidebar-nav">
                 {menuItems.map(m => (
                   <div key={m.screen} className={`sidebar-item ${screen === m.screen ? 'active' : ''}`} onClick={() => navigate(m.screen)}>
-                    <m.Icon size={18} />
+                    <m.Icon size={18} color="currentColor" />
                     <span>{m.label}</span>
                     {m.screen === 'notifications' && unreadCount > 0 && (
                       <span style={{ marginLeft: 'auto', background: 'var(--accent)', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontFamily: 'Space Grotesk' }}>{unreadCount}</span>
@@ -540,7 +540,7 @@ export default function App() {
                   { Icon: Icons.Wallet,   label: t.nav_wallet, s: 'wallet'      },
                 ].map(n => (
                   <div key={n.s} className={`nav-item ${screen === n.s ? 'active' : ''}`} onClick={() => navigate(n.s)}>
-                    <span className="ni"><n.Icon size={isMobile ? 20 : 22} /></span>
+                    <span className="ni"><n.Icon size={isMobile ? 20 : 22} color="currentColor" /></span>
                     <span>{n.label}</span>
                   </div>
                 ))}
@@ -565,7 +565,7 @@ export default function App() {
                 </div>
                 {menuItems.map(m => (
                   <div key={m.screen} className={`menu-item ${screen === m.screen ? 'active' : ''}`} onClick={() => navigate(m.screen)}>
-                    <span className="menu-icon"><m.Icon size={18} /></span>
+                    <span className="menu-icon"><m.Icon size={18} color="currentColor" /></span>
                     <span>{m.label}</span>
                     {m.screen === 'notifications' && unreadCount > 0 && (
                       <span style={{ marginLeft: 'auto', background: '#F6465D', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px' }}>{unreadCount}</span>
