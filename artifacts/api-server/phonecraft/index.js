@@ -1299,16 +1299,16 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
         }
         const dailyLimit = requester.admin_balance_limit || 0;
         if (dailyLimit <= 0) {
-          return res.status(403).json({ error: 'No balance limit set for your admin account. Contact Main Admin.' });
+          return res.status(403).json({ error: 'আপনার ব্যালেন্স লিমিট নেই। এই ইউজারকে ডিপোজিট করতে বলুন।' });
         }
         const today = stmts.getAdminBalanceAddsToday.get(adminId);
         if (today.count >= 3) {
-          return res.status(403).json({ error: 'Daily limit reached: you can add balance maximum 3 times per day' });
+          return res.status(403).json({ error: 'আজকের ৩ বার লিমিট শেষ। ইউজারকে ডিপোজিট করতে বলুন।' });
         }
         if (today.total + addAmount > dailyLimit) {
           const remaining = Math.max(0, dailyLimit - today.total);
           return res.status(403).json({
-            error: `Exceeds daily limit. Your limit: ৳${dailyLimit}, used today: ৳${today.total}, remaining: ৳${remaining}`
+            error: `লিমিট অতিক্রম। আজ বাকি: ৳${remaining}। ইউজারকে ডিপোজিট করতে বলুন।`
           });
         }
         // Record the balance add

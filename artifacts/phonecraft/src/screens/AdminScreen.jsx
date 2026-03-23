@@ -453,6 +453,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   // ── Filters ────────────────────────────────────────────────────────────────
   const [userStatusFilter, setUserStatusFilter] = useState('all');
   const filtered = users.filter(u => {
+    if (!isMainAdmin && u.is_admin) return false;
     const q = searchQuery.toLowerCase();
     const matchesSearch = !q ||
       u.name.toLowerCase().includes(q) ||
@@ -605,15 +606,17 @@ export default function AdminScreen({ user, showToast, lang }) {
           {/* Stats */}
           <div className="stats-row">
             <div className="stat-box">
-              <div className="stat-num">{users.length}</div>
+              <div className="stat-num">{isMainAdmin ? users.length : users.filter(u => !u.is_admin).length}</div>
               <div className="stat-label">{t.admin_total_users}</div>
             </div>
+            {isMainAdmin && (
             <div className="stat-box">
               <div className="stat-num">{users.filter(u => u.is_admin && !u.is_main_admin).length}</div>
               <div className="stat-label">{lang === 'bn' ? 'ইউজার অ্যাডমিন' : 'User Admins'}</div>
             </div>
+            )}
             <div className="stat-box">
-              <div className="stat-num">{users.filter(u => u.banned).length}</div>
+              <div className="stat-num">{users.filter(u => !u.is_admin && u.banned).length}</div>
               <div className="stat-label">{t.admin_banned}</div>
             </div>
             <div className="stat-box">
@@ -639,9 +642,9 @@ export default function AdminScreen({ user, showToast, lang }) {
                   style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6 }}
                   onClick={() => setUserStatusFilter(f.id)}>
                   {f.label}
-                  {f.id === 'all' && ` (${users.length})`}
+                  {f.id === 'all' && ` (${isMainAdmin ? users.length : users.filter(u => !u.is_admin).length})`}
                   {f.id === 'active' && ` (${users.filter(u => !u.banned && !u.is_admin).length})`}
-                  {f.id === 'banned' && ` (${users.filter(u => u.banned).length})`}
+                  {f.id === 'banned' && ` (${users.filter(u => !u.is_admin && u.banned).length})`}
                   {f.id === 'admin' && ` (${users.filter(u => u.is_admin).length})`}
                 </button>
               ))}
@@ -740,29 +743,55 @@ export default function AdminScreen({ user, showToast, lang }) {
               {/* User-admin: Add balance section */}
               {!isMainAdmin && !selectedUser.is_admin && (
               <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'rgba(14,203,129,0.07)', border: '1px solid rgba(14,203,129,0.2)' }}>
-                <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Icons.Dollar size={13} /> {isBn ? 'ব্যালেন্স যোগ করুন' : 'Add Balance'}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>
                   {isBn ? `বর্তমান ব্যালেন্স: ${formatMoney(selectedUser.balance)}` : `Current: ${formatMoney(selectedUser.balance)}`}
                 </div>
-                {myQuota && (
-                  <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--text2)', marginBottom: 8, flexWrap: 'wrap' }}>
-                    <span>{isBn ? `আজ বাকি: ${myQuota.remaining_adds}/৩ বার` : `Today: ${myQuota.remaining_adds}/3 remaining`}</span>
-                    <span>{isBn ? `লিমিট: ৳${myQuota.daily_limit}` : `Limit: ৳${myQuota.daily_limit}`}</span>
-                    <span>{isBn ? `বাকি: ৳${myQuota.remaining_amount}` : `Left: ৳${myQuota.remaining_amount}`}</span>
+
+                {/* Check if admin can add balance */}
+                {myQuota && (myQuota.daily_limit === 0 || myQuota.remaining_amount <= 0 || myQuota.remaining_adds <= 0) ? (
+                  <div style={{
+                    padding: '10px 12px', borderRadius: 8,
+                    background: 'rgba(246,70,93,0.07)', border: '1px solid rgba(246,70,93,0.2)',
+                    textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>💳</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#F6465D', marginBottom: 4 }}>
+                      {myQuota.daily_limit === 0
+                        ? (isBn ? 'ব্যালেন্স লিমিট সেট করা নেই' : 'No balance limit assigned')
+                        : myQuota.remaining_adds <= 0
+                          ? (isBn ? 'আজকের ৩ বার লিমিট শেষ' : 'Daily 3-time limit reached')
+                          : (isBn ? 'আজকের লিমিট শেষ' : 'Daily limit exhausted')}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.5 }}>
+                      {isBn
+                        ? 'এই ইউজারকে ম্যানুয়াল ডিপোজিট করতে বলুন।'
+                        : 'Please ask this user to make a manual deposit.'}
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    {myQuota && (
+                      <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--text2)', marginBottom: 8, flexWrap: 'wrap' }}>
+                        <span>{isBn ? `আজ বাকি: ${myQuota.remaining_adds}/৩ বার` : `Today: ${myQuota.remaining_adds}/3 remaining`}</span>
+                        <span>{isBn ? `লিমিট: ৳${myQuota.daily_limit}` : `Limit: ৳${myQuota.daily_limit}`}</span>
+                        <span>{isBn ? `বাকি: ৳${myQuota.remaining_amount}` : `Left: ৳${myQuota.remaining_amount}`}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input className="inp" type="number" value={addBalanceAmount}
+                        onChange={e => setAddBalanceAmount(e.target.value)}
+                        placeholder={isBn ? 'পরিমাণ লিখুন' : 'Enter amount'}
+                        style={{ flex: 1 }} />
+                      <button className="btn btn-success" onClick={addBalanceToUser} disabled={saving || !addBalanceAmount}
+                        style={{ fontSize: 12, padding: '6px 16px' }}>
+                        {saving ? '...' : (isBn ? 'যোগ করুন' : 'Add')}
+                      </button>
+                    </div>
+                  </>
                 )}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input className="inp" type="number" value={addBalanceAmount}
-                    onChange={e => setAddBalanceAmount(e.target.value)}
-                    placeholder={isBn ? 'পরিমাণ লিখুন' : 'Enter amount'}
-                    style={{ flex: 1 }} />
-                  <button className="btn btn-success" onClick={addBalanceToUser} disabled={saving || !addBalanceAmount}
-                    style={{ fontSize: 12, padding: '6px 16px' }}>
-                    {saving ? '...' : (isBn ? 'যোগ করুন' : 'Add')}
-                  </button>
-                </div>
               </div>
               )}
 
