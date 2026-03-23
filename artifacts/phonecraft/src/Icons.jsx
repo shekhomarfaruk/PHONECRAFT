@@ -586,6 +586,17 @@ const Icons = {
       <circle cx="16" cy="44" r="1.5" fill="#6366F1" opacity="0.6"/>
     </svg>
   ),
+  AlertCircle: ({ size = 20, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#EF4444"/><stop offset="100%" stopColor="#F97316"/></linearGradient></defs>
+        <circle cx="12" cy="12" r="10" fill={color||`url(#${id})`} opacity="0.15" stroke={color||`url(#${id})`} strokeWidth="2"/>
+        <line x1="12" y1="8" x2="12" y2="12" stroke={color||`url(#${id})`} strokeWidth="2.5" strokeLinecap="round"/>
+        <circle cx="12" cy="16" r="1.3" fill={color||`url(#${id})`}/>
+      </svg>
+    );
+  },
   LogoMark: ({ size = 24 }) => (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       <defs>
