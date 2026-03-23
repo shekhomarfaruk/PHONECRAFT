@@ -7,6 +7,7 @@ import { mapApiUser, saveStoredSession, authFetch } from "../session.js";
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, setUser }) {
+  const t = I18N[lang] || I18N.en;
   const [loading, setLoading] = useState('');
   const [done, setDone] = useState('');
 
@@ -85,7 +86,7 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
             </div>
             <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 700, marginBottom: 20 }}>
               {done === 'approve'
-                ? (lang === 'bn' ? `অনুমোদিত — ${convertCurrency(amount, lang)} কাটা হয়েছে` : `Approved — ${convertCurrency(amount, lang)} deducted`)
+                ? t.notif_approved_done(convertCurrency(amount, lang))
                 : (t.notif_declined_short)}
             </div>
             <button

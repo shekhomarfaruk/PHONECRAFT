@@ -10,6 +10,10 @@ const { db, stmts, sanitizeUser, todayDate } = require('./db');
 const { TelegramService } = require('./services/telegramService');
 
 const app  = express();
+
+// ── Bilingual notification helper ────────────────────────────────────────────
+// Stores both English and Bengali text so the frontend can pick by lang.
+const biMsg = (en, bn) => JSON.stringify({ en, bn });
 const PORT = process.env.PORT || 4000;
 const DEFAULT_TELEGRAM_BOT = process.env.TELEGRAM_BOT_TOKEN || '';
 const FINANCE_BOT = process.env.TELEGRAM_FINANCE_BOT_TOKEN || DEFAULT_TELEGRAM_BOT;
@@ -271,7 +275,7 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
         user_id: tx.user_id,
         type: 'withdrawal_refund',
         amount: tx.amount,
-        note: `উইথড্র রিফান্ড (প্রত্যাখ্যাত) — ${tx.method}`,
+        note: biMsg(`Withdrawal Refund (Declined) — ${tx.method}`, `উইথড্র রিফান্ড (প্রত্যাখ্যাত) — ${tx.method}`),
       });
     }
 
@@ -281,13 +285,19 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
         user_id: tx.user_id,
         type: 'deposit',
         amount: tx.amount,
-        note: `ডিপোজিট অনুমোদিত (${tx.method} - ${tx.account})`,
+        note: biMsg(`Deposit Approved (${tx.method} - ${tx.account})`, `ডিপোজিট অনুমোদিত (${tx.method} - ${tx.account})`),
       });
     }
 
     const action = status === 'approved' ? 'approved' : 'rejected';
+    const actionBn = status === 'approved' ? 'অনুমোদিত' : 'প্রত্যাখ্যাত';
+    const typeBn = tx.type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র';
     const noteStr = adminNote ? ` Note: ${adminNote}` : '';
-    const notifMsg = `Your ${tx.type} of ৳${tx.amount.toLocaleString()} has been ${action}.${noteStr}`;
+    const noteStrBn = adminNote ? ` নোট: ${adminNote}` : '';
+    const notifMsg = biMsg(
+      `Your ${tx.type} of ৳${tx.amount.toLocaleString()} has been ${action}.${noteStr}`,
+      `আপনার ${typeBn} ৳${tx.amount.toLocaleString()} ${actionBn} হয়েছে।${noteStrBn}`
+    );
     stmts.insertNotification.run(tx.user_id, notifMsg, status === 'approved' ? 'success' : 'warning');
 
     return { status: 200, body: { transaction: stmts.getTransactionById.get(Number(txId)) } };
@@ -383,7 +393,10 @@ app.post('/api/register', registerLimiter, (req, res) => {
     const meta = JSON.stringify({ pending_id: pendingId, plan_name: planRow.name, amount: planRow.rate, new_user_name: name.trim() });
     stmts.insertNotifWithMeta.run(
       referrer.id,
-      `🔔 ${name.trim()} আপনার রেফারেল কোড ব্যবহার করে ${planRow.name} প্ল্যানে যোগ দিতে চাইছেন। আপনার ব্যালেন্স থেকে ৳${planRow.rate.toLocaleString()} কাটা হবে।`,
+      biMsg(
+        `🔔 ${name.trim()} wants to join ${planRow.name} plan with your referral code. ৳${planRow.rate.toLocaleString()} will be deducted from your balance.`,
+        `🔔 ${name.trim()} আপনার রেফারেল কোড ব্যবহার করে ${planRow.name} প্ল্যানে যোগ দিতে চাইছেন। আপনার ব্যালেন্স থেকে ৳${planRow.rate.toLocaleString()} কাটা হবে।`
+      ),
       'registration_request',
       meta
     );
@@ -439,7 +452,7 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
       });
       stmts.insertBalanceLog.run({
         user_id: referrer.id, type: 'referral_spend', amount: -pending.plan_rate,
-        note: `${pending.name}-এর জন্য ${planRow ? planRow.name : ''} প্ল্যান ক্রয়`,
+        note: biMsg(`${planRow ? planRow.name : ''} plan purchase for ${pending.name}`, `${pending.name}-এর জন্য ${planRow ? planRow.name : ''} প্ল্যান ক্রয়`),
       });
 
       // ── 2. Create the new user ────────────────────────────────────────────
@@ -469,11 +482,14 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
           });
           stmts.insertBalanceLog.run({
             user_id: currentUser.id, type: logType, amount: bonus,
-            note: `${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন (${pct}%)`,
+            note: biMsg(`L${lvl} commission (${pct}%) from ${pending.name}'s registration`, `${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন (${pct}%)`),
           });
           stmts.insertNotification.run(
             currentUser.id,
-            `🎁 রেফারেল বোনাস: ${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন +৳${bonus.toLocaleString()} আপনার ব্যালেন্সে যোগ হয়েছে।`,
+            biMsg(
+              `🎁 Referral Bonus: +৳${bonus.toLocaleString()} L${lvl} commission from ${pending.name}'s registration added to your balance.`,
+              `🎁 রেফারেল বোনাস: ${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন +৳${bonus.toLocaleString()} আপনার ব্যালেন্সে যোগ হয়েছে।`
+            ),
             'success'
           );
         }
@@ -486,7 +502,10 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
       // ── 4. Notify direct referrer of approval ────────────────────────────
       stmts.insertNotification.run(
         referrer.id,
-        `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ৳${pending.plan_rate.toLocaleString()} কাটা হয়েছে।`,
+        biMsg(
+          `✅ You approved ${pending.name}'s registration. ৳${pending.plan_rate.toLocaleString()} has been deducted from your balance.`,
+          `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ৳${pending.plan_rate.toLocaleString()} কাটা হয়েছে।`
+        ),
         'success'
       );
 
@@ -713,7 +732,7 @@ const completeManufactureTx = db.transaction((body) => {
   // Log to balance_log
   stmts.insertBalanceLog.run({
     user_id: userId, type: 'daily_earn', amount: earned,
-    note: `${job.device_name} উৎপাদন সম্পন্ন`,
+    note: biMsg(`${job.device_name} manufacturing complete`, `${job.device_name} উৎপাদন সম্পন্ন`),
   });
 
   // Auto-post to marketplace with random price in USD (capped at $10)
@@ -728,7 +747,10 @@ const completeManufactureTx = db.transaction((body) => {
   // Create notification
   stmts.insertNotification.run(
     userId,
-    `Your ${job.device_name} has been manufactured and posted to Marketplace for $${marketPrice}!`,
+    biMsg(
+      `Your ${job.device_name} has been manufactured and posted to Marketplace for $${marketPrice}!`,
+      `আপনার ${job.device_name} উৎপাদন সম্পন্ন! মার্কেটপ্লেসে $${marketPrice}-এ পোস্ট করা হয়েছে।`
+    ),
     'success'
   );
 
@@ -986,7 +1008,7 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         }
         stmts.insertBalanceLog.run({
           user_id: userRow.id, type: 'withdrawal', amount: -numAmount,
-          note: `উইথড্র রিকোয়েস্ট (${method} - ${account})`,
+          note: biMsg(`Withdrawal Request (${method} - ${account})`, `উইথড্র রিকোয়েস্ট (${method} - ${account})`),
         });
       }
       if (type === 'deposit') {
@@ -1002,7 +1024,11 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
 
       // Notify all admin users
       const admins = stmts.getAdminUsers.all();
-      const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`;
+      const typeLabelBn = type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র';
+      const notifMsg = biMsg(
+        `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`,
+        `নতুন ${typeLabelBn} অনুরোধ: ৳${numAmount.toLocaleString()} ${userRow.name}-এর কাছ থেকে (${method})`
+      );
       for (const admin of admins) {
         stmts.insertNotification.run(admin.id, notifMsg, 'info');
       }
@@ -1082,18 +1108,21 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       stmts.deductBalance.run(numAmount, sender.id, numAmount);
       stmts.insertBalanceLog.run({
         user_id: sender.id, type: 'transfer_sent', amount: -numAmount,
-        note: `${receiver.name}-কে ট্রান্সফার`,
+        note: biMsg(`Transfer to ${receiver.name}`, `${receiver.name}-কে ট্রান্সফার`),
       });
 
       stmts.creditBalance.run(numAmount, receiver.id);
       stmts.insertBalanceLog.run({
         user_id: receiver.id, type: 'transfer_received', amount: numAmount,
-        note: `${sender.name}-এর কাছ থেকে ট্রান্সফার`,
+        note: biMsg(`Transfer from ${sender.name}`, `${sender.name}-এর কাছ থেকে ট্রান্সফার`),
       });
 
       stmts.insertNotification.run(
         receiver.id,
-        `${sender.name} আপনাকে ৳${numAmount.toLocaleString()} ট্রান্সফার করেছেন।`,
+        biMsg(
+          `${sender.name} transferred ৳${numAmount.toLocaleString()} to you.`,
+          `${sender.name} আপনাকে ৳${numAmount.toLocaleString()} ট্রান্সফার করেছেন।`
+        ),
         'success'
       );
 
@@ -1346,7 +1375,7 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       const byLabel = requesterIsMain ? 'Main Admin' : requester.name;
       stmts.insertBalanceLog.run({
         user_id: id, type: 'admin_adjustment', amount: diff,
-        note: `${byLabel} ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`,
+        note: biMsg(`${byLabel} balance adjustment: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`, `${byLabel} ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`),
       });
     }
 
@@ -1627,7 +1656,10 @@ app.post('/api/admin/messages', authRequired, (req, res) => {
     }
 
     const senderName = req.auth.user?.name || 'Admin';
-    const payload = `📢 Admin Message from ${senderName}: ${text}`;
+    const payload = biMsg(
+      `📢 Admin Message from ${senderName}: ${text}`,
+      `📢 অ্যাডমিন মেসেজ ${senderName}: ${text}`
+    );
 
     db.transaction(() => {
       for (const r of recipients) {
@@ -1668,7 +1700,10 @@ const autoSellTx = db.transaction(() => {
     const days    = SELL_DURATIONS[Math.floor(Math.random() * SELL_DURATIONS.length)];
     stmts.insertNotification.run(
       item.user_id,
-      `${item.device_name} — Your manufactured device sold to ${buyer} from ${country.name} ${country.flag} for ${days} days • $${item.price}`,
+      biMsg(
+        `${item.device_name} — Your manufactured device sold to ${buyer} from ${country.name} ${country.flag} for ${days} days • $${item.price}`,
+        `${item.device_name} — ${country.name} ${country.flag}-এর ${buyer}-এর কাছে ${days} দিনের জন্য $${item.price}-এ বিক্রি হয়েছে।`
+      ),
       'sold'
     );
   }

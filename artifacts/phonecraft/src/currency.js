@@ -40,7 +40,16 @@ export function formatDateTime(value, lang, options) {
 export function convertCurrencyText(text, lang) {
   if (!text) return '';
 
-  return String(text).replace(/([+-]?)৳\s*([\d,]+(?:\.\d+)?)/g, (_match, sign, amount) => {
+  let raw = String(text);
+  // Handle bilingual JSON stored by backend: { en: "...", bn: "..." }
+  if (raw.startsWith('{') && raw.includes('"en"')) {
+    try {
+      const parsed = JSON.parse(raw);
+      raw = (lang === 'bn' ? parsed.bn : parsed.en) || parsed.en || parsed.bn || raw;
+    } catch (_) {}
+  }
+
+  return raw.replace(/([+-]?)৳\s*([\d,]+(?:\.\d+)?)/g, (_match, sign, amount) => {
     const numericAmount = Number(String(amount).replace(/,/g, ''));
     const converted = convertCurrency(numericAmount, lang);
     return `${sign || ''}${converted}`;
