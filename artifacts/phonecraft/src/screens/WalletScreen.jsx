@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Icons from "../Icons.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
+import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -31,7 +32,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
   useEffect(() => {
     if (!user?.id) return;
     setTxLoading(true);
-    fetch(`${API_URL}/api/user/${user.id}/transactions`)
+    authFetch(`${API_URL}/api/user/${user.id}/transactions`)
       .then(r => r.json())
       .then(data => { if (data.transactions) setTransactions(data.transactions); })
       .catch(() => {})
@@ -49,7 +50,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
     setSubmitted(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/withdraw`, {
+      const res = await authFetch(`${API_URL}/api/withdraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -66,7 +67,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
         if (data.newBalance !== undefined) {
           setUser(prev => ({ ...prev, balance: data.newBalance }));
         }
-        fetch(`${API_URL}/api/user/${user.id}/transactions`)
+        authFetch(`${API_URL}/api/user/${user.id}/transactions`)
           .then(r => r.json())
           .then(d => { if (d.transactions) setTransactions(d.transactions); })
           .catch(() => {});

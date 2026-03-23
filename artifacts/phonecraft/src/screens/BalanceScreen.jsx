@@ -3,6 +3,7 @@ import Icons from "../Icons.jsx";
 import { PLANS } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency, convertCurrencyText } from "../currency.js";
+import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -55,7 +56,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
     setLookupLoading(true);
     lookupTimer.current = setTimeout(async () => {
       try {
-        const r = await fetch(`${API_URL}/api/lookup-user?identifier=${encodeURIComponent(toIdentifier.trim())}`);
+        const r = await authFetch(`${API_URL}/api/lookup-user?identifier=${encodeURIComponent(toIdentifier.trim())}`);
         const d = await r.json();
         setResolvedName(r.ok ? d.name : '');
       } catch { setResolvedName(''); }
@@ -72,7 +73,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
     if (amt > user.balance) { showToast(lang === 'bn' ? 'অপর্যাপ্ত ব্যালেন্স' : 'Insufficient balance', 'error'); return; }
     setTransferring(true);
     try {
-      const r = await fetch(`${API_URL}/api/transfer`, {
+      const r = await authFetch(`${API_URL}/api/transfer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fromUserId: user.id, toIdentifier: toIdentifier.trim(), amount: amt }),
@@ -85,7 +86,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
       setTransferAmt('');
       setResolvedName('');
       // Refresh log
-      fetch(`${API_URL}/api/user/${user.id}/balance-log`)
+      authFetch(`${API_URL}/api/user/${user.id}/balance-log`)
         .then(r => r.json())
         .then(d => { setLog(d.log || []); setSummary(d.summary || {}); })
         .catch(() => {});
@@ -97,7 +98,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
   useEffect(() => {
     if (!user?.id) return;
     setLoading(true);
-    fetch(`${API_URL}/api/user/${user.id}/balance-log`)
+    authFetch(`${API_URL}/api/user/${user.id}/balance-log`)
       .then(r => r.json())
       .then(data => {
         setLog(data.log || []);

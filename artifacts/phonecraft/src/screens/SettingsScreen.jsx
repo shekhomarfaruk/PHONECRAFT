@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Icons from "../Icons.jsx";
 import { MALE_AVATARS, FEMALE_AVATARS } from "../data.jsx";
 import { I18N } from "../i18n.js";
+import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -30,7 +31,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
     if (newPass !== conPass) { showToast(t.pass_no_match); return; }
     if (newPass.length < 6) { showToast(lang === 'bn' ? 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে' : 'Password must be at least 6 characters', 'error'); return; }
     try {
-      const res = await fetch(`${API_URL}/api/user/${user.id}/change-password`, {
+      const res = await authFetch(`${API_URL}/api/user/${user.id}/change-password`, {
         method: 'PATCH',
         headers: authHeaders,
         body: JSON.stringify({ currentPassword: curPass, newPassword: newPass }),
@@ -62,7 +63,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
   const saveAvatar = async (av) => {
     setUser(p => ({ ...p, avatar: av }));
     try {
-      await fetch(`${API_URL}/api/user/${user.id}/avatar`, {
+      await authFetch(`${API_URL}/api/user/${user.id}/avatar`, {
         method: 'PATCH',
         headers: authHeaders,
         body: JSON.stringify({ avatar: av }),

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Icons from "../Icons.jsx";
 import { I18N } from "../i18n.js";
+import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -13,7 +14,7 @@ function MarketplaceScreen({ user, lang }) {
     if (!user?.id) return;
     const fetchItems = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/user/${user.id}/marketplace`);
+        const res = await authFetch(`${API_URL}/api/user/${user.id}/marketplace`);
         const data = await res.json();
         if (res.ok && data.items) setMyItems(data.items);
       } catch (_) {}

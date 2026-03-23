@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Icons from "../Icons.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency, convertCurrencyText } from "../currency.js";
-import { mapApiUser, saveStoredSession } from "../session.js";
+import { mapApiUser, saveStoredSession, authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -24,7 +24,7 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
   const act = async (action) => {
     setLoading(action);
     try {
-      const res = await fetch(`${API_URL}/api/registration/${pending_id}/${action}`, { method: 'POST' });
+      const res = await authFetch(`${API_URL}/api/registration/${pending_id}/${action}`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) {
         if (data.error === 'insufficient_balance') {
@@ -45,7 +45,7 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
         });
       }
       // Mark as read on server so it doesn't reappear after next poll
-      fetch(`${API_URL}/api/user/${userId}/notifications/${notif.id}/read`, { method: 'PATCH' }).catch(() => {});
+      authFetch(`${API_URL}/api/user/${userId}/notifications/${notif.id}/read`, { method: 'PATCH' }).catch(() => {});
       setItems(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
       showToast(action === 'approve'
         ? (lang === 'bn' ? 'নিবন্ধন অনুমোদন করা হয়েছে' : 'Registration approved')
@@ -158,14 +158,14 @@ function NotifScreen({items, setItems, user, setUser, lang, showToast}) {
   const markRead = (id) => {
     setItems(prev => prev.map(n => n.id === id ? {...n, read:true} : n));
     if (user?.id) {
-      fetch(`${API_URL}/api/user/${user.id}/notifications/${id}/read`, { method: 'PATCH' }).catch(() => {});
+      authFetch(`${API_URL}/api/user/${user.id}/notifications/${id}/read`, { method: 'PATCH' }).catch(() => {});
     }
   };
 
   const markAllRead = () => {
     setItems(prev => prev.map(n => ({...n, read:true})));
     if (user?.id) {
-      fetch(`${API_URL}/api/user/${user.id}/notifications/read-all`, { method: 'PATCH' }).catch(() => {});
+      authFetch(`${API_URL}/api/user/${user.id}/notifications/read-all`, { method: 'PATCH' }).catch(() => {});
     }
   };
 

@@ -3,6 +3,7 @@ import Icons from "../Icons.jsx";
 import { PLANS, BRANDS, DEVICE_CONFIGS, generateTerminalLines } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
+import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -37,7 +38,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
   // ── Fetch work status on mount ─────────────────────────────────────────────
   useEffect(() => {
     if (!user.id) return;
-    fetch(`${API_URL}/api/user/${user.id}/work-status`)
+    authFetch(`${API_URL}/api/user/${user.id}/work-status`)
       .then(r => r.json())
       .then(data => {
         if (data.dailyDone !== undefined) setDailyDone(data.dailyDone);
@@ -73,7 +74,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
     if (!canStart) return;
     setStarting(true);
     try {
-      const res = await fetch(`${API_URL}/api/manufacture/start`, {
+      const res = await authFetch(`${API_URL}/api/manufacture/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -138,7 +139,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
     if (jobOverride) jobRef.current = jobOverride;
     if (!jobRef.current) return;
     try {
-      const res = await fetch(`${API_URL}/api/manufacture/complete`, {
+      const res = await authFetch(`${API_URL}/api/manufacture/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, jobId: jobRef.current.id }),

@@ -3,6 +3,7 @@ import Icons from "../Icons.jsx";
 import { PLANS } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
+import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -21,7 +22,7 @@ function ProfileScreen({ user, setUser, navigate, doLogout, lang, showToast }) {
     reader.onload = async (ev) => {
       const img = ev.target.result; // base64 data URL
       try {
-        const res = await fetch(`${API_URL}/api/user/${user.id}/avatar-img`, {
+        const res = await authFetch(`${API_URL}/api/user/${user.id}/avatar-img`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ img }),

@@ -4,6 +4,7 @@ import { PLANS } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { QRCodeSVG } from "qrcode.react";
 import { convertCurrency } from "../currency.js";
+import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -15,7 +16,7 @@ function ReferScreen({user, showToast, lang}) {
   const [refData, setRefData] = useState(null);
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`${API_URL}/api/user/${user.id}/referral-activity`)
+    authFetch(`${API_URL}/api/user/${user.id}/referral-activity`)
       .then(r => r.json())
       .then(d => setRefData(d))
       .catch(() => {});

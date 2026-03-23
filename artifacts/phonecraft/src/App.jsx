@@ -22,7 +22,7 @@ import LandingScreen from "./screens/LandingScreen.jsx";
 import SupportWidget from "./SupportWidget.jsx";
 import { I18N } from "./i18n.js";
 import { convertCurrency, convertCurrencyText } from "./currency.js";
-import { clearStoredSession, getStoredSession, mapApiUser, saveStoredSession } from "./session.js";
+import { clearStoredSession, getStoredSession, getAuthToken, authFetch, mapApiUser, saveStoredSession } from "./session.js";
 
 // ── Custom Balance Icon ───────────────────────────────────────────────────────
 const BalanceIconImg = ({ size = 18 }) => (
@@ -171,7 +171,7 @@ export default function App() {
     const fetchNotifications = async () => {
       if (!isVisible()) return;
       try {
-        const res = await fetch(`${API_URL}/api/user/${user.id}/notifications`);
+        const res = await authFetch(`${API_URL}/api/user/${user.id}/notifications`);
         const data = await res.json();
         if (!res.ok || !data.notifications) return;
         const mapped = data.notifications.map(n => ({
@@ -195,7 +195,7 @@ export default function App() {
     const refreshBalance = async () => {
       if (!isVisible()) return;
       try {
-        const res = await fetch(`${API_URL}/api/user/${user.id}/balance-log`);
+        const res = await authFetch(`${API_URL}/api/user/${user.id}/balance-log`);
         if (!res.ok) return;
         const data = await res.json();
         if (typeof data.balance === 'number') {
@@ -207,7 +207,7 @@ export default function App() {
     const refreshReferralTree = async () => {
       if (!isVisible() || cancelled) return;
       try {
-        const res = await fetch(`${API_URL}/api/user/${user.id}/referral-activity`);
+        const res = await authFetch(`${API_URL}/api/user/${user.id}/referral-activity`);
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled || !Array.isArray(data.tree)) return;

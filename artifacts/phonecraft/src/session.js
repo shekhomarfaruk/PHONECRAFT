@@ -22,6 +22,17 @@ export function getAuthToken() {
   return getStoredSession()?.authToken || '';
 }
 
+export function authHeaders() {
+  return { 'Authorization': `Bearer ${getAuthToken()}` };
+}
+
+export function authFetch(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: { ...authHeaders(), ...options.headers },
+  });
+}
+
 export function mapApiUser(apiUser, plan, authToken, previousUser = null) {
   if (!apiUser) return previousUser;
 
