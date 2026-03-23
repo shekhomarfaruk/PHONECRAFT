@@ -437,11 +437,12 @@ const GlobalStyles = ({ isDark, fontSize }) => {
     }
     .mp-card:hover { border-color: var(--border2); transform: translateY(-2px); }
     .mp-img {
-      height: 100px;
-      background: ${isDark ? 'linear-gradient(135deg,#161A25,#1E2329)' : 'linear-gradient(135deg,#F0F0F0,#E8E8E8)'};
-      display: flex; align-items: center; justify-content: center; font-size: ${s(40)};
+      height: 130px;
+      background: ${isDark ? 'linear-gradient(160deg,#0D1117,#161A25)' : 'linear-gradient(160deg,#F5F7FA,#EAECF0)'};
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
     }
-    @media (min-width: 640px) { .mp-img { height: 120px; font-size: ${s(48)}; } }
+    @media (min-width: 640px) { .mp-img { height: 150px; } }
     .mp-body { padding: 12px; }
     .mp-name { font-weight: 600; margin-bottom: 4px; font-size: ${s(14)}; }
     @media (min-width: 640px) { .mp-name { font-size: ${s(15)}; } }

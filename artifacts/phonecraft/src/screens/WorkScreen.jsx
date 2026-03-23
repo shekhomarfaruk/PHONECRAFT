@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Icons from "../Icons.jsx";
-import { PLANS, BRANDS, BRAND_MODELS, DEVICE_CONFIGS, generateTerminalLines } from "../data.jsx";
+import { PLANS, BRANDS, BRAND_MODELS, DEVICE_CONFIGS, DEVICE_IMAGES, generateTerminalLines } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
 import { authFetch } from "../session.js";
@@ -19,123 +19,94 @@ const BRAND_COLORS = {
   Realme:  '#FFE600',
 };
 
-// ── CSS Phone Mockup Component ─────────────────────────────────────────────
-function PhoneMockup({ brand, model, color, animating = false }) {
-  const accentColor = BRAND_COLORS[brand] || '#60A5FA';
-  const bodyColor =
-    color === 'Midnight Black' ? '#1a1a1f' :
-    color === 'Arctic White'   ? '#f0f0f0' :
-    color === 'Ocean Blue'     ? '#1a3a5c' :
-    color === 'Sunset Gold'    ? '#7a5c1a' : '#1a1a2e';
-  const screenBg =
-    color === 'Arctic White' ? 'linear-gradient(160deg,#e8f0fe,#d2e3fc)' :
-    'linear-gradient(160deg,#0f0f1a,#1a1a3a)';
-  const textColor = color === 'Arctic White' ? '#1a1a2e' : '#fff';
+// ── Real Device Image Component ────────────────────────────────────────────
+function DeviceImage({ brand, model, animating = false, size = 160 }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError]   = useState(false);
+  const accentColor = BRAND_COLORS[brand] || '#23AF91';
+  const imgSrc = DEVICE_IMAGES[model];
 
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-      {/* Volume buttons (left side) */}
-      <div style={{ position: 'absolute', left: -6, top: 28, display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {[20, 24, 24].map((h, i) => (
-          <div key={i} style={{ width: 4, height: h, background: bodyColor === '#f0f0f0' ? '#ccc' : '#333', borderRadius: 2, filter: 'brightness(0.7)' }} />
-        ))}
-      </div>
-      {/* Power button (right side) */}
-      <div style={{ position: 'absolute', right: -6, top: 38, width: 4, height: 28, background: bodyColor === '#f0f0f0' ? '#ccc' : '#333', borderRadius: 2, filter: 'brightness(0.7)' }} />
-
-      {/* Phone body */}
+    <div style={{
+      position: 'relative',
+      width: size,
+      height: size * 1.22,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      {/* Glow ring */}
       <div style={{
-        width: 88, height: 155,
-        borderRadius: 20,
-        background: bodyColor,
-        border: `2px solid ${bodyColor === '#f0f0f0' ? '#bbb' : '#333'}`,
-        boxShadow: `0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        overflow: 'hidden',
-        position: 'relative',
-      }}>
-        {/* Screen bezel top */}
-        <div style={{ width: '100%', background: '#000', paddingTop: 4, paddingBottom: 3, display: 'flex', justifyContent: 'center' }}>
-          {/* Dynamic island / pill */}
-          <div style={{
-            width: brand === 'Apple' ? 36 : 12, height: 8,
-            background: '#111',
-            borderRadius: 10,
-          }} />
-        </div>
+        position: 'absolute', inset: 0, borderRadius: '50%',
+        background: `radial-gradient(circle, ${accentColor}22 0%, transparent 70%)`,
+        animation: animating ? 'deviceGlowPulse 1.4s ease-in-out infinite' : undefined,
+      }} />
 
-        {/* Screen */}
+      {/* Skeleton loader */}
+      {!loaded && !error && imgSrc && (
         <div style={{
-          flex: 1, width: '100%',
-          background: screenBg,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'space-between',
-          padding: '8px 6px 6px',
-          position: 'relative', overflow: 'hidden',
+          width: size * 0.55, height: size * 1.05,
+          borderRadius: size * 0.08,
+          background: 'linear-gradient(135deg,var(--card) 25%,var(--border) 50%,var(--card) 75%)',
+          backgroundSize: '200% 100%',
+          animation: 'shimmer 1.5s infinite',
+        }} />
+      )}
+
+      {/* Real device photo */}
+      {imgSrc && !error && (
+        <img
+          src={imgSrc}
+          alt={model}
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+          style={{
+            maxWidth: size * 0.65,
+            maxHeight: size * 1.1,
+            objectFit: 'contain',
+            display: loaded ? 'block' : 'none',
+            filter: animating
+              ? `drop-shadow(0 0 14px ${accentColor}99)`
+              : `drop-shadow(0 8px 24px rgba(0,0,0,0.5)) drop-shadow(0 0 8px ${accentColor}44)`,
+            transition: 'filter .4s',
+          }}
+        />
+      )}
+
+      {/* Fallback — CSS device silhouette */}
+      {(error || !imgSrc) && (
+        <div style={{
+          width: size * 0.52, height: size * 1.0,
+          borderRadius: size * 0.08,
+          background: `linear-gradient(160deg, ${accentColor}22, ${accentColor}08)`,
+          border: `2px solid ${accentColor}55`,
+          boxShadow: `0 8px 32px rgba(0,0,0,0.4), 0 0 20px ${accentColor}33`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
-          {/* Status bar */}
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <div style={{ fontSize: 6, color: textColor, opacity: 0.7, fontWeight: 700 }}>9:41</div>
-            <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              {[3,4,5,6].map(h => <div key={h} style={{ width: 2, height: h, background: textColor, opacity: 0.7, borderRadius: 1 }} />)}
-              <div style={{ width: 8, height: 4, border: `1px solid ${textColor}`, borderRadius: 1, opacity: 0.7, marginLeft: 2 }}>
-                <div style={{ width: '70%', height: '100%', background: textColor, opacity: 0.7 }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Brand logo area */}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontSize: 7, fontWeight: 900, letterSpacing: 1,
-              color: accentColor, textTransform: 'uppercase', marginBottom: 2,
-            }}>
-              {brand}
-            </div>
-            <div style={{
-              fontSize: 6, color: textColor, opacity: 0.8,
-              fontWeight: 600, lineHeight: 1.3, textAlign: 'center',
-              maxWidth: 70,
-            }}>
-              {model}
-            </div>
-          </div>
-
-          {/* Manufacturing animation */}
-          {animating && (
-            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-              {[0, 0.3, 0.6].map((delay, i) => (
-                <div key={i} style={{
-                  width: 4, height: 4, borderRadius: '50%',
-                  background: accentColor,
-                  animation: `phonePulse 1s ease-in-out ${delay}s infinite`,
-                }} />
-              ))}
-            </div>
-          )}
-
-          {/* Wallpaper grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 3, width: '100%' }}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} style={{
-                height: 12, borderRadius: 4,
-                background: i === 0 ? accentColor : `rgba(255,255,255,0.08)`,
-                opacity: i === 0 ? 0.7 : 1,
-              }} />
-            ))}
+          <Icons.Smartphone size={28} color={accentColor} />
+          <div style={{ fontSize: 9, color: accentColor, fontWeight: 700, textAlign: 'center', padding: '0 6px', lineHeight: 1.3 }}>
+            {brand}
           </div>
         </div>
+      )}
 
-        {/* Home indicator */}
-        <div style={{ width: '100%', background: '#000', paddingBottom: 5, paddingTop: 3, display: 'flex', justifyContent: 'center' }}>
-          <div style={{ width: 28, height: 3, background: '#444', borderRadius: 2 }} />
-        </div>
-      </div>
+      {/* Manufacturing pulse overlay */}
+      {animating && loaded && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `radial-gradient(circle, ${accentColor}30 0%, transparent 65%)`,
+          borderRadius: '50%',
+          animation: 'deviceGlowPulse 1.4s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+      )}
 
       <style>{`
-        @keyframes phonePulse {
-          0%,100%{opacity:.3;transform:scale(.8)}
-          50%{opacity:1;transform:scale(1.2)}
+        @keyframes deviceGlowPulse {
+          0%,100%{opacity:.4;transform:scale(.95)}
+          50%{opacity:1;transform:scale(1.05)}
+        }
+        @keyframes shimmer {
+          0%{background-position:200% 0}
+          100%{background-position:-200% 0}
         }
       `}</style>
     </div>
@@ -467,7 +438,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
           {/* Preview phone when fully configured */}
           {deviceName && brand && color && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
-              <PhoneMockup brand={brand} model={deviceName} color={color} />
+              <DeviceImage brand={brand} model={deviceName} size={130} />
             </div>
           )}
         </div>
@@ -491,7 +462,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
 
         {/* Device info with real phone mockup */}
         <div className="device-preview">
-          <PhoneMockup brand={brand} model={deviceName} color={color} animating={progress < 100} />
+          <DeviceImage brand={brand} model={deviceName} animating={progress < 100} />
           <div style={{ fontFamily:'Space Grotesk', fontSize:14, fontWeight:700, marginTop: 8 }}>{deviceName}</div>
           <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{brand} · {ram} · {rom}</div>
         </div>
@@ -555,7 +526,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
 
       {/* Device preview with real phone mockup */}
       <div className="device-preview">
-        <PhoneMockup brand={jobBrand} model={jobModel} color={jobColor} />
+        <DeviceImage brand={jobBrand} model={jobModel} />
         <div style={{ fontFamily:'Space Grotesk', fontSize:15, fontWeight:700, marginTop: 8 }}>{jobModel}</div>
         <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>
           {jobBrand} · {job?.ram || ram} · {job?.rom || rom}

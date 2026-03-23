@@ -1,9 +1,69 @@
 import { useState, useEffect } from "react";
 import Icons from "../Icons.jsx";
+import { DEVICE_IMAGES } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
+
+const BRAND_COLORS = {
+  Apple: '#A0A0A0', Samsung: '#1428A0', Google: '#4285F4',
+  OnePlus: '#F5010C', Xiaomi: '#FF6900', Oppo: '#1F8EFA',
+  Vivo: '#415FFF', Realme: '#FFE600',
+};
+
+function DevicePhoto({ name, brand, size = 100 }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError]   = useState(false);
+  const src   = DEVICE_IMAGES[name];
+  const color = BRAND_COLORS[brand] || '#23AF91';
+
+  return (
+    <div style={{
+      width: '100%', height: size,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative',
+      background: `radial-gradient(circle at 50% 60%, ${color}18 0%, transparent 70%)`,
+    }}>
+      {!loaded && !error && src && (
+        <div style={{
+          width: size * 0.45, height: size * 0.82,
+          borderRadius: 10,
+          background: 'var(--border)',
+          animation: 'mpShimmer 1.4s ease-in-out infinite',
+        }} />
+      )}
+      {src && !error && (
+        <img
+          src={src}
+          alt={name}
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+          style={{
+            maxHeight: size * 0.88,
+            maxWidth: '80%',
+            objectFit: 'contain',
+            display: loaded ? 'block' : 'none',
+            filter: `drop-shadow(0 4px 16px rgba(0,0,0,0.4)) drop-shadow(0 0 6px ${color}33)`,
+            animation: 'mpFloat 3s ease-in-out infinite',
+          }}
+        />
+      )}
+      {(error || !src) && (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+        }}>
+          <Icons.Smartphone size={32} color={color} />
+          <div style={{ fontSize: 9, color, fontWeight: 700 }}>{brand}</div>
+        </div>
+      )}
+      <style>{`
+        @keyframes mpFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+        @keyframes mpShimmer { 0%,100%{opacity:.4} 50%{opacity:.8} }
+      `}</style>
+    </div>
+  );
+}
 
 function MarketplaceScreen({ user, lang }) {
   const t = I18N[lang] || I18N.en;
@@ -28,7 +88,6 @@ function MarketplaceScreen({ user, lang }) {
     id:     item.id,
     name:   item.device_name,
     brand:  item.brand,
-    iconKey: 'Smartphone',
     specs:  item.specs,
     price:  item.price,
     seller: t.you,
@@ -36,9 +95,9 @@ function MarketplaceScreen({ user, lang }) {
     isMine: true,
   }));
 
-  const items = userItems;
-  const isMe   = (item) => item.isMine;
-  const isSold = (item) => item.status === 'sold';
+  const items    = userItems;
+  const isMe     = (item) => item.isMine;
+  const isSold   = (item) => item.status === 'sold';
   const filtered = items.filter(i =>
     filter === 'all' ||
     (filter === 'mine' && i.isMine) ||
@@ -77,10 +136,12 @@ function MarketplaceScreen({ user, lang }) {
                 }}>{t.sold_label}</span>
               </div>
             )}
-            <div className="mp-img">{(() => { const IC = Icons[item.iconKey]; return IC ? <IC size={32} /> : null; })()}</div>
+            <div className="mp-img">
+              <DevicePhoto name={item.name} brand={item.brand} size={130} />
+            </div>
             <div className="mp-body">
               <div className="mp-name">{item.name}</div>
-              <div className="mp-specs">{item.specs || `${item.brand}`}</div>
+              <div className="mp-specs">{item.specs || item.brand}</div>
               <div className="mp-footer">
                 <div className="mp-price">${Math.min(item.price, 10)}</div>
                 <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'var(--text2)'}}>
