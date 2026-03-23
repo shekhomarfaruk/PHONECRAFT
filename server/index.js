@@ -1139,6 +1139,132 @@ app.get('/api/support/messages/:sessionId', (req, res) => {
   }
 });
 
+// ── Admin Support: list sessions ────────────────────────────────────────────
+app.get('/api/admin/support/sessions', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const rows = db.prepare(`
+      SELECT
+        sc.session_id,
+        MAX(sc.created_at) AS last_active,
+        COALESCE(SUM(CASE WHEN sc.sender = 'user' THEN 1 ELSE 0 END), 0) AS user_msgs,
+        COALESCE(SUM(CASE WHEN sc.sender = 'admin' THEN 1 ELSE 0 END), 0) AS admin_replies,
+        (
+          SELECT sc2.message
+          FROM support_chats sc2
+          WHERE sc2.session_id = sc.session_id
+          ORDER BY sc2.id DESC
+          LIMIT 1
+        ) AS last_message
+      FROM support_chats sc
+      GROUP BY sc.session_id
+      ORDER BY MAX(sc.id) DESC
+      LIMIT 200
+    `).all();
+
+    const usersById = new Map();
+    for (const row of rows) {
+      const m = String(row.session_id || '').match(/^user_(\d+)$/);
+      if (!m) continue;
+      const uid = Number(m[1]);
+      if (!usersById.has(uid)) {
+        usersById.set(uid, stmts.getUserById.get(uid) || null);
+      }
+    }
+
+    const sessions = rows.map((row) => {
+      const sid = String(row.session_id || '');
+      let user_name = '';
+      const m = sid.match(/^user_(\d+)$/);
+      if (m) {
+        const uid = Number(m[1]);
+        const u = usersById.get(uid);
+        user_name = u?.name || '';
+      }
+
+      return {
+        session_id: sid,
+        user_name,
+        last_message: row.last_message || '',
+        last_active: row.last_active || null,
+        user_msgs: Number(row.user_msgs) || 0,
+        admin_replies: Number(row.admin_replies) || 0,
+      };
+    });
+
+    res.json({ sessions });
+  } catch (err) {
+    console.error('Admin support sessions error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch support sessions' });
+  }
+});
+
+// ── Admin Support: session messages ─────────────────────────────────────────
+app.get('/api/admin/support/messages/:sessionId', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const sessionId = String(req.params.sessionId || '').trim();
+    if (!sessionId) return res.status(400).json({ error: 'Session ID required' });
+
+    const msgs = stmts.getSupportMsgs.all(sessionId).map((m) => ({
+      ...m,
+      sender_name: m.sender === 'admin' ? (req.auth.user?.name || 'Admin') : 'User',
+    }));
+
+    res.json({ messages: msgs });
+  } catch (err) {
+    console.error('Admin support messages error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch support messages' });
+  }
+});
+
+// ── Admin Support: reply to session ─────────────────────────────────────────
+app.post('/api/admin/support/reply', authRequired, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const sessionId = String(req.body?.sessionId || '').trim();
+    const message = String(req.body?.message || '').trim();
+    if (!sessionId || !message) return res.status(400).json({ error: 'sessionId and message are required' });
+
+    stmts.insertSupportMsg.run(sessionId, 'admin', message);
+
+    if (sessionId.startsWith('tguser:')) {
+      const tgUserId = sessionId.slice('tguser:'.length).trim();
+      if (tgUserId) {
+        await telegramService.replyToUser({
+          targetChatId: tgUserId,
+          text: message,
+        }).catch((err) => {
+          console.error('Admin support TG direct reply error:', err.message);
+        });
+      }
+    }
+
+    // Mirror admin replies to support channel for audit trail.
+    if (SUPPORT_BOT && SUPPORT_CHAT_IDS.length > 0) {
+      const text = [
+        '🛠️ <b>Admin Support Reply</b>',
+        `🔑 Session: <code>${sessionId}</code>`,
+        `👮 Admin: ${req.auth.user?.name || 'Admin'}`,
+        '━━━━━━━━━━━━━━━',
+        message,
+      ].join('\n');
+
+      await sendTelegram(text, {
+        botToken: SUPPORT_BOT,
+        chatIds: SUPPORT_CHAT_IDS,
+      }).catch((err) => {
+        console.error('Admin support Telegram mirror error:', err.message);
+      });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Admin support reply error:', err.message);
+    res.status(500).json({ error: 'Failed to send support reply' });
+  }
+});
+
 // ── Telegram Support Webhook ──────────────────────────────────────────────────
 app.post('/webhook/telegram', (req, res) => {
   res.sendStatus(200); // always ack immediately
