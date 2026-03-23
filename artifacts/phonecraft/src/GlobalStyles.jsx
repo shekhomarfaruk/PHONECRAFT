@@ -677,6 +677,135 @@ const GlobalStyles = ({ isDark, fontSize }) => {
       color: var(--accent); display: flex; align-items: center; justify-content: center; gap: 10px;
     }
     @media (min-width: 640px) { .big-balance { font-size: ${s(44)}; } }
+
+    /* ══════════════════════════════════════════════
+       ICON ANIMATIONS & GLOW EFFECTS
+    ══════════════════════════════════════════════ */
+
+    /* Keyframes */
+    @keyframes iconNavGlow {
+      0%,100% { filter: drop-shadow(0 0 4px currentColor); transform: scale(1); }
+      50%      { filter: drop-shadow(0 0 10px currentColor); transform: scale(1.12); }
+    }
+    @keyframes iconNavBounce {
+      0%,100% { transform: translateY(0) scale(1); }
+      30%     { transform: translateY(-3px) scale(1.08); }
+      60%     { transform: translateY(-1px) scale(1.04); }
+    }
+    @keyframes iconTitlePulse {
+      0%,100% { filter: drop-shadow(0 0 3px rgba(35,175,145,0.7)); }
+      50%     { filter: drop-shadow(0 0 8px rgba(35,175,145,1)); }
+    }
+    @keyframes iconCardGlow {
+      0%,100% { opacity: 0.9; filter: drop-shadow(0 0 2px rgba(35,175,145,0.5)); }
+      50%     { opacity: 1;   filter: drop-shadow(0 0 6px rgba(35,175,145,0.85)); }
+    }
+    @keyframes iconBadgePulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(35,175,145,0.3), 0 0 8px rgba(35,175,145,0.15); }
+      50%     { box-shadow: 0 0 0 4px rgba(35,175,145,0), 0 0 16px rgba(35,175,145,0.3); }
+    }
+    @keyframes iconFloat {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-3px); }
+    }
+    @keyframes iconSpin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @keyframes iconShake {
+      0%,100% { transform: rotate(0deg); }
+      20%     { transform: rotate(-12deg); }
+      40%     { transform: rotate(12deg); }
+      60%     { transform: rotate(-8deg); }
+      80%     { transform: rotate(6deg); }
+    }
+
+    /* ── Nav icon glow when active ── */
+    .nav-item.active .ni {
+      transform: translateY(-2px);
+      filter: drop-shadow(0 0 7px rgba(35,175,145,0.85));
+      animation: iconNavGlow 2.5s ease-in-out infinite;
+    }
+
+    /* ── Screen title icons ── */
+    .screen-title svg {
+      filter: drop-shadow(0 0 5px rgba(35,175,145,0.7));
+      animation: iconTitlePulse 3s ease-in-out infinite;
+    }
+
+    /* ── Card title icons ── */
+    .card-title svg {
+      filter: drop-shadow(0 0 4px rgba(35,175,145,0.6));
+      animation: iconCardGlow 3.5s ease-in-out infinite;
+    }
+
+    /* ── Icon badge wrapper ── (use class icon-badge on wrapper div) ── */
+    .icon-badge {
+      width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      animation: iconBadgePulse 3s ease-in-out infinite;
+    }
+    .icon-badge-green  { background: rgba(35,175,145,0.15); border: 1px solid rgba(35,175,145,0.2); }
+    .icon-badge-blue   { background: rgba(99,102,241,0.15);  border: 1px solid rgba(99,102,241,0.2); }
+    .icon-badge-orange { background: rgba(245,158,11,0.15);  border: 1px solid rgba(245,158,11,0.2); }
+    .icon-badge-red    { background: rgba(239,68,68,0.15);   border: 1px solid rgba(239,68,68,0.2);  }
+    .icon-badge-purple { background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.2); }
+    @media (min-width: 640px) { .icon-badge { width: 44px; height: 44px; border-radius: 13px; } }
+
+    /* ── Button icon animation ── */
+    .btn svg   { transition: transform .2s; }
+    .btn:hover svg  { transform: scale(1.18) rotate(3deg); }
+    .btn:active svg { transform: scale(0.9); }
+
+    /* ── Menu item icon animation ── */
+    .menu-item .menu-icon svg  { transition: transform .2s, filter .2s; }
+    .menu-item:hover .menu-icon svg {
+      transform: scale(1.15) rotate(-5deg);
+      filter: drop-shadow(0 0 5px rgba(35,175,145,0.7));
+    }
+
+    /* ── Sidebar item icon animation ── */
+    .sidebar-item svg { transition: transform .2s; }
+    .sidebar-item:hover svg   { transform: scale(1.12); }
+    .sidebar-item.active svg  {
+      filter: drop-shadow(0 0 6px rgba(35,175,145,0.7));
+      animation: iconCardGlow 2.5s ease-in-out infinite;
+    }
+
+    /* ── Bell icon shake on notification ── */
+    .notif-btn .icon-btn svg  { animation: iconShake 3.5s ease-in-out infinite; }
+
+    /* ── Floating icon (success screen etc.) ── */
+    .icon-float svg { animation: iconFloat 2.5s ease-in-out infinite; }
+
+    /* ── Stat box icon glow ── */
+    .stat-box svg {
+      filter: drop-shadow(0 0 3px rgba(35,175,145,0.5));
+      transition: filter .2s;
+    }
+    .stat-box:hover svg { filter: drop-shadow(0 0 8px rgba(35,175,145,0.9)); }
+
+    /* ── Toast icon animation ── */
+    .toast-icon-wrap svg { animation: iconNavBounce .5s ease; }
+
+    /* ── Badge icon glow ── */
+    .badge svg { vertical-align: middle; }
+
+    /* ── Marketplace card phone icon float ── */
+    .mp-img svg { animation: iconFloat 3s ease-in-out infinite; filter: drop-shadow(0 0 10px rgba(35,175,145,0.5)); }
+
+    /* ── Quick action / home grid icon ── */
+    .quick-grid > div svg { transition: transform .2s, filter .2s; }
+    .quick-grid > div:hover svg {
+      transform: scale(1.2) translateY(-2px);
+      filter: drop-shadow(0 0 7px rgba(35,175,145,0.8));
+    }
+
+    /* ── Profile/wallet header icon ── */
+    .icon-header-anim svg {
+      filter: drop-shadow(0 0 6px rgba(35,175,145,0.6));
+      animation: iconFloat 3s ease-in-out infinite;
+    }
   `}</style>
   );
 };

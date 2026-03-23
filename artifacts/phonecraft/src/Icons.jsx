@@ -68,16 +68,32 @@ const Icons = {
       </svg>
     );
   },
-  Sun: ({ size = 18 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-    </svg>
-  ),
-  Moon: ({ size = 18 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-    </svg>
-  ),
+  Sun: ({ size = 18 }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#FBBF24"/><stop offset="100%" stopColor="#F97316"/></linearGradient></defs>
+        <circle cx="12" cy="12" r="5" fill={`url(#${id})`} opacity="0.3" stroke={`url(#${id})`} strokeWidth="2"/>
+        <line x1="12" y1="1" x2="12" y2="3" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="12" y1="21" x2="12" y2="23" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="1" y1="12" x2="3" y2="12" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="21" y1="12" x2="23" y2="12" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  Moon: ({ size = 18 }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#818CF8"/><stop offset="100%" stopColor="#C084FC"/></linearGradient></defs>
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill={`url(#${id})`} opacity="0.25" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  },
   Coin: ({ size = 16 }) => (
     <img src="/balanceicon.png" alt="credit" style={{ width: size, height: size, objectFit: 'contain', verticalAlign: 'middle', display: 'inline-block' }} />
   ),
@@ -168,11 +184,17 @@ const Icons = {
       </svg>
     );
   },
-  Logout: ({ size = 20 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-    </svg>
-  ),
+  Logout: ({ size = 20 }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#EF4444"/><stop offset="100%" stopColor="#F97316"/></linearGradient></defs>
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <polyline points="16 17 21 12 16 7" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <line x1="21" y1="12" x2="9" y2="12" stroke={`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+  },
   Support: ({ size = 20, color }) => {
     const id = uid();
     return (
@@ -197,21 +219,39 @@ const Icons = {
       </svg>
     );
   },
-  Copy: ({ size = 16 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-    </svg>
-  ),
-  Share: ({ size = 16 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-    </svg>
-  ),
-  ArrowRight: ({ size = 16 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-    </svg>
-  ),
+  Copy: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#23AF91"/><stop offset="100%" stopColor="#06B6D4"/></linearGradient></defs>
+        <rect x="9" y="9" width="13" height="13" rx="2" fill={color||`url(#${id})`} opacity="0.12" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  Share: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F472B6"/><stop offset="100%" stopColor="#818CF8"/></linearGradient></defs>
+        <circle cx="18" cy="5" r="3" fill={color||`url(#${id})`} opacity="0.2" stroke={color||`url(#${id})`} strokeWidth="2"/>
+        <circle cx="6" cy="12" r="3" fill={color||`url(#${id})`} opacity="0.2" stroke={color||`url(#${id})`} strokeWidth="2"/>
+        <circle cx="18" cy="19" r="3" fill={color||`url(#${id})`} opacity="0.2" stroke={color||`url(#${id})`} strokeWidth="2"/>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  ArrowRight: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#23AF91"/><stop offset="100%" stopColor="#4ADE80"/></linearGradient></defs>
+        <line x1="5" y1="12" x2="19" y2="12" stroke={color||`url(#${id})`} strokeWidth="2.5" strokeLinecap="round"/>
+        <polyline points="12 5 19 12 12 19" stroke={color||`url(#${id})`} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  },
   Star: ({ size = 16, color }) => {
     const id = uid();
     return (
@@ -242,21 +282,42 @@ const Icons = {
       </svg>
     );
   },
-  Mail: ({ size = 18 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
-    </svg>
-  ),
-  Package: ({ size = 20 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
-    </svg>
-  ),
-  Bot: ({ size = 40 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="15" x2="8" y2="15"/><line x1="16" y1="15" x2="16" y2="15"/>
-    </svg>
-  ),
+  Mail: ({ size = 18, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#60A5FA"/><stop offset="100%" stopColor="#6366F1"/></linearGradient></defs>
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" fill={color||`url(#${id})`} opacity="0.12" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points="22,6 12,13 2,6" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  },
+  Package: ({ size = 20, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F59E0B"/><stop offset="100%" stopColor="#F97316"/></linearGradient></defs>
+        <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" fill={color||`url(#${id})`} opacity="0.12" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <line x1="12" y1="22.08" x2="12" y2="12" stroke={color||`url(#${id})`} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  Bot: ({ size = 40, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#06B6D4"/><stop offset="100%" stopColor="#6366F1"/></linearGradient></defs>
+        <rect x="3" y="11" width="18" height="10" rx="2" fill={color||`url(#${id})`} opacity="0.12" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="12" cy="5" r="2" stroke={color||`url(#${id})`} strokeWidth="1.8"/>
+        <path d="M12 7v4" stroke={color||`url(#${id})`} strokeWidth="1.8" strokeLinecap="round"/>
+        <circle cx="8" cy="15" r="1.2" fill={color||`url(#${id})`}/>
+        <circle cx="16" cy="15" r="1.2" fill={color||`url(#${id})`}/>
+        <path d="M9 18h6" stroke={color||`url(#${id})`} strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    );
+  },
   Transfer: ({ size = 20, color }) => {
     const id = uid();
     return (
@@ -269,16 +330,27 @@ const Icons = {
       </svg>
     );
   },
-  Menu: ({ size = 22 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="16" y2="12"/><line x1="3" y1="18" x2="19" y2="18"/>
-    </svg>
-  ),
-  X: ({ size = 20 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-  ),
+  Menu: ({ size = 22, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#23AF91"/><stop offset="100%" stopColor="#6366F1"/></linearGradient></defs>
+        <line x1="3" y1="6" x2="21" y2="6" stroke={color||`url(#${id})`} strokeWidth="2.2" strokeLinecap="round"/>
+        <line x1="3" y1="12" x2="16" y2="12" stroke={color||`url(#${id})`} strokeWidth="2.2" strokeLinecap="round"/>
+        <line x1="3" y1="18" x2="19" y2="18" stroke={color||`url(#${id})`} strokeWidth="2.2" strokeLinecap="round"/>
+      </svg>
+    );
+  },
+  X: ({ size = 20, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#EF4444"/><stop offset="100%" stopColor="#F97316"/></linearGradient></defs>
+        <line x1="18" y1="6" x2="6" y2="18" stroke={color||`url(#${id})`} strokeWidth="2.5" strokeLinecap="round"/>
+        <line x1="6" y1="6" x2="18" y2="18" stroke={color||`url(#${id})`} strokeWidth="2.5" strokeLinecap="round"/>
+      </svg>
+    );
+  },
   Shield: ({ size = 20, color }) => {
     const id = uid();
     return (
@@ -300,11 +372,15 @@ const Icons = {
       </svg>
     );
   },
-  ChevronDown: ({ size = 16 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9"/>
-    </svg>
-  ),
+  ChevronDown: ({ size = 16, color }) => {
+    const id = uid();
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#23AF91"/><stop offset="100%" stopColor="#4ADE80"/></linearGradient></defs>
+        <polyline points="6 9 12 15 18 9" stroke={color||`url(#${id})`} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  },
   Book: ({ size = 20, color }) => {
     const id = uid();
     return (
