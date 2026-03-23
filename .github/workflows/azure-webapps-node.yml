@@ -60,6 +60,7 @@ jobs:
       - name: Create .env at root level
         run: |
           printf 'PORT=8080\nNODE_ENV=production\n' > .env
+          printf 'AUTH_SECRET=%s\n' "${{ secrets.AUTH_SECRET }}" >> .env
           printf 'TELEGRAM_SUPPORT_BOT_TOKEN=%s\n' "$SUPPORT_TOKEN" >> .env
           printf 'TELEGRAM_FINANCE_BOT_TOKEN=%s\n' "$FINANCE_TOKEN" >> .env
           printf 'TELEGRAM_SUPPORT_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_SUPPORT_CHAT_IDS }}" >> .env
