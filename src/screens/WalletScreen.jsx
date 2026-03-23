@@ -129,7 +129,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
             borderRadius:10, padding:'14px 16px', margin:'4px 0 14px',
             display:'flex', alignItems:'center', gap:12,
           }}>
-            <span style={{fontSize:22}}>🚫</span>
+            <span><Icons.AlertTriangle size={22} color="#ef4444" /></span>
             <div>
               <div style={{fontWeight:700, fontSize:13, color:'#ef4444', marginBottom:2}}>
                 Crypto Not Available
@@ -152,7 +152,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
             borderRadius:10, padding:'12px 14px', marginBottom:14,
           }}>
             <div style={{fontSize:11, fontWeight:700, color:'var(--accent)', marginBottom:6, textTransform:'uppercase', letterSpacing:.5}}>
-              📤 এই নম্বরে টাকা পাঠান
+              <Icons.Upload size={13} /> এই নম্বরে টাকা পাঠান
             </div>
             <div style={{display:'flex', alignItems:'center', gap:10}}>
               <span style={{
@@ -261,7 +261,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
                 </div>
                 {tx.admin_note ? (
                   <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 2 }}>
-                    📝 {tx.admin_note}
+                    <Icons.Note size={12} /> {tx.admin_note}
                   </div>
                 ) : null}
               </div>

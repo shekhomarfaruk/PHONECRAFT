@@ -155,11 +155,7 @@ export default function App() {
   }, [pendingRegId, lang]);
 
   const showToast = useCallback((msg, type) => {
-    const t = type || (
-      /✅|🎉|🌟/.test(msg) ? 'success' :
-      /❌|🚫/.test(msg)     ? 'error'   :
-      /⚠️|⚠/.test(msg)     ? 'warning' : 'info'
-    );
+    const t = type || 'info';
     setToast({ msg, type: t });
     setTimeout(() => setToast(null), 3500);
   }, []);
@@ -176,7 +172,7 @@ export default function App() {
           id:   n.id,
           type: n.type,
           meta: n.meta || null,
-          icon: n.type === 'sold' ? '💰' : n.type === 'success' ? '📱' : n.type === 'registration_request' ? '🔔' : 'ℹ️',
+          iconKey: n.type === 'sold' ? 'Dollar' : n.type === 'success' ? 'Smartphone' : n.type === 'registration_request' ? 'Bell' : 'Info',
           rawText: n.message,
           text: convertCurrencyText(n.message, lang),
           time: formatRelativeTime(n.created_at, lang),
@@ -411,7 +407,7 @@ export default function App() {
     </>
   );
 
-  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize };
+  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications };
 
   // Dynamic menu: build from i18n, add Admin item only if user is admin
   const t = I18N[lang] || I18N.en;

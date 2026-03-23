@@ -36,8 +36,8 @@ function ReferScreen({user, showToast, lang}) {
   const shareRef = async () => {
     const earnRange = `${convertCurrency(20, lang)}–${convertCurrency(100, lang)}`;
     const desc = lang === 'bn'
-      ? `🤝 ফোনক্রাফটে আমার সাথে যোগ দিন!\n\n📱 ভার্চুয়াল ফোন তৈরি করে প্রতিদিন আয় করুন।\n💰 প্রতিটি টাস্কে ${earnRange} আয়!\n\n✅ আমার রেফারেল কোড: ${user.referCode}\n🔗 লিংক: ${refLink}`
-      : `🤝 Join me on PhoneCraft!\n\n📱 Earn real money daily by completing virtual phone manufacturing tasks.\n💰 Earn ${earnRange} per task!\n\n✅ My Referral Code: ${user.referCode}\n🔗 Link: ${refLink}`;
+      ? `ফোনক্রাফটে আমার সাথে যোগ দিন!\n\nভার্চুয়াল ফোন তৈরি করে প্রতিদিন আয় করুন।\nপ্রতিটি টাস্কে ${earnRange} আয়!\n\nআমার রেফারেল কোড: ${user.referCode}\nলিংক: ${refLink}`
+      : `Join me on PhoneCraft!\n\nEarn real money daily by completing virtual phone manufacturing tasks.\nEarn ${earnRange} per task!\n\nMy Referral Code: ${user.referCode}\nLink: ${refLink}`;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -116,7 +116,7 @@ function ReferScreen({user, showToast, lang}) {
             <span style={{fontSize:11,color:'var(--accent)',fontWeight:700}}>{user.referCode}</span>
           </div>
           <button className="btn btn-outline" onClick={downloadQR} style={{fontSize:12}}>
-            ⬇️ {lang === 'bn' ? 'QR ডাউনলোড করুন' : 'Download QR'}
+            <Icons.Download size={14} /> {lang === 'bn' ? 'QR ডাউনলোড করুন' : 'Download QR'}
           </button>
         </div>
       </div>

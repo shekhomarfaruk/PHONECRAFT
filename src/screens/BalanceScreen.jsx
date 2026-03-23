@@ -7,17 +7,17 @@ import { convertCurrency, convertCurrencyText } from "../currency.js";
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 const LOG_META = {
-  daily_earn:         { icon: '⚙️',  colorPos: true,  label_bn: 'ডেইলি আয়',              label_en: 'Daily Earn'          },
-  referral_bonus:     { icon: '🎁',  colorPos: true,  label_bn: 'রেফারেল বোনাস L1',       label_en: 'Referral Bonus L1'   },
-  team_bonus:         { icon: '👥',  colorPos: true,  label_bn: 'টিম কমিশন',               label_en: 'Team Commission'     },
-  referral_spend:     { icon: '💸',  colorPos: false, label_bn: 'রেফারেল ক্রয়',            label_en: 'Referral Spend'      },
-  deposit:            { icon: '💰',  colorPos: true,  label_bn: 'ডিপোজিট',                 label_en: 'Deposit'             },
-  deposit_refund:     { icon: '↩️',  colorPos: false, label_bn: 'ডিপোজিট বাতিল',           label_en: 'Deposit Cancelled'   },
-  withdrawal:         { icon: '🏧',  colorPos: false, label_bn: 'উইথড্র',                   label_en: 'Withdrawal'          },
-  withdrawal_refund:  { icon: '↩️',  colorPos: true,  label_bn: 'উইথড্র রিফান্ড',          label_en: 'Withdrawal Refund'   },
-  marketplace_sell:   { icon: '🛒',  colorPos: true,  label_bn: 'মার্কেটপ্লেস বিক্রয়',     label_en: 'Marketplace Sale'    },
-  transfer_sent:      { icon: '➡️',  colorPos: false, label_bn: 'ক্রেডিট ট্রান্সফার (পাঠানো)', label_en: 'Transfer Sent'    },
-  transfer_received:  { icon: '⬅️',  colorPos: true,  label_bn: 'ক্রেডিট ট্রান্সফার (প্রাপ্ত)', label_en: 'Transfer Received' },
+  daily_earn:         { iconKey: 'Wrench',   colorPos: true,  label_bn: 'ডেইলি আয়',              label_en: 'Daily Earn'          },
+  referral_bonus:     { iconKey: 'Link',     colorPos: true,  label_bn: 'রেফারেল বোনাস L1',       label_en: 'Referral Bonus L1'   },
+  team_bonus:         { iconKey: 'People',   colorPos: true,  label_bn: 'টিম কমিশন',               label_en: 'Team Commission'     },
+  referral_spend:     { iconKey: 'Transfer', colorPos: false, label_bn: 'রেফারেল ক্রয়',            label_en: 'Referral Spend'      },
+  deposit:            { iconKey: 'Dollar',   colorPos: true,  label_bn: 'ডিপোজিট',                 label_en: 'Deposit'             },
+  deposit_refund:     { iconKey: 'Transfer', colorPos: false, label_bn: 'ডিপোজিট বাতিল',           label_en: 'Deposit Cancelled'   },
+  withdrawal:         { iconKey: 'Wallet',   colorPos: false, label_bn: 'উইথড্র',                   label_en: 'Withdrawal'          },
+  withdrawal_refund:  { iconKey: 'Transfer', colorPos: true,  label_bn: 'উইথড্র রিফান্ড',          label_en: 'Withdrawal Refund'   },
+  marketplace_sell:   { iconKey: 'Market',   colorPos: true,  label_bn: 'মার্কেটপ্লেস বিক্রয়',     label_en: 'Marketplace Sale'    },
+  transfer_sent:      { iconKey: 'Send',     colorPos: false, label_bn: 'ক্রেডিট ট্রান্সফার (পাঠানো)', label_en: 'Transfer Sent'    },
+  transfer_received:  { iconKey: 'Wallet',   colorPos: true,  label_bn: 'ক্রেডিট ট্রান্সফার (প্রাপ্ত)', label_en: 'Transfer Received' },
 };
 
 function getLabel(type, lang) {
@@ -245,7 +245,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
           </div>
         ) : (
           log.map((entry, i) => {
-            const meta = LOG_META[entry.type] || { icon: '📋', colorPos: entry.amount >= 0 };
+            const meta = LOG_META[entry.type] || { iconKey: 'Document', colorPos: entry.amount >= 0 };
             const isCredit = entry.amount >= 0;
             return (
               <div key={entry.id} style={{
@@ -258,7 +258,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
                   background: isCredit ? 'rgba(35,175,145,.12)' : 'rgba(246,70,93,.12)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17,
                 }}>
-                  {meta.icon}
+                  {(() => { const IC = Icons[meta.iconKey]; return IC ? <IC size={18} /> : '?'; })()}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>

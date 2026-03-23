@@ -65,7 +65,7 @@ function SupportScreen({ user, showToast, lang }) {
         body: JSON.stringify({ sessionId, message: text, senderName: user?.name || 'Guest' }),
       });
     } catch (_) {
-      showToast('⚠️ Failed to send');
+      showToast('Failed to send', 'error');
     }
     setSending(false);
   };
@@ -83,10 +83,10 @@ function SupportScreen({ user, showToast, lang }) {
 
       <div className="tabs" style={{ marginBottom: 0 }}>
         <div className={`tab ${tab === 'chat' ? 'active' : ''}`} onClick={() => setTab('chat')}>
-          💬 {lang === 'bn' ? 'লাইভ চ্যাট' : 'Live Chat'}
+          <Icons.Chat size={14}/> {lang === 'bn' ? 'লাইভ চ্যাট' : 'Live Chat'}
         </div>
         <div className={`tab ${tab === 'faq' ? 'active' : ''}`} onClick={() => setTab('faq')}>
-          ❓ FAQ
+          <Icons.Info size={14}/> FAQ
         </div>
       </div>
 
@@ -115,7 +115,7 @@ function SupportScreen({ user, showToast, lang }) {
               width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
               background: 'linear-gradient(135deg,var(--accent),var(--accent2))',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-            }}>🎧</div>
+            }}><Icons.Headset size={18} color="#fff" /></div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 14 }}>PhoneCraft Support</div>
               <div style={{ fontSize: 11, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -130,7 +130,7 @@ function SupportScreen({ user, showToast, lang }) {
 
             {messages.length === 0 && (
               <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--text2)' }}>
-                <div style={{ fontSize: 36, marginBottom: 8 }}>👋</div>
+                <div style={{ marginBottom: 8 }}><Icons.Chat size={36} /></div>
                 <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 15 }}>
                   {lang === 'bn' ? 'হ্যালো! কীভাবে সাহায্য করতে পারি?' : 'Hi! How can we help?'}
                 </div>
@@ -158,7 +158,7 @@ function SupportScreen({ user, showToast, lang }) {
                       background: isAdmin ? 'linear-gradient(135deg,#00b894,#00cec9)' : 'linear-gradient(135deg,#6c757d,#495057)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
                     }}>
-                      {isAdmin ? '🎧' : '🤖'}
+                      {isAdmin ? <Icons.Headset size={13} color="#fff" /> : <Icons.Bot size={13} />}
                     </div>
                   )}
                   <div style={{
