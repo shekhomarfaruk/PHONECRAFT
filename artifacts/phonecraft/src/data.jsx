@@ -6,8 +6,20 @@ export const PLANS = [
   { id:'platinum', name:'PLATINUM', price:'\u09F380,000',  rate:80000,  perTask:100, dailyEarn:1600,  daily:16, taskTime:2, color:'#F0B90B', l1:20, l2:4, l3:1 },
 ];
 
-// ─── Device brands (used by randomActivity + WorkScreen) ────────────────────
-export const BRANDS = ['QuantumX','NovaTech','ByteCore','StellarPhone','NexGen','OrbTech','NanoCore'];
+// ─── Device brands (real phone brands) ───────────────────────────────────────
+export const BRANDS = ['Apple','Samsung','Google','OnePlus','Xiaomi','Oppo','Vivo','Realme'];
+
+// ─── Real phone models per brand ─────────────────────────────────────────────
+export const BRAND_MODELS = {
+  Apple:   ['iPhone 15 Pro Max','iPhone 15 Pro','iPhone 15 Plus','iPhone 15','iPhone 14 Pro'],
+  Samsung: ['Galaxy S24 Ultra','Galaxy S24+','Galaxy S24','Galaxy S23 Ultra','Galaxy A54'],
+  Google:  ['Pixel 8 Pro','Pixel 8','Pixel 7 Pro','Pixel 7a','Pixel 6a'],
+  OnePlus: ['OnePlus 12','OnePlus 12R','OnePlus 11','OnePlus Nord 3','OnePlus Nord CE 3'],
+  Xiaomi:  ['Xiaomi 14 Ultra','Xiaomi 14','Redmi Note 13 Pro+','Redmi Note 13 Pro','Poco X6 Pro'],
+  Oppo:    ['OPPO Find X7 Ultra','OPPO Find X7','OPPO Reno 11 Pro','OPPO Reno 11','OPPO A98'],
+  Vivo:    ['Vivo X100 Pro','Vivo X100','Vivo V29 Pro','Vivo V29','Vivo Y100'],
+  Realme:  ['Realme GT 5 Pro','Realme GT 5','Realme 12 Pro+','Realme 12 Pro','Realme Narzo 60 Pro'],
+};
 
 // ─── Device configuration options ────────────────────────────────────────────
 export const DEVICE_CONFIGS = {

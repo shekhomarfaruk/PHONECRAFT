@@ -1,11 +1,146 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Icons from "../Icons.jsx";
-import { PLANS, BRANDS, DEVICE_CONFIGS, generateTerminalLines } from "../data.jsx";
+import { PLANS, BRANDS, BRAND_MODELS, DEVICE_CONFIGS, generateTerminalLines } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
 import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
+
+// ── Brand accent colors ────────────────────────────────────────────────────
+const BRAND_COLORS = {
+  Apple:   '#A0A0A0',
+  Samsung: '#1428A0',
+  Google:  '#4285F4',
+  OnePlus: '#F5010C',
+  Xiaomi:  '#FF6900',
+  Oppo:    '#1F8EFA',
+  Vivo:    '#415FFF',
+  Realme:  '#FFE600',
+};
+
+// ── CSS Phone Mockup Component ─────────────────────────────────────────────
+function PhoneMockup({ brand, model, color, animating = false }) {
+  const accentColor = BRAND_COLORS[brand] || '#60A5FA';
+  const bodyColor =
+    color === 'Midnight Black' ? '#1a1a1f' :
+    color === 'Arctic White'   ? '#f0f0f0' :
+    color === 'Ocean Blue'     ? '#1a3a5c' :
+    color === 'Sunset Gold'    ? '#7a5c1a' : '#1a1a2e';
+  const screenBg =
+    color === 'Arctic White' ? 'linear-gradient(160deg,#e8f0fe,#d2e3fc)' :
+    'linear-gradient(160deg,#0f0f1a,#1a1a3a)';
+  const textColor = color === 'Arctic White' ? '#1a1a2e' : '#fff';
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+      {/* Volume buttons (left side) */}
+      <div style={{ position: 'absolute', left: -6, top: 28, display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {[20, 24, 24].map((h, i) => (
+          <div key={i} style={{ width: 4, height: h, background: bodyColor === '#f0f0f0' ? '#ccc' : '#333', borderRadius: 2, filter: 'brightness(0.7)' }} />
+        ))}
+      </div>
+      {/* Power button (right side) */}
+      <div style={{ position: 'absolute', right: -6, top: 38, width: 4, height: 28, background: bodyColor === '#f0f0f0' ? '#ccc' : '#333', borderRadius: 2, filter: 'brightness(0.7)' }} />
+
+      {/* Phone body */}
+      <div style={{
+        width: 88, height: 155,
+        borderRadius: 20,
+        background: bodyColor,
+        border: `2px solid ${bodyColor === '#f0f0f0' ? '#bbb' : '#333'}`,
+        boxShadow: `0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        {/* Screen bezel top */}
+        <div style={{ width: '100%', background: '#000', paddingTop: 4, paddingBottom: 3, display: 'flex', justifyContent: 'center' }}>
+          {/* Dynamic island / pill */}
+          <div style={{
+            width: brand === 'Apple' ? 36 : 12, height: 8,
+            background: '#111',
+            borderRadius: 10,
+          }} />
+        </div>
+
+        {/* Screen */}
+        <div style={{
+          flex: 1, width: '100%',
+          background: screenBg,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 6px 6px',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          {/* Status bar */}
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <div style={{ fontSize: 6, color: textColor, opacity: 0.7, fontWeight: 700 }}>9:41</div>
+            <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              {[3,4,5,6].map(h => <div key={h} style={{ width: 2, height: h, background: textColor, opacity: 0.7, borderRadius: 1 }} />)}
+              <div style={{ width: 8, height: 4, border: `1px solid ${textColor}`, borderRadius: 1, opacity: 0.7, marginLeft: 2 }}>
+                <div style={{ width: '70%', height: '100%', background: textColor, opacity: 0.7 }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Brand logo area */}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              fontSize: 7, fontWeight: 900, letterSpacing: 1,
+              color: accentColor, textTransform: 'uppercase', marginBottom: 2,
+            }}>
+              {brand}
+            </div>
+            <div style={{
+              fontSize: 6, color: textColor, opacity: 0.8,
+              fontWeight: 600, lineHeight: 1.3, textAlign: 'center',
+              maxWidth: 70,
+            }}>
+              {model}
+            </div>
+          </div>
+
+          {/* Manufacturing animation */}
+          {animating && (
+            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+              {[0, 0.3, 0.6].map((delay, i) => (
+                <div key={i} style={{
+                  width: 4, height: 4, borderRadius: '50%',
+                  background: accentColor,
+                  animation: `phonePulse 1s ease-in-out ${delay}s infinite`,
+                }} />
+              ))}
+            </div>
+          )}
+
+          {/* Wallpaper grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 3, width: '100%' }}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} style={{
+                height: 12, borderRadius: 4,
+                background: i === 0 ? accentColor : `rgba(255,255,255,0.08)`,
+                opacity: i === 0 ? 0.7 : 1,
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Home indicator */}
+        <div style={{ width: '100%', background: '#000', paddingBottom: 5, paddingTop: 3, display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: 28, height: 3, background: '#444', borderRadius: 2 }} />
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes phonePulse {
+          0%,100%{opacity:.3;transform:scale(.8)}
+          50%{opacity:1;transform:scale(1.2)}
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export default function WorkScreen({ user, setUser, showToast, addNotif, lang }) {
   const t = I18N[lang] || I18N.en;
@@ -66,6 +201,13 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
       .catch(() => {});
   }, [user.id]);
 
+  // When brand changes, clear selected model
+  const handleBrandSelect = (b) => {
+    if (limitReached) return;
+    setBrand(b);
+    setDeviceName('');
+  };
+
   const limitReached = dailyDone >= dailyLimit;
   const canStart = deviceName.trim() && brand && ram && rom && color && !limitReached && !starting;
 
@@ -119,7 +261,6 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
         idx++;
       } else {
         clearInterval(timerRef.current);
-        // Complete manufacturing on backend
         completeManufacturing();
       }
     }, Math.max(120, Math.floor((120000 - resumeElapsedRef.current) / Math.max(1, total - initialIdx))));
@@ -151,10 +292,8 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
       setDailyDone(data.dailyDone);
       setDailyLimit(data.dailyLimit);
 
-      // Update App-level user balance
       setUser(prev => ({ ...prev, balance: data.newBalance, dailyDone: data.dailyDone }));
 
-      // Push notification to app notification list
       addNotif({
         type: 'success',
         iconKey: 'Smartphone',
@@ -183,6 +322,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
   };
 
   const plan = PLANS.find(p => p.id === user.plan);
+  const brandModels = brand ? (BRAND_MODELS[brand] || []) : [];
 
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER: CONFIG PHASE
@@ -216,31 +356,62 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
           )}
         </div>
 
-        {/* Device Name */}
+        {/* Device Configuration */}
         <div className="card">
           <div className="card-title"><Icons.Smartphone size={14}/> {t.device_config}</div>
-          <div className="input-wrap">
-            <label className="input-label">{t.model_name}</label>
-            <input className="inp" placeholder={t.enter_device_name} value={deviceName}
-              onChange={e => setDeviceName(e.target.value)} disabled={limitReached} />
-          </div>
 
           {/* Brand */}
           <label className="input-label">{t.brand}</label>
-          <div className="config-grid" style={{ marginBottom:14 }}>
+          <div className="config-grid" style={{ marginBottom: 14 }}>
             {BRANDS.map(b => (
-              <div key={b} onClick={() => !limitReached && setBrand(b)}
+              <div key={b} onClick={() => handleBrandSelect(b)}
                 style={{
-                  background: brand===b ? 'rgba(35,175,145,.15)' : 'var(--input-bg)',
-                  border: `1px solid ${brand===b ? 'var(--accent)' : 'var(--border)'}`,
-                  borderRadius:10, padding:'10px 8px', textAlign:'center',
-                  cursor: limitReached ? 'not-allowed' : 'pointer', transition:'all .2s',
-                  fontSize:12, fontWeight:600, opacity: limitReached ? .5 : 1,
+                  background: brand === b ? `${BRAND_COLORS[b]}22` : 'var(--input-bg)',
+                  border: `1px solid ${brand === b ? (BRAND_COLORS[b] || 'var(--accent)') : 'var(--border)'}`,
+                  borderRadius: 10, padding: '10px 8px', textAlign: 'center',
+                  cursor: limitReached ? 'not-allowed' : 'pointer', transition: 'all .2s',
+                  fontSize: 11, fontWeight: 700, opacity: limitReached ? .5 : 1,
+                  color: brand === b ? (BRAND_COLORS[b] || 'var(--accent)') : 'var(--text)',
                 }}>
                 {b}
               </div>
             ))}
           </div>
+
+          {/* Model — shown after brand selected */}
+          {brand && (
+            <>
+              <label className="input-label">
+                {lang === 'bn' ? 'মডেল নির্বাচন করুন' : 'Select Model'}
+                {deviceName && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>✓</span>}
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                {brandModels.map(m => (
+                  <div key={m} onClick={() => !limitReached && setDeviceName(m)}
+                    style={{
+                      background: deviceName === m ? `${BRAND_COLORS[brand] || 'var(--accent)'}18` : 'var(--input-bg)',
+                      border: `1px solid ${deviceName === m ? (BRAND_COLORS[brand] || 'var(--accent)') : 'var(--border)'}`,
+                      borderRadius: 10, padding: '11px 14px',
+                      cursor: limitReached ? 'not-allowed' : 'pointer', transition: 'all .2s',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      opacity: limitReached ? .5 : 1,
+                    }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: deviceName === m ? (BRAND_COLORS[brand] || 'var(--accent)') : 'var(--text)' }}>
+                        {m}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2 }}>{brand}</div>
+                    </div>
+                    {deviceName === m && (
+                      <div style={{ width: 18, height: 18, borderRadius: '50%', background: BRAND_COLORS[brand] || 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icons.CheckCircle size={12} color="#fff" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* RAM */}
           <label className="input-label">{t.ram}</label>
@@ -292,6 +463,13 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
               </div>
             ))}
           </div>
+
+          {/* Preview phone when fully configured */}
+          {deviceName && brand && color && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+              <PhoneMockup brand={brand} model={deviceName} color={color} />
+            </div>
+          )}
         </div>
 
         {/* Start Button */}
@@ -311,10 +489,10 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
       <>
         <div className="screen-title"><Icons.Cpu size={18}/> {t.mfg_terminal}</div>
 
-        {/* Device info */}
+        {/* Device info with real phone mockup */}
         <div className="device-preview">
-          <div className="phone-mockup"><Icons.Smartphone size={36} color="#60A5FA" /></div>
-          <div style={{ fontFamily:'Space Grotesk', fontSize:14, fontWeight:700 }}>{deviceName}</div>
+          <PhoneMockup brand={brand} model={deviceName} color={color} animating={progress < 100} />
+          <div style={{ fontFamily:'Space Grotesk', fontSize:14, fontWeight:700, marginTop: 8 }}>{deviceName}</div>
           <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{brand} · {ram} · {rom}</div>
         </div>
 
@@ -356,6 +534,9 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
   const result = resultRef.current;
   const job = result?.job || jobRef.current;
   const newLimitReached = dailyDone >= dailyLimit;
+  const jobBrand = job?.brand || brand;
+  const jobModel = job?.device_name || deviceName;
+  const jobColor = job?.color || color;
 
   return (
     <div className="device-result">
@@ -372,12 +553,12 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
         </div>
       </div>
 
-      {/* Device preview */}
+      {/* Device preview with real phone mockup */}
       <div className="device-preview">
-        <div className="phone-mockup"><Icons.Smartphone size={36} color="#60A5FA" /></div>
-        <div style={{ fontFamily:'Space Grotesk', fontSize:15, fontWeight:700 }}>{job?.device_name || deviceName}</div>
+        <PhoneMockup brand={jobBrand} model={jobModel} color={jobColor} />
+        <div style={{ fontFamily:'Space Grotesk', fontSize:15, fontWeight:700, marginTop: 8 }}>{jobModel}</div>
         <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>
-          {job?.brand || brand} · {job?.ram || ram} · {job?.rom || rom}
+          {jobBrand} · {job?.ram || ram} · {job?.rom || rom}
         </div>
       </div>
 
@@ -387,10 +568,10 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
         <div className="spec-grid">
           {[
             { label:'MFG ID', value: `#MFG-${job?.id || '??'}` },
-            { label: t.brand, value: job?.brand || brand },
+            { label: t.brand, value: jobBrand },
             { label: t.ram, value: job?.ram || ram },
             { label: t.storage, value: job?.rom || rom },
-            { label: t.color, value: job?.color || color },
+            { label: t.color, value: jobColor },
             { label:'Status', value: t.completed },
           ].map(s => (
             <div key={s.label} style={{ background:'var(--input-bg)', border:'1px solid var(--border)', borderRadius:8, padding:'8px 10px' }}>
@@ -418,7 +599,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
           <Icons.Market size={22} />
           <div style={{ flex:1 }}>
             <div style={{ fontSize:13, fontWeight:700 }}>{t.device_posted}</div>
-            <div style={{ fontSize:11, color:'var(--text2)' }}>{t.price_label}: ${Math.min(result.marketPrice, 10)}</div>
+            <div style={{ fontSize:11, color:'var(--text2)' }}>{jobModel} · {t.price_label}: ${Math.min(result.marketPrice, 10)}</div>
           </div>
           <span className="badge badge-green">{t.active}</span>
         </div>
