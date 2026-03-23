@@ -23,7 +23,7 @@ jobs:
           version: 10
 
       - name: Install all dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build frontend
         run: PORT=3000 BASE_PATH=/ pnpm --filter @workspace/phonecraft run build
@@ -36,8 +36,7 @@ jobs:
           cp artifacts/api-server/phonecraft/index.js server/
           cp artifacts/api-server/phonecraft/db.js server/
           cp -r artifacts/api-server/phonecraft/services/. server/services/
-          cat > server/package.json << 'PKG'
-          {
+          echo '{
             "name": "phonecraft-server",
             "version": "1.0.0",
             "type": "commonjs",
@@ -52,29 +51,28 @@ jobs:
               "node-fetch": "^3.3.2",
               "cookie-parser": "^1.4.7"
             }
-          }
-          PKG
+          }' > server/package.json
           cd server && npm install --production
 
       - name: Create .env for server
         run: |
-          cat > server/.env << EOF
-          PORT=8080
-          NODE_ENV=production
-          TELEGRAM_SUPPORT_BOT_TOKEN=${{ secrets.TELEGRAM_SUPPORT_BOT_TOKEN }}
-          TELEGRAM_FINANCE_BOT_TOKEN=${{ secrets.TELEGRAM_FINANCE_BOT_TOKEN }}
-          TELEGRAM_SUPPORT_CHAT_IDS=${{ secrets.TELEGRAM_SUPPORT_CHAT_IDS }}
-          TELEGRAM_FINANCE_CHAT_IDS=${{ secrets.TELEGRAM_FINANCE_CHAT_IDS }}
-          TELEGRAM_FINANCE_CHAT_ID=${{ secrets.TELEGRAM_FINANCE_CHAT_ID }}
-          TELEGRAM_ADMIN_CHAT_IDS=${{ secrets.TELEGRAM_ADMIN_CHAT_IDS }}
-          MAIN_ADMIN_REFER_CODE=${{ secrets.MAIN_ADMIN_REFER_CODE }}
-          WEBHOOK_URL=${{ secrets.WEBHOOK_URL }}
-          EOF
+          printf 'PORT=8080\nNODE_ENV=production\n' > server/.env
+          printf 'TELEGRAM_SUPPORT_BOT_TOKEN=%s\n' "$SUPPORT_TOKEN" >> server/.env
+          printf 'TELEGRAM_FINANCE_BOT_TOKEN=%s\n' "$FINANCE_TOKEN" >> server/.env
+          printf 'TELEGRAM_SUPPORT_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_SUPPORT_CHAT_IDS }}" >> server/.env
+          printf 'TELEGRAM_FINANCE_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_FINANCE_CHAT_IDS }}" >> server/.env
+          printf 'TELEGRAM_FINANCE_CHAT_ID=%s\n' "${{ secrets.TELEGRAM_FINANCE_CHAT_ID }}" >> server/.env
+          printf 'TELEGRAM_ADMIN_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_ADMIN_CHAT_IDS }}" >> server/.env
+          printf 'MAIN_ADMIN_REFER_CODE=%s\n' "${{ secrets.MAIN_ADMIN_REFER_CODE }}" >> server/.env
+          printf 'WEBHOOK_URL=%s\n' "${{ secrets.WEBHOOK_URL }}" >> server/.env
+        env:
+          SUPPORT_TOKEN: ${{ secrets.TELEGRAM_SUPPORT_BOT_TOKEN }}
+          FINANCE_TOKEN: ${{ secrets.TELEGRAM_FINANCE_BOT_TOKEN }}
 
       - name: Copy frontend build
         run: cp -r artifacts/phonecraft/dist/public dist
 
-      - name: Patch server for static files and SPA
+      - name: Patch server for SPA fallback
         run: |
           sed -i "s|res.status(404).json({ error: 'Not found' });|res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));|" server/index.js
 
