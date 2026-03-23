@@ -219,7 +219,7 @@ export default function App() {
     refreshBalance();
     refreshReferralTree();
 
-    notifTimer = setInterval(fetchNotifications, 30_000);
+    notifTimer = setInterval(fetchNotifications, 8_000);
     balanceTimer = setInterval(refreshBalance, 45_000);
     treeTimer = setInterval(refreshReferralTree, 120_000);
 
