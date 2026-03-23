@@ -160,10 +160,16 @@ export default function App() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  // ── Notification polling from DB ───────────────────────────────────────────
+  // ── Unified polling (pauses when tab hidden) ─────────────────────────────
   useEffect(() => {
     if (!user?.id) return;
+    let cancelled = false;
+    let notifTimer, balanceTimer, treeTimer;
+
+    const isVisible = () => document.visibilityState !== 'hidden';
+
     const fetchNotifications = async () => {
+      if (!isVisible()) return;
       try {
         const res = await fetch(`${API_URL}/api/user/${user.id}/notifications`);
         const data = await res.json();
@@ -185,15 +191,9 @@ export default function App() {
         setNotifications(mapped);
       } catch (_) {}
     };
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 20_000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
 
-  // ── Balance auto-refresh from server ─────────────────────────────────────
-  useEffect(() => {
-    if (!user?.id) return;
     const refreshBalance = async () => {
+      if (!isVisible()) return;
       try {
         const res = await fetch(`${API_URL}/api/user/${user.id}/balance-log`);
         if (!res.ok) return;
@@ -203,16 +203,9 @@ export default function App() {
         }
       } catch (_) {}
     };
-    refreshBalance();
-    const timer = setInterval(refreshBalance, 30_000);
-    return () => clearInterval(timer);
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
 
     const refreshReferralTree = async () => {
+      if (!isVisible() || cancelled) return;
       try {
         const res = await fetch(`${API_URL}/api/user/${user.id}/referral-activity`);
         if (!res.ok) return;
@@ -222,11 +215,28 @@ export default function App() {
       } catch (_) {}
     };
 
+    fetchNotifications();
+    refreshBalance();
     refreshReferralTree();
-    const timer = setInterval(refreshReferralTree, 60_000);
+
+    notifTimer = setInterval(fetchNotifications, 30_000);
+    balanceTimer = setInterval(refreshBalance, 45_000);
+    treeTimer = setInterval(refreshReferralTree, 120_000);
+
+    const onVisChange = () => {
+      if (isVisible()) {
+        fetchNotifications();
+        refreshBalance();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisChange);
+
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      clearInterval(notifTimer);
+      clearInterval(balanceTimer);
+      clearInterval(treeTimer);
+      document.removeEventListener('visibilitychange', onVisChange);
     };
   }, [user?.id]);
 
