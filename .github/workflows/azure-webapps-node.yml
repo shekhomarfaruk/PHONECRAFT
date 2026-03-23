@@ -17,23 +17,69 @@ jobs:
         with:
           node-version: '20.x'
 
-      - name: Install frontend dependencies
-        run: npm install
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install all dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build frontend
-        run: npm run build --if-present
+        run: PORT=3000 BASE_PATH=/ pnpm --filter @workspace/phonecraft run build
+        env:
+          NODE_ENV: production
 
-      - name: Run frontend tests
-        run: npm run test --if-present
-
-      - name: Install backend dependencies
+      - name: Prepare server directory
         run: |
-          cd server
-          npm install
-          cd ..
+          mkdir -p server/services
+          cp artifacts/api-server/phonecraft/index.js server/
+          cp artifacts/api-server/phonecraft/db.js server/
+          cp -r artifacts/api-server/phonecraft/services/. server/services/
+          cat > server/package.json << 'PKG'
+          {
+            "name": "phonecraft-server",
+            "version": "1.0.0",
+            "type": "commonjs",
+            "main": "index.js",
+            "scripts": { "start": "node index.js" },
+            "dependencies": {
+              "express": "^4",
+              "cors": "^2",
+              "bcryptjs": "^2.4.3",
+              "better-sqlite3": "^12.8.0",
+              "dotenv": "^16.4.5",
+              "node-fetch": "^3.3.2",
+              "cookie-parser": "^1.4.7"
+            }
+          }
+          PKG
+          cd server && npm install --production
+
+      - name: Create .env for server
+        run: |
+          cat > server/.env << EOF
+          PORT=8080
+          NODE_ENV=production
+          TELEGRAM_SUPPORT_BOT_TOKEN=${{ secrets.TELEGRAM_SUPPORT_BOT_TOKEN }}
+          TELEGRAM_FINANCE_BOT_TOKEN=${{ secrets.TELEGRAM_FINANCE_BOT_TOKEN }}
+          TELEGRAM_SUPPORT_CHAT_IDS=${{ secrets.TELEGRAM_SUPPORT_CHAT_IDS }}
+          TELEGRAM_FINANCE_CHAT_IDS=${{ secrets.TELEGRAM_FINANCE_CHAT_IDS }}
+          TELEGRAM_FINANCE_CHAT_ID=${{ secrets.TELEGRAM_FINANCE_CHAT_ID }}
+          TELEGRAM_ADMIN_CHAT_IDS=${{ secrets.TELEGRAM_ADMIN_CHAT_IDS }}
+          MAIN_ADMIN_REFER_CODE=${{ secrets.MAIN_ADMIN_REFER_CODE }}
+          WEBHOOK_URL=${{ secrets.WEBHOOK_URL }}
+          EOF
+
+      - name: Copy frontend build
+        run: cp -r artifacts/phonecraft/dist/public dist
+
+      - name: Patch server for static files and SPA
+        run: |
+          sed -i "s|res.status(404).json({ error: 'Not found' });|res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));|" server/index.js
 
       - name: Archive production artifacts
-        run: zip -r release.zip package.json package-lock.json server dist
+        run: zip -r release.zip server dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
