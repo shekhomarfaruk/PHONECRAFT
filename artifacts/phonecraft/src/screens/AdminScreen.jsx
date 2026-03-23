@@ -294,7 +294,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!isMainAdmin && (activeTab === 'admins' || activeTab === 'settings' || activeTab === 'dashboard')) {
+    if (!isMainAdmin && (activeTab === 'admins' || activeTab === 'settings' || activeTab === 'dashboard' || activeTab === 'ops')) {
       setActiveTab('users');
     }
   }, [isMainAdmin, activeTab]);
@@ -494,7 +494,7 @@ export default function AdminScreen({ user, showToast, lang }) {
           ...(isMainAdmin ? [{ id: 'admins', label: t.admin_admins, icon: Icons.Shield }] : []),
           { id: 'transactions', label: t.admin_transactions, icon: Icons.Transfer },
           { id: 'support', label: lang === 'bn' ? 'সাপোর্ট' : 'Support', icon: Icons.Headset },
-          { id: 'ops', label: 'Ops', icon: Icons.Target },
+          ...(isMainAdmin ? [{ id: 'ops', label: 'Ops', icon: Icons.Target }] : []),
           ...(isMainAdmin ? [{ id: 'dashboard', label: t.admin_dashboard, icon: Icons.BarChart }] : []),
           ...(isMainAdmin ? [{ id: 'settings', label: lang === 'bn' ? 'সেটিংস' : 'Settings', icon: Icons.Settings }] : []),
         ].map(tab => {
