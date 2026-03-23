@@ -54,17 +54,17 @@ jobs:
           }' > server/package.json
           cd server && npm install --production
 
-      - name: Create .env for server
+      - name: Create .env at root level
         run: |
-          printf 'PORT=8080\nNODE_ENV=production\n' > server/.env
-          printf 'TELEGRAM_SUPPORT_BOT_TOKEN=%s\n' "$SUPPORT_TOKEN" >> server/.env
-          printf 'TELEGRAM_FINANCE_BOT_TOKEN=%s\n' "$FINANCE_TOKEN" >> server/.env
-          printf 'TELEGRAM_SUPPORT_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_SUPPORT_CHAT_IDS }}" >> server/.env
-          printf 'TELEGRAM_FINANCE_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_FINANCE_CHAT_IDS }}" >> server/.env
-          printf 'TELEGRAM_FINANCE_CHAT_ID=%s\n' "${{ secrets.TELEGRAM_FINANCE_CHAT_ID }}" >> server/.env
-          printf 'TELEGRAM_ADMIN_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_ADMIN_CHAT_IDS }}" >> server/.env
-          printf 'MAIN_ADMIN_REFER_CODE=%s\n' "${{ secrets.MAIN_ADMIN_REFER_CODE }}" >> server/.env
-          printf 'WEBHOOK_URL=%s\n' "${{ secrets.WEBHOOK_URL }}" >> server/.env
+          printf 'PORT=8080\nNODE_ENV=production\n' > .env
+          printf 'TELEGRAM_SUPPORT_BOT_TOKEN=%s\n' "$SUPPORT_TOKEN" >> .env
+          printf 'TELEGRAM_FINANCE_BOT_TOKEN=%s\n' "$FINANCE_TOKEN" >> .env
+          printf 'TELEGRAM_SUPPORT_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_SUPPORT_CHAT_IDS }}" >> .env
+          printf 'TELEGRAM_FINANCE_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_FINANCE_CHAT_IDS }}" >> .env
+          printf 'TELEGRAM_FINANCE_CHAT_ID=%s\n' "${{ secrets.TELEGRAM_FINANCE_CHAT_ID }}" >> .env
+          printf 'TELEGRAM_ADMIN_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_ADMIN_CHAT_IDS }}" >> .env
+          printf 'MAIN_ADMIN_REFER_CODE=%s\n' "${{ secrets.MAIN_ADMIN_REFER_CODE }}" >> .env
+          printf 'WEBHOOK_URL=%s\n' "${{ secrets.WEBHOOK_URL }}" >> .env
         env:
           SUPPORT_TOKEN: ${{ secrets.TELEGRAM_SUPPORT_BOT_TOKEN }}
           FINANCE_TOKEN: ${{ secrets.TELEGRAM_FINANCE_BOT_TOKEN }}
@@ -72,12 +72,13 @@ jobs:
       - name: Copy frontend build
         run: cp -r artifacts/phonecraft/dist/public dist
 
-      - name: Patch server for SPA fallback
+      - name: Enable static file serving and SPA fallback
         run: |
+          sed -i "s|// app.use(express.static(path.join(__dirname, '..', 'dist')));|app.use(express.static(path.join(__dirname, '..', 'dist')));|" server/index.js
           sed -i "s|res.status(404).json({ error: 'Not found' });|res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));|" server/index.js
 
       - name: Archive production artifacts
-        run: zip -r release.zip server dist
+        run: zip -r release.zip server dist .env
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
