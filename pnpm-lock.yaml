@@ -46,7 +46,7 @@ catalogs:
       specifier: ^12.23.24
       version: 12.35.1
     lucide-react:
-      specifier: ^0.545.0
+      specifier: 0.545.0
       version: 0.545.0
     react:
       specifier: 19.1.0
@@ -431,6 +431,10 @@ importers:
         version: 3.25.76
 
   artifacts/phonecraft:
+    dependencies:
+      lucide-react:
+        specifier: 'catalog:'
+        version: 0.545.0(react@19.1.0)
     devDependencies:
       '@replit/vite-plugin-cartographer':
         specifier: 'catalog:'

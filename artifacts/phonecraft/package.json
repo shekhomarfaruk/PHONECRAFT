@@ -21,5 +21,8 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "vite": "catalog:"
+  },
+  "dependencies": {
+    "lucide-react": "catalog:"
   }
 }

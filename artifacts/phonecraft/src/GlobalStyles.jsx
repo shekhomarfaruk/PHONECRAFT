@@ -684,8 +684,8 @@ const GlobalStyles = ({ isDark, fontSize }) => {
 
     /* Keyframes */
     @keyframes iconNavGlow {
-      0%,100% { filter: drop-shadow(0 0 4px currentColor); transform: scale(1); }
-      50%      { filter: drop-shadow(0 0 10px currentColor); transform: scale(1.12); }
+      0%,100% { filter: drop-shadow(0 0 4px rgba(35,175,145,0.7)); transform: scale(1); }
+      50%      { filter: drop-shadow(0 0 10px rgba(35,175,145,1)); transform: scale(1.12); }
     }
     @keyframes iconNavBounce {
       0%,100% { transform: translateY(0) scale(1); }
