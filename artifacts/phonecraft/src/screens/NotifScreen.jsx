@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icons from "../Icons.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency, convertCurrencyText } from "../currency.js";
@@ -9,6 +9,13 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, setUser }) {
   const [loading, setLoading] = useState('');
   const [done, setDone] = useState('');
+
+  useEffect(() => {
+    if (done) {
+      const timer = setTimeout(() => onClose(), 1800);
+      return () => clearTimeout(timer);
+    }
+  }, [done]);
 
   let parsed = {};
   try { parsed = JSON.parse(notif.meta || '{}'); } catch (_) {}

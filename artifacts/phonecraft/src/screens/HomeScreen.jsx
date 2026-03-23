@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Icons from "../Icons.jsx";
 import { PLANS, AVATARS, COUNTRIES, RANDOM_NAMES, maskName, randItem } from "../data.jsx";
 import { I18N } from "../i18n.js";
@@ -136,10 +136,21 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
   const plan   = PLANS.find(p => p.id === user.plan);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [regModalNotif, setRegModalNotif] = useState(null);
+  const shownIds = useRef(new Set());
 
   const pendingRegs = notifications.filter(
     n => n.type === 'registration_request' && !n.read
   );
+
+  useEffect(() => {
+    if (pendingRegs.length > 0 && !regModalNotif) {
+      const unseen = pendingRegs.find(n => !shownIds.current.has(n.id));
+      if (unseen) {
+        shownIds.current.add(unseen.id);
+        setRegModalNotif(unseen);
+      }
+    }
+  }, [pendingRegs.length]);
 
   return (
     <>
