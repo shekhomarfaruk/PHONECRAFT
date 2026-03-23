@@ -14,6 +14,7 @@ const app  = express();
 // ── Bilingual notification helper ────────────────────────────────────────────
 // Stores both English and Bengali text so the frontend can pick by lang.
 const biMsg = (en, bn) => JSON.stringify({ en, bn });
+const USD_TO_BDT = 122.80; // 1 USD = ৳122.80
 const PORT = process.env.PORT || 4000;
 const DEFAULT_TELEGRAM_BOT = process.env.TELEGRAM_BOT_TOKEN || '';
 const FINANCE_BOT = process.env.TELEGRAM_FINANCE_BOT_TOKEN || DEFAULT_TELEGRAM_BOT;
@@ -1698,11 +1699,25 @@ const autoSellTx = db.transaction(() => {
     const buyer   = BUYER_NAMES[Math.floor(Math.random() * BUYER_NAMES.length)];
     const country = BUYER_COUNTRIES[Math.floor(Math.random() * BUYER_COUNTRIES.length)];
     const days    = SELL_DURATIONS[Math.floor(Math.random() * SELL_DURATIONS.length)];
+
+    // Credit the sale amount (USD → BDT) to user balance
+    const bdtEarned = Math.round(item.price * USD_TO_BDT);
+    stmts.creditBalance.run(bdtEarned, item.user_id);
+    stmts.insertBalanceLog.run({
+      user_id: item.user_id,
+      type: 'marketplace_sell',
+      amount: bdtEarned,
+      note: biMsg(
+        `${item.device_name} sold to ${buyer} (${country.name} ${country.flag}) for $${item.price}`,
+        `${item.device_name} — ${country.name} ${country.flag}-এর ${buyer}-এর কাছে $${item.price}-এ বিক্রি`
+      ),
+    });
+
     stmts.insertNotification.run(
       item.user_id,
       biMsg(
-        `${item.device_name} — Your manufactured device sold to ${buyer} from ${country.name} ${country.flag} for ${days} days • $${item.price}`,
-        `${item.device_name} — ${country.name} ${country.flag}-এর ${buyer}-এর কাছে ${days} দিনের জন্য $${item.price}-এ বিক্রি হয়েছে।`
+        `${item.device_name} — Your manufactured device sold to ${buyer} from ${country.name} ${country.flag} for ${days} days • $${item.price} (৳${bdtEarned.toLocaleString()} added to balance)`,
+        `${item.device_name} — ${country.name} ${country.flag}-এর ${buyer}-এর কাছে ${days} দিনের জন্য $${item.price}-এ বিক্রি হয়েছে। ৳${bdtEarned.toLocaleString()} ব্যালেন্সে যোগ হয়েছে।`
       ),
       'sold'
     );

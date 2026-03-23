@@ -19,6 +19,7 @@ const LOG_META = {
   marketplace_sell:   { iconKey: 'Market',   colorPos: true,  label_bn: 'মার্কেটপ্লেস বিক্রয়',     label_en: 'Marketplace Sale'    },
   transfer_sent:      { iconKey: 'Send',     colorPos: false, label_bn: 'ক্রেডিট ট্রান্সফার (পাঠানো)', label_en: 'Transfer Sent'    },
   transfer_received:  { iconKey: 'Wallet',   colorPos: true,  label_bn: 'ক্রেডিট ট্রান্সফার (প্রাপ্ত)', label_en: 'Transfer Received' },
+  admin_adjustment:   { iconKey: 'Shield',   colorPos: null,  label_bn: 'অ্যাডমিন সংশোধন',            label_en: 'Admin Adjustment'    },
 };
 
 function getLabel(type, lang) {
