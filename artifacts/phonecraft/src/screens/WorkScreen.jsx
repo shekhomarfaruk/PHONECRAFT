@@ -313,7 +313,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
 
         {/* Device info */}
         <div className="device-preview">
-          <div className="phone-mockup"><Icons.Smartphone size={36} /></div>
+          <div className="phone-mockup"><Icons.Smartphone size={36} color="#60A5FA" /></div>
           <div style={{ fontFamily:'Space Grotesk', fontSize:14, fontWeight:700 }}>{deviceName}</div>
           <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{brand} · {ram} · {rom}</div>
         </div>
@@ -374,7 +374,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
 
       {/* Device preview */}
       <div className="device-preview">
-        <div className="phone-mockup"><Icons.Smartphone size={36} /></div>
+        <div className="phone-mockup"><Icons.Smartphone size={36} color="#60A5FA" /></div>
         <div style={{ fontFamily:'Space Grotesk', fontSize:15, fontWeight:700 }}>{job?.device_name || deviceName}</div>
         <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>
           {job?.brand || brand} · {job?.ram || ram} · {job?.rom || rom}

@@ -33,18 +33,18 @@ const BalanceIconImg = ({ size = 18 }) => (
 function getMenuItems(lang) {
   const t = I18N[lang] || I18N.en;
   return [
-    { Icon: Icons.Home,     label: t.nav_home,     screen: 'home'          },
-    { Icon: Icons.Work,     label: t.nav_work,     screen: 'work'          },
-    { Icon: Icons.Bell,     label: t.nav_notif,    screen: 'notifications' },
-    { Icon: Icons.Wallet,   label: t.nav_wallet,   screen: 'wallet'        },
-    { Icon: BalanceIconImg, label: t.nav_balance,  screen: 'balance'       },
-    { Icon: Icons.Link,     label: t.nav_refer,    screen: 'refer'         },
-    { Icon: Icons.User,     label: t.nav_profile,  screen: 'profile'       },
-    { Icon: Icons.Chat,     label: t.nav_chat,     screen: 'teamchat'      },
-    { Icon: Icons.Market,   label: t.nav_market,   screen: 'marketplace'   },
-    { Icon: Icons.Support,  label: t.nav_support,  screen: 'support'       },
-    { Icon: Icons.Book,     label: t.nav_guide,    screen: 'guide'         },
-    { Icon: Icons.Settings, label: t.nav_settings, screen: 'settings'      },
+    { Icon: Icons.Home,     label: t.nav_home,     screen: 'home',          color: '#4ADE80' },
+    { Icon: Icons.Work,     label: t.nav_work,     screen: 'work',          color: '#A78BFA' },
+    { Icon: Icons.Bell,     label: t.nav_notif,    screen: 'notifications', color: '#FBBF24' },
+    { Icon: Icons.Wallet,   label: t.nav_wallet,   screen: 'wallet',        color: '#60A5FA' },
+    { Icon: BalanceIconImg, label: t.nav_balance,  screen: 'balance',       color: '#34D399' },
+    { Icon: Icons.Link,     label: t.nav_refer,    screen: 'refer',         color: '#F97316' },
+    { Icon: Icons.User,     label: t.nav_profile,  screen: 'profile',       color: '#F472B6' },
+    { Icon: Icons.Chat,     label: t.nav_chat,     screen: 'teamchat',      color: '#2DD4BF' },
+    { Icon: Icons.Market,   label: t.nav_market,   screen: 'marketplace',   color: '#FB923C' },
+    { Icon: Icons.Support,  label: t.nav_support,  screen: 'support',       color: '#F87171' },
+    { Icon: Icons.Book,     label: t.nav_guide,    screen: 'guide',         color: '#38BDF8' },
+    { Icon: Icons.Settings, label: t.nav_settings, screen: 'settings',      color: '#94A3B8' },
   ];
 }
 
@@ -429,7 +429,7 @@ export default function App() {
   const t = I18N[lang] || I18N.en;
   const baseMenu = getMenuItems(lang);
   const menuItems = user?.isAdmin
-    ? [...baseMenu, { Icon: Icons.Shield, label: t.nav_admin, screen: 'admin' }]
+    ? [...baseMenu, { Icon: Icons.Shield, label: t.nav_admin, screen: 'admin', color: '#FBBF24' }]
     : baseMenu;
 
   return (
@@ -458,7 +458,7 @@ export default function App() {
               <nav className="sidebar-nav">
                 {menuItems.map(m => (
                   <div key={m.screen} className={`sidebar-item ${screen === m.screen ? 'active' : ''}`} onClick={() => navigate(m.screen)}>
-                    <m.Icon size={18} color="currentColor" />
+                    <m.Icon size={18} color={m.color} />
                     <span>{m.label}</span>
                     {m.screen === 'notifications' && unreadCount > 0 && (
                       <span style={{ marginLeft: 'auto', background: 'var(--accent)', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontFamily: 'Space Grotesk' }}>{unreadCount}</span>
@@ -534,13 +534,13 @@ export default function App() {
             {!isDesktop && (
               <nav className="bottom-nav">
                 {[
-                  { Icon: Icons.Home,     label: t.nav_home,   s: 'home'        },
-                  { Icon: Icons.Work,     label: t.nav_work,   s: 'work'        },
-                  { Icon: Icons.Market,   label: t.nav_market, s: 'marketplace' },
-                  { Icon: Icons.Wallet,   label: t.nav_wallet, s: 'wallet'      },
+                  { Icon: Icons.Home,     label: t.nav_home,   s: 'home',        color: '#4ADE80' },
+                  { Icon: Icons.Work,     label: t.nav_work,   s: 'work',        color: '#A78BFA' },
+                  { Icon: Icons.Market,   label: t.nav_market, s: 'marketplace', color: '#FB923C' },
+                  { Icon: Icons.Wallet,   label: t.nav_wallet, s: 'wallet',      color: '#60A5FA' },
                 ].map(n => (
                   <div key={n.s} className={`nav-item ${screen === n.s ? 'active' : ''}`} onClick={() => navigate(n.s)}>
-                    <span className="ni"><n.Icon size={isMobile ? 20 : 22} color="currentColor" /></span>
+                    <span className="ni"><n.Icon size={isMobile ? 20 : 22} color={n.color} /></span>
                     <span>{n.label}</span>
                   </div>
                 ))}
@@ -565,7 +565,7 @@ export default function App() {
                 </div>
                 {menuItems.map(m => (
                   <div key={m.screen} className={`menu-item ${screen === m.screen ? 'active' : ''}`} onClick={() => navigate(m.screen)}>
-                    <span className="menu-icon"><m.Icon size={18} color="currentColor" /></span>
+                    <span className="menu-icon"><m.Icon size={18} color={m.color} /></span>
                     <span>{m.label}</span>
                     {m.screen === 'notifications' && unreadCount > 0 && (
                       <span style={{ marginLeft: 'auto', background: '#F6465D', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px' }}>{unreadCount}</span>
