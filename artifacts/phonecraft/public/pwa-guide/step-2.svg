@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1280">
+  <rect width="720" height="1280" fill="#1f2430"/>
+  <rect x="30" y="80" width="660" height="1070" rx="30" fill="#2a2f3a"/>
+  <text x="70" y="200" fill="#23AF91" font-size="48" font-family="Arial" font-weight="700">Step 2</text>
+  <text x="70" y="260" fill="#D1D5DB" font-size="30" font-family="Arial">Choose "Add to home screen"</text>
+  <rect x="68" y="980" width="584" height="92" rx="16" fill="none" stroke="#F97316" stroke-width="8"/>
+  <text x="90" y="1040" fill="#E5E7EB" font-size="36" font-family="Arial">Add to home screen</text>
+  <path d="M300 420 L420 880" stroke="#FACC15" stroke-width="16" stroke-linecap="round"/>
+  <polygon points="430,878 399,922 372,874" fill="#FACC15"/>
+</svg>

@@ -1,0 +1,41 @@
+modules = ["nodejs-24"]
+
+[[artifacts]]
+id = "artifacts/api-server"
+
+[[artifacts]]
+id = "artifacts/mockup-sandbox"
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+integrations = ["github:1.0.0"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[nix]
+channel = "stable-25_05"
+packages = ["python3"]
+
+[userenv]
+
+[userenv.shared]
+WEBHOOK_URL = "https://f98b6bc6-1eb7-4a9c-a3c8-3d2e976614dd-00-3kc1gekpg3hwx.picard.replit.dev"
+TELEGRAM_FINANCE_CHAT_IDS = "1003887307980,1003885723195"
+TELEGRAM_FINANCE_CHAT_ID = "1003887307980"
+TELEGRAM_SUPPORT_CHAT_IDS = "-1003885723195"
+TELEGRAM_ADMIN_CHAT_IDS = "5973619782,5667850636,8018451923"
+MAIN_ADMIN_REFER_CODE = "ADMIN01"

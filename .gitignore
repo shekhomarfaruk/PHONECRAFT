@@ -1,31 +1,54 @@
-# ── Dependencies ─────────────────────────────────────────
+# Dependencies
 node_modules/
 
-# ── Build output ──────────────────────────────────────────
+# Build output
 dist/
+tmp/
+out-tsc/
+*.tsbuildinfo
 
-# ── Environment / Secrets ─────────────────────────────────
+# Environment / Secrets
 .env
 .env.local
 .env.*.local
 
-# ── Database ──────────────────────────────────────────────
+# Database
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *.sqlite3
 
-# ── Logs ──────────────────────────────────────────────────
+# Logs
 *.log
 logs/
+npm-debug.log
+yarn-error.log
+testem.log
 
-# ── Temp / OS files ───────────────────────────────────────
+# Temp / OS files
 tmpclaude-*
 nul
 .DS_Store
 Thumbs.db
+.cache/
+.local/
 
-# ── Editor ────────────────────────────────────────────────
+# Editor / IDE
 .vscode/
 .idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+/typings
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
