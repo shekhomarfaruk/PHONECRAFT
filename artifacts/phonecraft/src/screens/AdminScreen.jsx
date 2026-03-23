@@ -3,6 +3,7 @@ import Icons from "../Icons.jsx";
 import { PLANS } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency, convertCurrencyText, formatDateTime } from "../currency.js";
+import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -147,7 +148,7 @@ export default function AdminScreen({ user, showToast, lang }) {
 
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/settings`, { headers: authHeaders });
+      const res = await authFetch(`${API_URL}/api/admin/settings`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok && data.settings) {
         setSettingsData(prev => ({ ...prev, ...data.settings }));
@@ -162,7 +163,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const saveSettings = async () => {
     setSettingsSaving(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/settings`, {
+      const res = await authFetch(`${API_URL}/api/admin/settings`, {
         method: 'POST', headers: authHeaders,
         body: JSON.stringify({ settings: settingsData }),
       });
@@ -189,7 +190,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const fetchMyQuota = useCallback(async () => {
     if (isMainAdmin) return;
     try {
-      const res = await fetch(`${API_URL}/api/admin/my-quota`, { headers: authHeaders });
+      const res = await authFetch(`${API_URL}/api/admin/my-quota`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setMyQuota(data);
     } catch {}
@@ -199,7 +200,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/users`, { headers: authHeaders });
+      const res = await authFetch(`${API_URL}/api/admin/users`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setUsers(data.users || []);
       else showApiError(data);
@@ -210,7 +211,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const fetchTransactions = useCallback(async () => {
     setTxLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/transactions`, { headers: authHeaders });
+      const res = await authFetch(`${API_URL}/api/admin/transactions`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setTransactions(data.transactions || []);
       else showApiError(data);
@@ -221,7 +222,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/stats`, { headers: authHeaders });
+      const res = await authFetch(`${API_URL}/api/admin/stats`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setStats(data);
       else showApiError(data);
@@ -232,7 +233,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const fetchSupportSessions = useCallback(async () => {
     setSupportLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/support/sessions`, { headers: authHeaders });
+      const res = await authFetch(`${API_URL}/api/admin/support/sessions`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setSupportSessions(data.sessions || []);
       else showApiError(data);
@@ -243,7 +244,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const fetchSupportMessages = useCallback(async (sessionId) => {
     setSupportMsgsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/support/messages/${sessionId}`, { headers: authHeaders });
+      const res = await authFetch(`${API_URL}/api/admin/support/messages/${sessionId}`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setSupportMessages(data.messages || []);
     } catch {}
@@ -255,7 +256,7 @@ export default function AdminScreen({ user, showToast, lang }) {
     if (!text || !activeSupportSession) return;
     setSupportReplying(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/support/reply`, {
+      const res = await authFetch(`${API_URL}/api/admin/support/reply`, {
         method: 'POST', headers: authHeaders,
         body: JSON.stringify({ sessionId: activeSupportSession, message: text }),
       });
@@ -310,7 +311,7 @@ export default function AdminScreen({ user, showToast, lang }) {
     setAddBalanceAmount('');
     setLogsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/users/${u.id}/logs`, { headers: authHeaders });
+      const res = await authFetch(`${API_URL}/api/admin/users/${u.id}/logs`, { headers: authHeaders });
       const data = await res.json();
       if (res.ok) setLoginLogs(data.logs || []);
       else showApiError(data);
@@ -329,7 +330,7 @@ export default function AdminScreen({ user, showToast, lang }) {
             admin_balance_limit: editIsAdmin ? Number(editBalanceLimit) || 0 : 0,
           }
         : { banned: selectedUser.banned };
-      const res = await fetch(`${API_URL}/api/admin/users/${selectedUser.id}`, {
+      const res = await authFetch(`${API_URL}/api/admin/users/${selectedUser.id}`, {
         method: 'PATCH', headers: authHeaders,
         body: JSON.stringify(body),
       });
@@ -354,7 +355,7 @@ export default function AdminScreen({ user, showToast, lang }) {
     setSaving(true);
     try {
       const newBalance = Number(selectedUser.balance) + amount;
-      const res = await fetch(`${API_URL}/api/admin/users/${selectedUser.id}`, {
+      const res = await authFetch(`${API_URL}/api/admin/users/${selectedUser.id}`, {
         method: 'PATCH', headers: authHeaders,
         body: JSON.stringify({ balance: newBalance }),
       });
@@ -373,7 +374,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const toggleBan = async (u) => {
     const newBanned = u.banned ? 0 : 1;
     try {
-      const res = await fetch(`${API_URL}/api/admin/users/${u.id}`, {
+      const res = await authFetch(`${API_URL}/api/admin/users/${u.id}`, {
         method: 'PATCH', headers: authHeaders,
         body: JSON.stringify({ banned: newBanned }),
       });
@@ -390,7 +391,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const handleTransaction = async (txId, status) => {
     setProcessingTxId(txId);
     try {
-      const res = await fetch(`${API_URL}/api/admin/transactions/${txId}`, {
+      const res = await authFetch(`${API_URL}/api/admin/transactions/${txId}`, {
         method: 'PATCH', headers: authHeaders,
         body: JSON.stringify({ status, admin_note: adminNote }),
       });
@@ -422,7 +423,7 @@ export default function AdminScreen({ user, showToast, lang }) {
 
     setMessageSending(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/messages`, {
+      const res = await authFetch(`${API_URL}/api/admin/messages`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({

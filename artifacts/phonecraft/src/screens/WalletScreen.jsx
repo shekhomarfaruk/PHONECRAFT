@@ -23,7 +23,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
 
   // Fetch deposit numbers
   useEffect(() => {
-    fetch(`${API_URL}/api/deposit-info`)
+    authFetch(`${API_URL}/api/deposit-info`)
       .then(r => r.json())
       .then(data => setDepositInfo(data))
       .catch(() => {});

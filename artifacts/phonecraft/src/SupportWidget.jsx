@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Icons from './Icons.jsx';
+import { authFetch } from './session.js';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -25,7 +26,7 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
 
   const fetchMsgs = async () => {
     try {
-      const r = await fetch(`${API_URL}/api/support/messages/${sessionId}`);
+      const r = await authFetch(`${API_URL}/api/support/messages/${sessionId}`);
       const d = await r.json();
       if (d.messages && d.messages.length > 0) setMessages(d.messages);
     } catch (_) {}
@@ -37,7 +38,7 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
       clearInterval(pollRef.current);
       return;
     }
-    fetch(`${API_URL}/api/support/messages/${sessionId}`)
+    authFetch(`${API_URL}/api/support/messages/${sessionId}`)
       .then(r => r.json())
       .then(d => {
         if (d.messages && d.messages.length > 0) {
@@ -72,7 +73,7 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
     const userMsg = { id: Date.now(), sender: 'user', message: msg, created_at: new Date().toISOString() };
     setMessages(p => [...p, userMsg]);
     try {
-      const r = await fetch(`${API_URL}/api/support/message`, {
+      const r = await authFetch(`${API_URL}/api/support/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, message: msg, senderName: userName || 'Guest' }),

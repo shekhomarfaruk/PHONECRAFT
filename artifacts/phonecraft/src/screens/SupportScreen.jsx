@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Icons from "../Icons.jsx";
 import { I18N } from "../i18n.js";
+import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -31,7 +32,7 @@ function SupportScreen({ user, showToast, lang }) {
 
   const fetchMsgs = useCallback(async () => {
     try {
-      const r = await fetch(`${API_URL}/api/support/messages/${sessionId}`);
+      const r = await authFetch(`${API_URL}/api/support/messages/${sessionId}`);
       const d = await r.json();
       if (d.messages) setMessages(d.messages);
     } catch (_) {}
@@ -59,7 +60,7 @@ function SupportScreen({ user, showToast, lang }) {
       created_at: new Date().toISOString(),
     }]);
     try {
-      await fetch(`${API_URL}/api/support/message`, {
+      await authFetch(`${API_URL}/api/support/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, message: text, senderName: user?.name || 'Guest' }),
