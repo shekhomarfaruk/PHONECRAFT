@@ -251,7 +251,7 @@ db.exec(`
 `);
 
 // Seed default deposit numbers if not set
-const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposit_bank'];
+const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposit_bank', 'deposit_crypto_usdt_trc20', 'deposit_crypto_usdt_bep20', 'deposit_crypto_bnb'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
 
