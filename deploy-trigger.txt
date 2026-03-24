@@ -1,2 +1,2 @@
-Deployed: 2026-03-24T12:05:54.082210
-Fix: Telegram Finance bot chat ID, all i18n fixes, Samsung image
+Deploy: 2026-03-24T12:14:30.624762
+Fix: Finance group added to authorized admin chat IDs for Telegram commands
