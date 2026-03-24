@@ -527,7 +527,8 @@ const stmts = {
   getTeamMembers:     db.prepare(`
     SELECT id, name, avatar, avatar_img, plan_id
     FROM users
-    WHERE id = ? OR referred_by = (SELECT refer_code FROM users WHERE id = ?)
+    WHERE (id = ? OR referred_by = (SELECT refer_code FROM users WHERE id = ?))
+      AND is_admin = 0
     ORDER BY id ASC
   `),
   getTeamRoomInfo:    db.prepare('SELECT id, name, refer_code FROM users WHERE id = ?'),
