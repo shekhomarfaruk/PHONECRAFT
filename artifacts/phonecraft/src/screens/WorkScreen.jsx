@@ -56,7 +56,6 @@ function DeviceImage({ brand, model, animating = false, size = 160 }) {
         <img
           src={imgSrc}
           alt={model}
-          referrerPolicy="no-referrer"
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
           style={{
