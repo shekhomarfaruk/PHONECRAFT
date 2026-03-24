@@ -542,7 +542,11 @@ export const I18N = {
     team_member_room:       "'s team",
 
     // ── Wallet (extra) ───────────────────────────────────────────────────────
-    wallet_bank_account:    'Bank Account Number',
+    wallet_bank_account:        'Bank Account Number',
+    wallet_send_to_number:      'Send money to this number',
+    wallet_deposit_instruction: 'After sending, enter your number and amount below to submit.',
+    wallet_crypto_na_title:     'Crypto Not Available',
+    wallet_crypto_na_msg:       'Crypto payment is currently not available in your country.',
 
     // ── Work (extra) ─────────────────────────────────────────────────────────
     work_select_model:      'Select Model',
@@ -1118,7 +1122,11 @@ export const I18N = {
     team_member_room:       '-এর টিম',
 
     // ── Wallet (extra) ───────────────────────────────────────────────────────
-    wallet_bank_account:    'ব্যাংক অ্যাকাউন্ট নম্বর',
+    wallet_bank_account:        'ব্যাংক অ্যাকাউন্ট নম্বর',
+    wallet_send_to_number:      'এই নম্বরে টাকা পাঠান',
+    wallet_deposit_instruction: 'টাকা পাঠানোর পর নিচে আপনার নম্বর ও পরিমাণ দিয়ে সাবমিট করুন।',
+    wallet_crypto_na_title:     'ক্রিপ্টো অনুপলব্ধ',
+    wallet_crypto_na_msg:       'আপনার দেশে ক্রিপ্টো পেমেন্ট এখনও চালু হয়নি।',
 
     // ── Work (extra) ─────────────────────────────────────────────────────────
     work_select_model:      'মডেল নির্বাচন করুন',
