@@ -1,10 +1,54 @@
 import { useState, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import Icons from "../Icons.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
 import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
+
+const COIN_OPTIONS = [
+  { value: 'usdt_trc20', label: 'USDT (TRC20)', key: 'crypto_usdt_trc20' },
+  { value: 'usdt_bep20', label: 'USDT (BEP20)', key: 'crypto_usdt_bep20' },
+  { value: 'bnb',        label: 'BNB (BEP20)',  key: 'crypto_bnb' },
+];
+
+function CopyButton({ text, showToast }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      showToast('Copied!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showToast('Copy failed');
+    }
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      style={{
+        background: copied ? 'rgba(0,210,180,.15)' : 'var(--input-bg)',
+        border: `1px solid ${copied ? 'var(--accent)' : 'var(--border)'}`,
+        borderRadius: 8,
+        padding: '6px 12px',
+        cursor: 'pointer',
+        fontSize: 12,
+        fontWeight: 600,
+        color: copied ? 'var(--accent)' : 'var(--text2)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        transition: 'all .2s',
+        flexShrink: 0,
+      }}
+    >
+      {copied ? <Icons.CheckCircle size={13} /> : <Icons.Copy size={13} />}
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  );
+}
 
 function WalletScreen({user, setUser, showToast, lang}) {
   const t = I18N[lang] || I18N.en;
@@ -14,14 +58,15 @@ function WalletScreen({user, setUser, showToast, lang}) {
   const [acct,      setAcct     ] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  // Deposit payment numbers from admin
-  const [depositInfo, setDepositInfo] = useState({ bkash:'', nagad:'', rocket:'', bank:'' });
+  const [depositInfo, setDepositInfo] = useState({ bkash:'', nagad:'', rocket:'', bank:'', crypto_usdt_trc20:'', crypto_usdt_bep20:'', crypto_bnb:'' });
 
-  // Transaction history
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading]       = useState(false);
 
-  // Fetch deposit numbers
+  const [coinType, setCoinType] = useState('usdt_trc20');
+  const [txnHash, setTxnHash]  = useState('');
+  const [cryptoAmount, setCryptoAmount] = useState('');
+
   useEffect(() => {
     authFetch(`${API_URL}/api/deposit-info`)
       .then(r => r.json())
@@ -41,8 +86,49 @@ function WalletScreen({user, setUser, showToast, lang}) {
 
   const isCrypto = method === 'crypto';
 
+  const selectedCoin = COIN_OPTIONS.find(c => c.value === coinType);
+  const cryptoAddress = selectedCoin ? (depositInfo[selectedCoin.key] || '') : '';
+
   const submit = async () => {
-    if (isCrypto) return;
+    if (isCrypto) {
+      if (!txnHash.trim() || !cryptoAmount) { showToast(t.fill_all_fields); return; }
+      setSubmitted(true);
+      try {
+        const res = await authFetch(`${API_URL}/api/withdraw`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            user: user.name,
+            identifier: user.identifier,
+            amount: cryptoAmount,
+            method: 'crypto',
+            account: txnHash.trim(),
+            type: 'deposit',
+            coinType: selectedCoin?.label || coinType,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`${t.deposit} ${t.request_sent}`);
+          if (data.newBalance !== undefined) {
+            setUser(prev => ({ ...prev, balance: data.newBalance }));
+          }
+          authFetch(`${API_URL}/api/user/${user.id}/transactions`)
+            .then(r => r.json())
+            .then(d => { if (d.transactions) setTransactions(d.transactions); })
+            .catch(() => {});
+        } else {
+          showToast(data.error || t.toast_request_failed);
+        }
+      } catch (_) {
+        showToast(t.toast_connection_error);
+      }
+      setTimeout(() => setSubmitted(false), 3000);
+      setTxnHash(''); setCryptoAmount('');
+      return;
+    }
+
     if (!amount || !acct) { showToast(t.fill_all_fields); return; }
     if (tab === 'withdraw' && parseInt(amount) > user.balance) {
       showToast(t.insufficient_balance); return;
@@ -82,7 +168,6 @@ function WalletScreen({user, setUser, showToast, lang}) {
     setAmount(''); setAcct('');
   };
 
-  // Which number to show as "send to" for deposit tab
   const depositNumber = {
     bkash:  depositInfo.bkash,
     nagad:  depositInfo.nagad,
@@ -123,30 +208,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
           </select>
         </div>
 
-        {/* Crypto unavailable notice */}
-        {isCrypto && (
-          <div style={{
-            background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.3)',
-            borderRadius:10, padding:'14px 16px', margin:'4px 0 14px',
-            display:'flex', alignItems:'center', gap:12,
-          }}>
-            <span><Icons.AlertTriangle size={22} color="#ef4444" /></span>
-            <div>
-              <div style={{fontWeight:700, fontSize:13, color:'#ef4444', marginBottom:2}}>
-                Crypto Not Available
-              </div>
-              <div style={{fontSize:12, color:'var(--text2)'}}>
-                Crypto payment is currently not available in your country.
-                <br/>
-                <span style={{color:'var(--text2)', opacity:.7}}>
-                  আপনার দেশে ক্রিপ্টো পেমেন্ট এখনও চালু হয়নি।
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Deposit instruction box */}
+        {/* Deposit instruction box with copy button */}
         {!isCrypto && tab === 'deposit' && depositNumber && (
           <div style={{
             background:'rgba(0,210,180,.07)', border:'1px solid rgba(0,210,180,.25)',
@@ -163,6 +225,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
               }}>
                 {method.toUpperCase()}: {depositNumber}
               </span>
+              <CopyButton text={depositNumber} showToast={showToast} />
             </div>
             <div style={{fontSize:11, color:'var(--text2)', marginTop:6}}>
               টাকা পাঠানোর পর নিচে আপনার নম্বর ও পরিমাণ দিয়ে সাবমিট করুন।
@@ -170,7 +233,87 @@ function WalletScreen({user, setUser, showToast, lang}) {
           </div>
         )}
 
-        {/* Account number / crypto fields */}
+        {/* Crypto deposit section */}
+        {isCrypto && tab === 'deposit' && (
+          <div style={{marginBottom:14}}>
+            <div className="input-wrap">
+              <label className="input-label">Select Coin</label>
+              <select className="inp" value={coinType} onChange={e => setCoinType(e.target.value)}>
+                {COIN_OPTIONS.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {cryptoAddress ? (
+              <div style={{
+                background:'rgba(0,210,180,.07)', border:'1px solid rgba(0,210,180,.25)',
+                borderRadius:10, padding:'16px 14px', marginBottom:14, textAlign:'center',
+              }}>
+                <div style={{fontSize:11, fontWeight:700, color:'var(--accent)', marginBottom:12, textTransform:'uppercase', letterSpacing:.5}}>
+                  {selectedCoin?.label} Wallet Address
+                </div>
+                <div style={{
+                  display:'inline-block', background:'#fff', borderRadius:12, padding:12,
+                  boxShadow:'0 2px 12px rgba(0,0,0,.1)',
+                }}>
+                  <QRCodeSVG
+                    value={cryptoAddress}
+                    size={180}
+                    level="H"
+                    imageSettings={{
+                      src: `${import.meta.env.BASE_URL}logo.png`,
+                      height: 36,
+                      width: 36,
+                      excavate: true,
+                    }}
+                  />
+                </div>
+                <div style={{display:'flex', alignItems:'center', gap:8, marginTop:12, justifyContent:'center'}}>
+                  <span style={{
+                    background:'var(--input-bg)', border:'1px solid var(--border)',
+                    borderRadius:8, padding:'8px 12px', fontFamily:'monospace',
+                    fontSize:12, fontWeight:600, letterSpacing:.5,
+                    wordBreak:'break-all', flex:1, textAlign:'center',
+                  }}>
+                    {cryptoAddress}
+                  </span>
+                  <CopyButton text={cryptoAddress} showToast={showToast} />
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.3)',
+                borderRadius:10, padding:'14px 16px', marginBottom:14,
+                textAlign:'center', fontSize:13, color:'#ef4444',
+              }}>
+                Wallet address not configured for {selectedCoin?.label}
+              </div>
+            )}
+
+            <div className="input-wrap">
+              <label className="input-label">Amount (BDT)</label>
+              <input className="inp" type="number" placeholder="Enter amount in BDT" value={cryptoAmount} onChange={e => setCryptoAmount(e.target.value)} />
+            </div>
+            <div className="input-wrap">
+              <label className="input-label">Transaction Hash (TxnHash)</label>
+              <input className="inp" placeholder="Paste your TxnHash here" value={txnHash} onChange={e => setTxnHash(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {/* Crypto withdraw not supported notice */}
+        {isCrypto && tab === 'withdraw' && (
+          <div style={{
+            background:'rgba(217,119,6,.08)', border:'1px solid rgba(217,119,6,.2)',
+            borderRadius:10, padding:'14px 16px', margin:'4px 0 14px',
+            textAlign:'center', fontSize:13, color:'var(--yellow)',
+          }}>
+            Crypto withdrawal is not available. Please use bKash/Nagad/Rocket/Bank for withdrawals.
+          </div>
+        )}
+
+        {/* Account number fields for non-crypto */}
         {!isCrypto && (
           <>
             <div className="input-wrap">
@@ -193,28 +336,6 @@ function WalletScreen({user, setUser, showToast, lang}) {
           </>
         )}
 
-        {/* Crypto fields placeholder (just shows unavailable) */}
-        {isCrypto && (
-          <div style={{opacity:.4, pointerEvents:'none'}}>
-            <div className="input-wrap">
-              <label className="input-label">Wallet Address</label>
-              <input className="inp" placeholder="0x..." disabled/>
-            </div>
-            <div className="input-wrap">
-              <label className="input-label">Network</label>
-              <select className="inp" disabled>
-                <option>TRC20 (TRON)</option>
-                <option>ERC20 (Ethereum)</option>
-                <option>BEP20 (BSC)</option>
-              </select>
-            </div>
-            <div className="input-wrap">
-              <label className="input-label">Amount (USDT)</label>
-              <input className="inp" type="number" placeholder="0.00" disabled/>
-            </div>
-          </div>
-        )}
-
         {/* Warning note */}
         {!isCrypto && (
           <div style={{background:'rgba(217,119,6,.08)',border:'1px solid rgba(217,119,6,.2)',borderRadius:10,padding:12,marginBottom:14,fontSize:12,color:'var(--yellow)'}}>
@@ -223,13 +344,15 @@ function WalletScreen({user, setUser, showToast, lang}) {
         )}
 
         {/* Submit button */}
-        {!isCrypto && (
-          <button className="btn btn-primary btn-full" onClick={submit} disabled={submitted}>
+        {(!isCrypto || (isCrypto && tab === 'deposit')) && !(isCrypto && tab === 'withdraw') && (
+          <button className="btn btn-primary btn-full" onClick={submit} disabled={submitted || (isCrypto && !cryptoAddress)}>
             {submitted
               ? t.processing_lbl
-              : tab === 'withdraw'
-                ? <><Icons.Transfer size={16}/> {t.req_withdraw}</>
-                : <><Icons.Coin size={16}/> {t.sub_deposit}</>
+              : isCrypto
+                ? <><Icons.Coin size={16}/> Submit Crypto Deposit</>
+                : tab === 'withdraw'
+                  ? <><Icons.Transfer size={16}/> {t.req_withdraw}</>
+                  : <><Icons.Coin size={16}/> {t.sub_deposit}</>
             }
           </button>
         )}
