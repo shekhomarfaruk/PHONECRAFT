@@ -1,2 +1,6 @@
-Deploy: 2026-03-24T12:14:30.624762
-Fix: Finance group added to authorized admin chat IDs for Telegram commands
+Deploy: 2026-03-24T12:20:20.561373
+Changes:
+- i18n: all bilingual fixes (WalletScreen, ProfileScreen, SupportScreen)
+- WorkScreen: Samsung image referrerPolicy fix
+- Telegram: Finance group authorized for commands
+- All source files updated
