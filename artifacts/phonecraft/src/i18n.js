@@ -531,6 +531,16 @@ export const I18N = {
     supp_msg_ph:            'Type a message...',
     supp_label:             'Support',
 
+    // ── Team Chat ────────────────────────────────────────────────────────────
+    team_msg_ph:            'Message your team...',
+    team_you:               'You',
+    team_empty_msg:         'No messages yet. Say hello to your team!',
+    team_no_members:        'You have no team members yet. Share your referral code to build your team.',
+    team_members_label:     'Members',
+    team_online:            'Team Active',
+    team_leader_room:       "Your team's chat room",
+    team_member_room:       "'s team",
+
     // ── Wallet (extra) ───────────────────────────────────────────────────────
     wallet_bank_account:    'Bank Account Number',
 
@@ -1096,6 +1106,16 @@ export const I18N = {
     supp_typing:            'সাপোর্ট টিম টাইপ করছে...',
     supp_msg_ph:            'মেসেজ লিখুন...',
     supp_label:             'সাপোর্ট',
+
+    // ── Team Chat ────────────────────────────────────────────────────────────
+    team_msg_ph:            'টিমকে মেসেজ করুন...',
+    team_you:               'আপনি',
+    team_empty_msg:         'এখনো কোনো মেসেজ নেই। টিমকে হ্যালো বলুন!',
+    team_no_members:        'এখনো কোনো টিম মেম্বার নেই। টিম তৈরি করতে রেফারেল কোড শেয়ার করুন।',
+    team_members_label:     'মেম্বার',
+    team_online:            'টিম সক্রিয়',
+    team_leader_room:       'আপনার টিম চ্যাট রুম',
+    team_member_room:       '-এর টিম',
 
     // ── Wallet (extra) ───────────────────────────────────────────────────────
     wallet_bank_account:    'ব্যাংক অ্যাকাউন্ট নম্বর',
