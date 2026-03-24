@@ -15,8 +15,8 @@ function ProfileScreen({ user, setUser, navigate, doLogout, lang, showToast }) {
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { showToast('শুধু ছবি ফাইল সিলেক্ট করুন · Only image files are allowed', 'warning'); return; }
-    if (file.size > 2_000_000) { showToast('ছবির সাইজ সর্বোচ্চ ২MB হতে হবে · Image must be under 2MB', 'warning'); return; }
+    if (!file.type.startsWith('image/')) { showToast(t.photo_img_only, 'warning'); return; }
+    if (file.size > 2_000_000) { showToast(t.photo_img_size, 'warning'); return; }
 
     const reader = new FileReader();
     reader.onload = async (ev) => {
@@ -28,10 +28,10 @@ function ProfileScreen({ user, setUser, navigate, doLogout, lang, showToast }) {
           body: JSON.stringify({ img }),
         });
         const data = await res.json();
-        if (!res.ok) { showToast(data.error || 'ছবি আপলোড ব্যর্থ হয়েছে · Upload failed', 'error'); return; }
+        if (!res.ok) { showToast(data.error || t.photo_upload_fail, 'error'); return; }
         setUser(p => ({ ...p, avatarImg: img }));
-        showToast('ছবি সফলভাবে আপডেট হয়েছে · Photo updated successfully', 'success');
-      } catch { showToast('নেটওয়ার্ক সমস্যা হয়েছে, আবার চেষ্টা করুন · Network error, please try again', 'error'); }
+        showToast(t.photo_upload_ok, 'success');
+      } catch { showToast(t.photo_network_err, 'error'); }
     };
     reader.readAsDataURL(file);
     e.target.value = '';
