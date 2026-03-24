@@ -143,7 +143,7 @@ export default function AdminScreen({ user, showToast, lang }) {
   const [adminNote, setAdminNote]           = useState('');
 
   // Settings tab state
-  const [settingsData, setSettingsData] = useState({ deposit_bkash: '', deposit_nagad: '', deposit_rocket: '', deposit_bank: '' });
+  const [settingsData, setSettingsData] = useState({ deposit_bkash: '', deposit_nagad: '', deposit_rocket: '', deposit_bank: '', deposit_crypto_usdt_trc20: '', deposit_crypto_usdt_bep20: '', deposit_crypto_bnb: '' });
   const [settingsSaving, setSettingsSaving] = useState(false);
 
   const fetchSettings = useCallback(async () => {
@@ -1541,6 +1541,26 @@ export default function AdminScreen({ user, showToast, lang }) {
               { key: 'deposit_nagad',  label: 'Nagad',   placeholder: '016XXXXXXXX' },
               { key: 'deposit_rocket', label: 'Rocket',  placeholder: '018XXXXXXXX' },
               { key: 'deposit_bank',   label: t.admin_bank_account, placeholder: 'XXXXXXXXXXXXXXXX' },
+            ].map(({ key, label, placeholder }) => (
+              <div key={key} className="input-wrap">
+                <label className="input-label">{label}</label>
+                <input
+                  className="inp"
+                  placeholder={placeholder}
+                  value={settingsData[key] || ''}
+                  onChange={e => setSettingsData(p => ({ ...p, [key]: e.target.value }))}
+                />
+              </div>
+            ))}
+
+            <div className="card-title" style={{marginTop:18}}><Icons.Coin size={14} /> Crypto Wallets</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
+              Crypto wallet addresses for deposit. Users will see QR codes for these.
+            </div>
+            {[
+              { key: 'deposit_crypto_usdt_trc20', label: 'USDT (TRC20)', placeholder: 'TRC20 wallet address' },
+              { key: 'deposit_crypto_usdt_bep20', label: 'USDT (BEP20)', placeholder: 'BEP20 wallet address' },
+              { key: 'deposit_crypto_bnb',        label: 'BNB (BEP20)',  placeholder: 'BEP20 wallet address' },
             ].map(({ key, label, placeholder }) => (
               <div key={key} className="input-wrap">
                 <label className="input-label">{label}</label>
