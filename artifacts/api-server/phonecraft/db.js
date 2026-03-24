@@ -229,6 +229,19 @@ db.exec(`
   );
 `);
 
+// Team chat messages (referral-based group chat)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_messages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_id     INTEGER NOT NULL,
+    sender_id   INTEGER NOT NULL,
+    sender_name TEXT NOT NULL,
+    message     TEXT NOT NULL,
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_team_messages_room ON team_messages(room_id, id);
+`);
+
 // App settings (key-value store for deposit numbers, etc.)
 db.exec(`
   CREATE TABLE IF NOT EXISTS app_settings (
@@ -507,6 +520,17 @@ const stmts = {
     WHERE admin_id = ? AND date(created_at, '+6 hours') = date('now', '+6 hours')
   `),
   updateAdminBalanceLimit: db.prepare('UPDATE users SET admin_balance_limit = ? WHERE id = ?'),
+
+  // Team chat
+  insertTeamMessage:  db.prepare('INSERT INTO team_messages (room_id, sender_id, sender_name, message) VALUES (?, ?, ?, ?)'),
+  getTeamMessages:    db.prepare('SELECT * FROM team_messages WHERE room_id = ? ORDER BY id ASC LIMIT 100'),
+  getTeamMembers:     db.prepare(`
+    SELECT id, name, avatar, avatar_img, plan_id
+    FROM users
+    WHERE id = ? OR referred_by = (SELECT refer_code FROM users WHERE id = ?)
+    ORDER BY id ASC
+  `),
+  getTeamRoomInfo:    db.prepare('SELECT id, name, refer_code FROM users WHERE id = ?'),
 
   insertSupportMsg:   db.prepare('INSERT INTO support_chats (session_id, sender, message, sender_name) VALUES (?, ?, ?, ?)'),
   getSupportMsgs:     db.prepare('SELECT * FROM support_chats WHERE session_id = ? ORDER BY id ASC LIMIT 100'),
