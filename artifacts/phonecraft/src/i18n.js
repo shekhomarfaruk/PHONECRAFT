@@ -204,6 +204,11 @@ export const I18N = {
 
     // ── Profile ──────────────────────────────────────────────────────────────
     profile_title:      'Profile',
+    photo_img_only:     'Only image files are allowed',
+    photo_img_size:     'Image must be under 2MB',
+    photo_upload_fail:  'Upload failed',
+    photo_upload_ok:    'Photo updated successfully',
+    photo_network_err:  'Network error, please try again',
     account_details:    'Account Details',
     user_code:          'User Code',
     plan_field:         'Plan',
@@ -542,11 +547,7 @@ export const I18N = {
     team_member_room:       "'s team",
 
     // ── Wallet (extra) ───────────────────────────────────────────────────────
-    wallet_bank_account:        'Bank Account Number',
-    wallet_send_to_number:      'Send money to this number',
-    wallet_deposit_instruction: 'After sending, enter your number and amount below to submit.',
-    wallet_crypto_na_title:     'Crypto Not Available',
-    wallet_crypto_na_msg:       'Crypto payment is currently not available in your country.',
+    wallet_bank_account:    'Bank Account Number',
 
     // ── Work (extra) ─────────────────────────────────────────────────────────
     work_select_model:      'Select Model',
@@ -784,6 +785,11 @@ export const I18N = {
 
     // ── Profile ──────────────────────────────────────────────────────────────
     profile_title:      'প্রোফাইল',
+    photo_img_only:     'শুধু ছবি ফাইল সিলেক্ট করুন',
+    photo_img_size:     'ছবির সাইজ সর্বোচ্চ ২MB হতে হবে',
+    photo_upload_fail:  'ছবি আপলোড ব্যর্থ হয়েছে',
+    photo_upload_ok:    'ছবি সফলভাবে আপডেট হয়েছে',
+    photo_network_err:  'নেটওয়ার্ক সমস্যা হয়েছে, আবার চেষ্টা করুন',
     account_details:    'অ্যাকাউন্ট বিবরণ',
     user_code:          'ইউজার কোড',
     plan_field:         'প্ল্যান',
@@ -1122,11 +1128,7 @@ export const I18N = {
     team_member_room:       '-এর টিম',
 
     // ── Wallet (extra) ───────────────────────────────────────────────────────
-    wallet_bank_account:        'ব্যাংক অ্যাকাউন্ট নম্বর',
-    wallet_send_to_number:      'এই নম্বরে টাকা পাঠান',
-    wallet_deposit_instruction: 'টাকা পাঠানোর পর নিচে আপনার নম্বর ও পরিমাণ দিয়ে সাবমিট করুন।',
-    wallet_crypto_na_title:     'ক্রিপ্টো অনুপলব্ধ',
-    wallet_crypto_na_msg:       'আপনার দেশে ক্রিপ্টো পেমেন্ট এখনও চালু হয়নি।',
+    wallet_bank_account:    'ব্যাংক অ্যাকাউন্ট নম্বর',
 
     // ── Work (extra) ─────────────────────────────────────────────────────────
     work_select_model:      'মডেল নির্বাচন করুন',
