@@ -186,6 +186,11 @@ const LD_TEXT = {
       { num: '03', iconKey: 'CheckCircle', title: 'Confirm & Launch', desc: 'Tap \'Add\' in the top-right corner — the PhoneCraft icon will appear on your home screen' },
     ],
     install_note: 'Once installed, open PhoneCraft from your home screen for the full app experience — fast, offline-ready, and no browser bar.',
+    land_video_loading:     'Loading video...',
+    land_video_unsupported: 'This video cannot be played in your browser',
+    land_play_video:        '▶ Play video',
+    land_install_guide:     'Open App Install Guide',
+    land_install_sub:       'Step-by-step Android & iPhone home screen install',
     footer_terms: 'Terms of Service',
     footer_privacy: 'Privacy Policy',
     footer_copy: '© 2026 PhoneCraft. All rights reserved.',
@@ -255,6 +260,11 @@ const LD_TEXT = {
       { num: '০৩', iconKey: 'CheckCircle', title: 'নিশ্চিত করুন ও চালু করুন', desc: 'উপরের ডান কোণে \'Add\' ট্যাপ করুন — হোম স্ক্রিনে ফোনক্রাফট আইকন যোগ হয়ে যাবে' },
     ],
     install_note: 'একবার ইনস্টল করলে হোম স্ক্রিন থেকে সরাসরি খুলুন — দ্রুত, অফলাইন-রেডি, ব্রাউজার বার ছাড়াই।',
+    land_video_loading:     'ভিডিও লোড হচ্ছে...',
+    land_video_unsupported: 'এই ভিডিওটি আপনার ব্রাউজারে চলতে পারছে না',
+    land_play_video:        '▶ ভিডিও চালান',
+    land_install_guide:     'অ্যাপ ইনস্টল গাইড দেখুন',
+    land_install_sub:       'Android ও iPhone-এ হোম স্ক্রিনে যোগ করার ধাপ',
     footer_terms: 'সেবার শর্তাবলী',
     footer_privacy: 'গোপনীয়তা নীতি',
     footer_copy: '© ২০২৬ ফোনক্রাফট। সর্বস্বত্ব সংরক্ষিত।',
@@ -296,6 +306,7 @@ const LEGAL_BN = {
 
 // ── Video Card ──────────────────────────────────────────────────────────────
 function VideoCard({ video, isActive, onEnded, lang }) {
+  const t = LD_TEXT[lang] || LD_TEXT.en;
   const videoRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
   const [hasError, setHasError] = useState(false);
