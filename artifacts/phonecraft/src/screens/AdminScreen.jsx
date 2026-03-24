@@ -859,8 +859,12 @@ export default function AdminScreen({ user, showToast, lang }) {
                       width: 40, height: 40, borderRadius: '50%', cursor: 'pointer',
                       background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 16, fontWeight: 700, flexShrink: 0,
-                    }}>{u.avatar || u.name[0]}</div>
+                      fontSize: 16, fontWeight: 700, flexShrink: 0, overflow: 'hidden', padding: 0,
+                    }}>
+                    {u.avatar && u.avatar.startsWith('/')
+                      ? <img src={u.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} onError={e => { e.target.style.display = 'none'; }} />
+                      : (u.avatar || u.name?.[0] || '?')}
+                  </div>
                   <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => selectUser(u)}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</span>
@@ -936,8 +940,12 @@ export default function AdminScreen({ user, showToast, lang }) {
                     width: 44, height: 44, borderRadius: 10,
                     background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 18, fontWeight: 700, flexShrink: 0, color: '#fff',
-                  }}>{u.avatar || u.name[0]}</div>
+                    fontSize: 18, fontWeight: 700, flexShrink: 0, color: '#fff', overflow: 'hidden', padding: 0,
+                  }}>
+                    {u.avatar && u.avatar.startsWith('/')
+                      ? <img src={u.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 }} onError={e => { e.target.style.display = 'none'; }} />
+                      : (u.avatar || u.name?.[0] || '?')}
+                  </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, fontSize: 15 }}>{u.name}</span>
