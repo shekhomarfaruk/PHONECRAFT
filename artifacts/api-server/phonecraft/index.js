@@ -1138,6 +1138,77 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
   }
 });
 
+// ── Team Chat (referral-based group chat) ─────────────────────────────────────
+// Helper: get team room ID for a user (referrer's ID if they have one, else own ID)
+function getTeamRoomId(user) {
+  if (user.referred_by) {
+    const referrer = stmts.getUserByReferCode.get(user.referred_by);
+    if (referrer) return referrer.id;
+  }
+  return user.id;
+}
+
+// Helper: check if user has access to a room
+function canAccessTeamRoom(user, roomId) {
+  if (user.id === roomId) return true; // own room
+  if (user.referred_by) {
+    const referrer = stmts.getUserByReferCode.get(user.referred_by);
+    if (referrer && referrer.id === roomId) return true; // referrer's room
+  }
+  return false;
+}
+
+const teamChatLimiter = createRateLimiter({ windowMs: 60_000, max: 30, prefix: 'team_chat' });
+
+// GET /api/team/room — get user's default team room info + messages + members
+app.get('/api/team/room', authRequired, (req, res) => {
+  try {
+    const user = stmts.getUserById.get(req.auth.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const roomId = getTeamRoomId(user);
+    const roomOwner = stmts.getTeamRoomInfo.get(roomId);
+    const messages  = stmts.getTeamMessages.all(roomId);
+    const members   = stmts.getTeamMembers.all(roomId, roomId);
+
+    res.json({
+      roomId,
+      roomOwnerName: roomOwner?.name || '',
+      isOwnRoom: roomId === user.id,
+      messages,
+      members: members.map(m => ({
+        id: m.id,
+        name: m.name,
+        avatar: m.avatar,
+        avatar_img: m.avatar_img,
+        plan_id: m.plan_id,
+        isMe: m.id === user.id,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/team/message — send a message to team room
+app.post('/api/team/message', authRequired, teamChatLimiter, (req, res) => {
+  const { message } = req.body || {};
+  if (!message || !message.trim()) return res.status(400).json({ error: 'Missing message' });
+  if (message.trim().length > 500) return res.status(400).json({ error: 'Message too long' });
+
+  try {
+    const user = stmts.getUserById.get(req.auth.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.banned) return res.status(403).json({ error: 'Account suspended' });
+
+    const roomId = getTeamRoomId(user);
+    stmts.insertTeamMessage.run(roomId, user.id, user.name, message.trim());
+    res.json({ ok: true, roomId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Live Support Chat ──────────────────────────────────────────────────────────
 app.post('/api/support/message', supportLimiter, async (req, res) => {
   const { sessionId, message, senderName } = req.body || {};
