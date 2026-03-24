@@ -133,14 +133,10 @@ function WalletScreen({user, setUser, showToast, lang}) {
             <span><Icons.AlertTriangle size={22} color="#ef4444" /></span>
             <div>
               <div style={{fontWeight:700, fontSize:13, color:'#ef4444', marginBottom:2}}>
-                Crypto Not Available
+                {t.wallet_crypto_na_title}
               </div>
               <div style={{fontSize:12, color:'var(--text2)'}}>
-                Crypto payment is currently not available in your country.
-                <br/>
-                <span style={{color:'var(--text2)', opacity:.7}}>
-                  আপনার দেশে ক্রিপ্টো পেমেন্ট এখনও চালু হয়নি।
-                </span>
+                {t.wallet_crypto_na_msg}
               </div>
             </div>
           </div>
@@ -153,7 +149,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
             borderRadius:10, padding:'12px 14px', marginBottom:14,
           }}>
             <div style={{fontSize:11, fontWeight:700, color:'var(--accent)', marginBottom:6, textTransform:'uppercase', letterSpacing:.5}}>
-              <Icons.Upload size={13} /> এই নম্বরে টাকা পাঠান
+              <Icons.Upload size={13} /> {t.wallet_send_to_number}
             </div>
             <div style={{display:'flex', alignItems:'center', gap:10}}>
               <span style={{
@@ -165,7 +161,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
               </span>
             </div>
             <div style={{fontSize:11, color:'var(--text2)', marginTop:6}}>
-              টাকা পাঠানোর পর নিচে আপনার নম্বর ও পরিমাণ দিয়ে সাবমিট করুন।
+              {t.wallet_deposit_instruction}
             </div>
           </div>
         )}
