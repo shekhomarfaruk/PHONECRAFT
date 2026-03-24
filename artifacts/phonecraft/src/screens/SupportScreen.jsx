@@ -11,7 +11,7 @@ function TeamChat({ user, showToast, lang }) {
   const [roomData,  setRoomData]  = useState(null);
   const [input,     setInput]     = useState('');
   const [sending,   setSending]   = useState(false);
-  const [showMembers, setShowMembers] = useState(false);
+  const [showMembers, setShowMembers] = useState(true);
   const bottomRef = useRef(null);
   const pollRef   = useRef(null);
 
