@@ -1,2 +1,2 @@
-Deploy: 2026-03-24T17:32:12.440554
-Fix: TeamChatScreen real API
+Deploy: 2026-03-24T21:02:22.264927
+Crypto QR + Copy buttons + Team Chat API + Admin crypto settings
