@@ -494,10 +494,10 @@ export default function App() {
                 <div className="icon-btn" onClick={() => setIsDark(!isDark)} title="Toggle theme">
                   <span className="theme-icon-enter" key={isDark ? 'dark' : 'light'}>{isDark ? <Icons.Sun /> : <Icons.Moon />}</span>
                 </div>
-                <div className="icon-btn notif-btn" style={{ position: 'relative' }} onClick={() => navigate('notifications')}>
+                <div className="icon-btn notif-btn" style={{ position: 'relative', overflow: 'visible' }} onClick={() => navigate('notifications')}>
                   <Icons.Bell />
                   {unreadCount > 0 && (
-                    <span style={{ position: 'absolute', top: -4, right: -4, background: '#F6465D', color: '#fff', borderRadius: 10, fontSize: 9, padding: '1px 5px', fontFamily: 'Space Grotesk', lineHeight: 1.4, minWidth: 16, textAlign: 'center' }}>{unreadCount}</span>
+                    <span style={{ position: 'absolute', top: -6, right: -6, background: '#F6465D', color: '#fff', borderRadius: 12, fontSize: 10, fontWeight: 700, padding: '2px 5px', fontFamily: 'Space Grotesk', lineHeight: 1.3, minWidth: 18, height: 18, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
                   )}
                 </div>
                 {!isDesktop && (
