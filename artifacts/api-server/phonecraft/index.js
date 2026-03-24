@@ -887,6 +887,9 @@ app.get('/api/deposit-info', (req, res) => {
       nagad:  info.deposit_nagad  || '',
       rocket: info.deposit_rocket || '',
       bank:   info.deposit_bank   || '',
+      crypto_usdt_trc20: info.deposit_crypto_usdt_trc20 || '',
+      crypto_usdt_bep20: info.deposit_crypto_usdt_bep20 || '',
+      crypto_bnb: info.deposit_crypto_bnb || '',
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch deposit info' });
@@ -980,7 +983,7 @@ app.get('/api/user/:id/transactions', authRequired, requireSelfOrAdmin('id'), (r
 
 // ── Withdraw / Deposit request (DB-tracked) ─────────────────────────────────
 app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
-  const { amount, method, account, type } = req.body || {};
+  const { amount, method, account, type, coinType } = req.body || {};
 
   if (!amount || !method || !account || !type) {
     return res.status(400).json({ error: 'Missing fields' });
@@ -1055,6 +1058,7 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       requestId: txId,
       paymentMethod: String(method || '').toUpperCase(),
       accountNumber: account,
+      coinType: coinType || null,
       timestamp: new Date().toISOString(),
     };
 
