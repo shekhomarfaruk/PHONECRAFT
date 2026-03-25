@@ -875,9 +875,10 @@ app.get('/api/app-settings', (req, res) => {
     res.json({
       maintenance_mode:     info.maintenance_mode     || 'false',
       announcement_banner:  info.announcement_banner  || '',
+      crypto_enabled:       info.crypto_enabled !== 'false' ? 'true' : 'false',
     });
   } catch (e) {
-    res.json({ maintenance_mode: 'false', announcement_banner: '' });
+    res.json({ maintenance_mode: 'false', announcement_banner: '', crypto_enabled: 'true' });
   }
 });
 

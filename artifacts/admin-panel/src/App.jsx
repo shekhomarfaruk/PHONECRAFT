@@ -1152,9 +1152,33 @@ function SettingsPage({ authFetch, toast }) {
       </div>
 
       <div className="card">
-        <div className="card-title" style={{ color: 'var(--accent)' }}>💎 Crypto Wallet Addresses</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="card-title" style={{ color: 'var(--accent)', margin: 0 }}>💎 Crypto Wallet Addresses</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: settings.crypto_enabled === 'false' ? 'var(--danger)' : 'var(--accent)' }}>
+              {settings.crypto_enabled === 'false' ? 'OFF' : 'ON'}
+            </span>
+            <div
+              onClick={() => setSettings(p => ({ ...p, crypto_enabled: p.crypto_enabled === 'false' ? 'true' : 'false' }))}
+              style={{
+                width: 48, height: 26, borderRadius: 13,
+                background: settings.crypto_enabled === 'false' ? 'var(--border)' : 'var(--accent)',
+                cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}
+            >
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', background: '#fff',
+                position: 'absolute', top: 2,
+                left: settings.crypto_enabled === 'false' ? 2 : 24,
+                transition: 'left 0.2s',
+              }} />
+            </div>
+          </div>
+        </div>
         <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>
-          Enter wallet addresses per blockchain and token. Leave blank to hide from users.
+          {settings.crypto_enabled === 'false'
+            ? '⛔ Crypto is DISABLED — users cannot deposit or withdraw via crypto.'
+            : 'Enter wallet addresses per blockchain and token. Leave blank to hide from users.'}
         </div>
         {[
           { chain: 'eth',      label: 'Ethereum'      },

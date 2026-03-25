@@ -437,7 +437,7 @@ export default function App() {
     </>
   );
 
-  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications };
+  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings };
 
   // Dynamic menu: build from i18n, add Admin item only if user is admin
   const t = I18N[lang] || I18N.en;

@@ -82,9 +82,10 @@ function CopyButton({ text, showToast }) {
   );
 }
 
-function WalletScreen({ user, setUser, showToast, lang }) {
+function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
   const t = I18N[lang] || I18N.en;
   const isBn = lang === 'bn';
+  const cryptoEnabled = appSettings?.crypto_enabled !== 'false';
 
   const [tab,        setTab      ] = useState('withdraw');
   const [amount,     setAmount   ] = useState('');
@@ -121,6 +122,14 @@ function WalletScreen({ user, setUser, showToast, lang }) {
       .catch(() => {})
       .finally(() => setTxLoading(false));
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!cryptoEnabled && method === 'crypto') setMethod('bkash');
+  }, [cryptoEnabled, method]);
+
+  const visiblePaymentOptions = cryptoEnabled
+    ? PAYMENT_OPTIONS
+    : PAYMENT_OPTIONS.filter(o => o.value !== 'crypto');
 
   const isCrypto      = method === 'crypto';
   const cryptoKey     = `crypto_${blockchain}_${token}`;
@@ -220,7 +229,7 @@ function WalletScreen({ user, setUser, showToast, lang }) {
         <div className="input-wrap">
           <label className="input-label">{t.payment_method}</label>
           <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8}}>
-            {PAYMENT_OPTIONS.map(opt => {
+            {visiblePaymentOptions.map(opt => {
               const isActive = method === opt.value;
               return (
                 <button
