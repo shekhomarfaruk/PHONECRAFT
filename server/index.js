@@ -873,18 +873,20 @@ app.get('/api/deposit-info', (req, res) => {
     const info = {};
     rows.forEach(r => { info[r.key] = r.value; });
     res.json({
-      bkash:             info.deposit_bkash       || '',
-      nagad:             info.deposit_nagad       || '',
-      rocket:            info.deposit_rocket      || '',
-      bank:              info.deposit_bank        || '',
-      crypto_usdt_trc20: info.crypto_usdt_trc20 || '',
-      crypto_usdt_bep20: info.crypto_usdt_bep20 || '',
-      crypto_usdt_erc20: info.crypto_usdt_erc20 || '',
-      crypto_bnb:        info.crypto_bnb        || '',
-      crypto_eth:        info.crypto_eth        || '',
-      crypto_btc:        info.crypto_btc        || '',
-      crypto_trx:        info.crypto_trx        || '',
-      crypto_ltc:        info.crypto_ltc        || '',
+      bkash:  info.deposit_bkash  || '',
+      nagad:  info.deposit_nagad  || '',
+      rocket: info.deposit_rocket || '',
+      bank:   info.deposit_bank   || '',
+      crypto_eth_usdt:      info.crypto_eth_usdt      || '',
+      crypto_eth_usdc:      info.crypto_eth_usdc      || '',
+      crypto_op_usdt:       info.crypto_op_usdt       || '',
+      crypto_op_usdc:       info.crypto_op_usdc       || '',
+      crypto_base_usdt:     info.crypto_base_usdt     || '',
+      crypto_base_usdc:     info.crypto_base_usdc     || '',
+      crypto_polygon_usdt:  info.crypto_polygon_usdt  || '',
+      crypto_polygon_usdc:  info.crypto_polygon_usdc  || '',
+      crypto_arbitrum_usdt: info.crypto_arbitrum_usdt || '',
+      crypto_arbitrum_usdc: info.crypto_arbitrum_usdc || '',
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch deposit info' });

@@ -1150,27 +1150,36 @@ function SettingsPage({ authFetch, toast }) {
       </div>
 
       <div className="card">
-        <div className="card-title" style={{ color: 'var(--accent)' }}>₿ Crypto Wallet Addresses</div>
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
-          Enter wallet addresses for crypto deposits. Users will see the QR code and address on the Wallet page.
+        <div className="card-title" style={{ color: 'var(--accent)' }}>💎 Crypto Wallet Addresses</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>
+          Enter wallet addresses per blockchain and token. Leave blank to hide from users.
         </div>
-        <div className="grid-2">
-          {[
-            { key: 'crypto_usdt_trc20', label: 'USDT (TRC20 – Tron)',     ph: 'T...' },
-            { key: 'crypto_usdt_bep20', label: 'USDT (BEP20 – BSC)',      ph: '0x...' },
-            { key: 'crypto_usdt_erc20', label: 'USDT (ERC20 – Ethereum)', ph: '0x...' },
-            { key: 'crypto_bnb',        label: 'BNB (BEP20 – BSC)',       ph: '0x...' },
-            { key: 'crypto_eth',        label: 'ETH (ERC20 – Ethereum)',  ph: '0x...' },
-            { key: 'crypto_btc',        label: 'BTC (Bitcoin)',            ph: '1... or bc1...' },
-            { key: 'crypto_trx',        label: 'TRX (TRC20 – Tron)',      ph: 'T...' },
-            { key: 'crypto_ltc',        label: 'LTC (Litecoin)',           ph: 'L... or ltc1...' },
-          ].map(({ key, label, ph }) => (
-            <div key={key}>
-              <label className="input-label">{label}</label>
-              <input className="inp" placeholder={ph} value={settings[key] || ''} onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))} />
+        {[
+          { chain: 'eth',      label: 'Ethereum'      },
+          { chain: 'op',       label: 'Optimism (OP)' },
+          { chain: 'base',     label: 'Base'          },
+          { chain: 'polygon',  label: 'Polygon'       },
+          { chain: 'arbitrum', label: 'Arbitrum'      },
+        ].map(({ chain, label }) => (
+          <div key={chain} style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 10, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              ⛓ {label}
             </div>
-          ))}
-        </div>
+            <div className="grid-2">
+              {['usdt', 'usdc'].map(tok => (
+                <div key={tok}>
+                  <label className="input-label">{tok.toUpperCase()} Address</label>
+                  <input
+                    className="inp"
+                    placeholder="0x..."
+                    value={settings[`crypto_${chain}_${tok}`] || ''}
+                    onChange={e => setSettings(p => ({ ...p, [`crypto_${chain}_${tok}`]: e.target.value }))}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="card">

@@ -6,17 +6,24 @@ import { convertCurrency } from "../currency.js";
 import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
+const USD_RATE = 122.80;
 
-const COIN_OPTIONS = [
-  { value: 'usdt_trc20', label: 'USDT (TRC20 – Tron)',     key: 'crypto_usdt_trc20' },
-  { value: 'usdt_bep20', label: 'USDT (BEP20 – BSC)',      key: 'crypto_usdt_bep20' },
-  { value: 'usdt_erc20', label: 'USDT (ERC20 – Ethereum)', key: 'crypto_usdt_erc20' },
-  { value: 'bnb',        label: 'BNB (BEP20 – BSC)',       key: 'crypto_bnb'        },
-  { value: 'eth',        label: 'ETH (ERC20 – Ethereum)',  key: 'crypto_eth'        },
-  { value: 'btc',        label: 'BTC (Bitcoin)',            key: 'crypto_btc'        },
-  { value: 'trx',        label: 'TRX (TRC20 – Tron)',      key: 'crypto_trx'        },
-  { value: 'ltc',        label: 'LTC (Litecoin)',           key: 'crypto_ltc'        },
+const BLOCKCHAIN_OPTIONS = [
+  { value: 'eth',      label: 'Ethereum',       short: 'ETH'  },
+  { value: 'op',       label: 'Optimism (OP)',   short: 'OP'   },
+  { value: 'base',     label: 'Base',            short: 'BASE' },
+  { value: 'polygon',  label: 'Polygon',         short: 'POL'  },
+  { value: 'arbitrum', label: 'Arbitrum',        short: 'ARB'  },
 ];
+
+const TOKEN_OPTIONS = [
+  { value: 'usdt', label: 'USDT' },
+  { value: 'usdc', label: 'USDC' },
+];
+
+const ALL_CRYPTO_KEYS = BLOCKCHAIN_OPTIONS.flatMap(b =>
+  TOKEN_OPTIONS.map(tk => `crypto_${b.value}_${tk.value}`)
+);
 
 function CopyButton({ text, showToast }) {
   const [copied, setCopied] = useState(false);
@@ -55,27 +62,32 @@ function CopyButton({ text, showToast }) {
   );
 }
 
-function WalletScreen({user, setUser, showToast, lang}) {
+function WalletScreen({ user, setUser, showToast, lang }) {
   const t = I18N[lang] || I18N.en;
+  const isBn = lang === 'bn';
+
   const [tab,       setTab      ] = useState('withdraw');
   const [amount,    setAmount   ] = useState('');
   const [method,    setMethod   ] = useState('bkash');
   const [acct,      setAcct     ] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  const [depositInfo, setDepositInfo] = useState({ bkash:'', nagad:'', rocket:'', bank:'', crypto_usdt_trc20:'', crypto_usdt_bep20:'', crypto_usdt_erc20:'', crypto_bnb:'', crypto_eth:'', crypto_btc:'', crypto_trx:'', crypto_ltc:'' });
+  const emptyDepositInfo = { bkash:'', nagad:'', rocket:'', bank:'',
+    ...Object.fromEntries(ALL_CRYPTO_KEYS.map(k => [k, ''])) };
+  const [depositInfo, setDepositInfo] = useState(emptyDepositInfo);
 
   const [transactions, setTransactions] = useState([]);
-  const [txLoading, setTxLoading]       = useState(false);
+  const [txLoading,    setTxLoading   ] = useState(false);
 
-  const [coinType, setCoinType] = useState('usdt_trc20');
-  const [txnHash, setTxnHash]  = useState('');
+  const [blockchain,   setBlockchain  ] = useState('eth');
+  const [token,        setToken       ] = useState('usdt');
+  const [txnHash,      setTxnHash     ] = useState('');
   const [cryptoAmount, setCryptoAmount] = useState('');
 
   useEffect(() => {
     authFetch(`${API_URL}/api/deposit-info`)
       .then(r => r.json())
-      .then(data => setDepositInfo(data))
+      .then(data => setDepositInfo(prev => ({ ...prev, ...data })))
       .catch(() => {});
   }, []);
 
@@ -89,15 +101,23 @@ function WalletScreen({user, setUser, showToast, lang}) {
       .finally(() => setTxLoading(false));
   }, [user?.id]);
 
-  const isCrypto = method === 'crypto';
+  const isCrypto   = method === 'crypto';
+  const cryptoKey  = `crypto_${blockchain}_${token}`;
+  const cryptoAddr = depositInfo[cryptoKey] || '';
+  const selectedChain = BLOCKCHAIN_OPTIONS.find(b => b.value === blockchain);
+  const selectedToken = TOKEN_OPTIONS.find(tk => tk.value === token);
+  const coinLabel  = `${selectedToken?.label} on ${selectedChain?.label}`;
 
-  const selectedCoin = COIN_OPTIONS.find(c => c.value === coinType);
-  const cryptoAddress = selectedCoin ? (depositInfo[selectedCoin.key] || '') : '';
+  const amountLabel       = isBn ? `পরিমাণ (৳ BDT)` : `Amount ($ USD)`;
+  const amountPlaceholder = isBn ? `৳ পরিমাণ লিখুন` : `$ Enter USD amount`;
 
   const submit = async () => {
     if (isCrypto) {
       if (!txnHash.trim() || !cryptoAmount) { showToast(t.fill_all_fields); return; }
       setSubmitted(true);
+      const amountInBDT = isBn
+        ? Number(cryptoAmount)
+        : Math.round(Number(cryptoAmount) * USD_RATE);
       try {
         const res = await authFetch(`${API_URL}/api/withdraw`, {
           method: 'POST',
@@ -106,19 +126,18 @@ function WalletScreen({user, setUser, showToast, lang}) {
             userId: user.id,
             user: user.name,
             identifier: user.identifier,
-            amount: cryptoAmount,
+            amount: amountInBDT,
             method: 'crypto',
             account: txnHash.trim(),
             type: 'deposit',
-            coinType: selectedCoin?.label || coinType,
+            coinType: coinLabel,
           }),
         });
         const data = await res.json();
         if (res.ok) {
           showToast(`${t.deposit} ${t.request_sent}`);
-          if (data.newBalance !== undefined) {
+          if (data.newBalance !== undefined)
             setUser(prev => ({ ...prev, balance: data.newBalance }));
-          }
           authFetch(`${API_URL}/api/user/${user.id}/transactions`)
             .then(r => r.json())
             .then(d => { if (d.transactions) setTransactions(d.transactions); })
@@ -139,25 +158,20 @@ function WalletScreen({user, setUser, showToast, lang}) {
       showToast(t.insufficient_balance); return;
     }
     setSubmitted(true);
-
     try {
       const res = await authFetch(`${API_URL}/api/withdraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.id,
-          user: user.name,
-          identifier: user.identifier,
-          amount, method, account: acct,
-          type: tab,
+          userId: user.id, user: user.name, identifier: user.identifier,
+          amount, method, account: acct, type: tab,
         }),
       });
       const data = await res.json();
       if (res.ok) {
         showToast(`${tab === 'withdraw' ? t.withdraw : t.deposit} ${t.request_sent}`);
-        if (data.newBalance !== undefined) {
+        if (data.newBalance !== undefined)
           setUser(prev => ({ ...prev, balance: data.newBalance }));
-        }
         authFetch(`${API_URL}/api/user/${user.id}/transactions`)
           .then(r => r.json())
           .then(d => { if (d.transactions) setTransactions(d.transactions); })
@@ -168,17 +182,12 @@ function WalletScreen({user, setUser, showToast, lang}) {
     } catch (_) {
       showToast(t.toast_connection_error);
     }
-
     setTimeout(() => setSubmitted(false), 3000);
     setAmount(''); setAcct('');
   };
 
-  const depositNumber = {
-    bkash:  depositInfo.bkash,
-    nagad:  depositInfo.nagad,
-    rocket: depositInfo.rocket,
-    bank:   depositInfo.bank,
-  }[method] || '';
+  const depositNumber = { bkash: depositInfo.bkash, nagad: depositInfo.nagad,
+    rocket: depositInfo.rocket, bank: depositInfo.bank }[method] || '';
 
   return (
     <>
@@ -193,7 +202,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
       </div>
 
       <div className="card">
-        {/* Balance box */}
+        {/* Balance */}
         <div style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:10,padding:14,marginBottom:16,textAlign:'center'}}>
           <div style={{fontSize:11,color:'var(--text2)',marginBottom:6}}>{t.avail_balance}</div>
           <div style={{fontFamily:'Space Grotesk',fontSize:'clamp(20px,5vw,28px)',color:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
@@ -204,161 +213,155 @@ function WalletScreen({user, setUser, showToast, lang}) {
         {/* Payment method */}
         <div className="input-wrap">
           <label className="input-label">{t.payment_method}</label>
-          <select className="inp" value={method} onChange={e=>setMethod(e.target.value)}>
+          <select className="inp" value={method} onChange={e => setMethod(e.target.value)}>
             <option value="bkash">bKash</option>
             <option value="nagad">Nagad</option>
             <option value="rocket">Rocket</option>
             <option value="bank">{t.bank_transfer}</option>
-            <option value="crypto">Crypto (USDT)</option>
+            <option value="crypto">💎 Crypto (USDT / USDC)</option>
           </select>
         </div>
 
-        {/* Deposit instruction box with copy button */}
+        {/* Non-crypto deposit instruction */}
         {!isCrypto && tab === 'deposit' && depositNumber && (
-          <div style={{
-            background:'rgba(0,210,180,.07)', border:'1px solid rgba(0,210,180,.25)',
-            borderRadius:10, padding:'12px 14px', marginBottom:14,
-          }}>
-            <div style={{fontSize:11, fontWeight:700, color:'var(--accent)', marginBottom:6, textTransform:'uppercase', letterSpacing:.5}}>
-              <Icons.Upload size={13} /> এই নম্বরে টাকা পাঠান
+          <div style={{background:'rgba(0,210,180,.07)',border:'1px solid rgba(0,210,180,.25)',borderRadius:10,padding:'12px 14px',marginBottom:14}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',marginBottom:6,textTransform:'uppercase',letterSpacing:.5}}>
+              <Icons.Upload size={13}/> এই নম্বরে টাকা পাঠান
             </div>
-            <div style={{display:'flex', alignItems:'center', gap:10}}>
-              <span style={{
-                background:'var(--input-bg)', border:'1px solid var(--border)',
-                borderRadius:8, padding:'8px 14px', fontFamily:'monospace',
-                fontSize:16, fontWeight:700, letterSpacing:1, flex:1, textAlign:'center',
-              }}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 14px',fontFamily:'monospace',fontSize:16,fontWeight:700,letterSpacing:1,flex:1,textAlign:'center'}}>
                 {method.toUpperCase()}: {depositNumber}
               </span>
-              <CopyButton text={depositNumber} showToast={showToast} />
+              <CopyButton text={depositNumber} showToast={showToast}/>
             </div>
-            <div style={{fontSize:11, color:'var(--text2)', marginTop:6}}>
+            <div style={{fontSize:11,color:'var(--text2)',marginTop:6}}>
               টাকা পাঠানোর পর নিচে আপনার নম্বর ও পরিমাণ দিয়ে সাবমিট করুন।
             </div>
           </div>
         )}
 
-        {/* Crypto deposit section */}
+        {/* ── Crypto deposit section ── */}
         {isCrypto && tab === 'deposit' && (
           <div style={{marginBottom:14}}>
+
+            {/* Blockchain selector */}
             <div className="input-wrap">
-              <label className="input-label">Select Coin</label>
-              <select className="inp" value={coinType} onChange={e => setCoinType(e.target.value)}>
-                {COIN_OPTIONS.map(c => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
+              <label className="input-label">⛓ Blockchain</label>
+              <select className="inp" value={blockchain} onChange={e => setBlockchain(e.target.value)}>
+                {BLOCKCHAIN_OPTIONS.map(b => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
                 ))}
               </select>
             </div>
 
-            {cryptoAddress ? (
-              <div style={{
-                background:'rgba(0,210,180,.07)', border:'1px solid rgba(0,210,180,.25)',
-                borderRadius:10, padding:'16px 14px', marginBottom:14, textAlign:'center',
-              }}>
-                <div style={{fontSize:11, fontWeight:700, color:'var(--accent)', marginBottom:12, textTransform:'uppercase', letterSpacing:.5}}>
-                  {selectedCoin?.label} Wallet Address
-                </div>
-                <div style={{
-                  display:'inline-block', background:'#fff', borderRadius:12, padding:12,
-                  boxShadow:'0 2px 12px rgba(0,0,0,.1)',
-                }}>
-                  <QRCodeSVG
-                    value={cryptoAddress}
-                    size={180}
-                    level="H"
-                    imageSettings={{
-                      src: `${import.meta.env.BASE_URL}logo.png`,
-                      height: 36,
-                      width: 36,
-                      excavate: true,
+            {/* Token selector */}
+            <div className="input-wrap">
+              <label className="input-label">💎 Which Token?</label>
+              <div style={{display:'flex',gap:10}}>
+                {TOKEN_OPTIONS.map(tk => (
+                  <button
+                    key={tk.value}
+                    onClick={() => setToken(tk.value)}
+                    style={{
+                      flex:1, padding:'10px 0', borderRadius:10, border:`2px solid ${token===tk.value?'var(--accent)':'var(--border)'}`,
+                      background: token===tk.value ? 'rgba(0,210,180,.12)' : 'var(--input-bg)',
+                      color: token===tk.value ? 'var(--accent)' : 'var(--text2)',
+                      fontWeight:700, fontSize:15, cursor:'pointer', transition:'all .2s',
                     }}
+                  >
+                    {tk.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* QR + address or not-configured notice */}
+            {cryptoAddr ? (
+              <div style={{background:'rgba(0,210,180,.07)',border:'1px solid rgba(0,210,180,.25)',borderRadius:10,padding:'16px 14px',marginBottom:14,textAlign:'center'}}>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',marginBottom:4,textTransform:'uppercase',letterSpacing:.5}}>
+                  {selectedToken?.label} · {selectedChain?.label}
+                </div>
+                <div style={{fontSize:10,color:'var(--text2)',marginBottom:12}}>Wallet Address</div>
+                <div style={{display:'inline-block',background:'#fff',borderRadius:12,padding:12,boxShadow:'0 2px 12px rgba(0,0,0,.1)'}}>
+                  <QRCodeSVG value={cryptoAddr} size={180} level="H"
+                    imageSettings={{ src:`${import.meta.env.BASE_URL}logo.png`, height:36, width:36, excavate:true }}
                   />
                 </div>
-                <div style={{display:'flex', alignItems:'center', gap:8, marginTop:12, justifyContent:'center'}}>
-                  <span style={{
-                    background:'var(--input-bg)', border:'1px solid var(--border)',
-                    borderRadius:8, padding:'8px 12px', fontFamily:'monospace',
-                    fontSize:12, fontWeight:600, letterSpacing:.5,
-                    wordBreak:'break-all', flex:1, textAlign:'center',
-                  }}>
-                    {cryptoAddress}
+                <div style={{display:'flex',alignItems:'center',gap:8,marginTop:12,justifyContent:'center'}}>
+                  <span style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontFamily:'monospace',fontSize:12,fontWeight:600,letterSpacing:.5,wordBreak:'break-all',flex:1,textAlign:'center'}}>
+                    {cryptoAddr}
                   </span>
-                  <CopyButton text={cryptoAddress} showToast={showToast} />
+                  <CopyButton text={cryptoAddr} showToast={showToast}/>
                 </div>
               </div>
             ) : (
-              <div style={{
-                background:'rgba(239,68,68,.08)', border:'1px solid rgba(239,68,68,.3)',
-                borderRadius:10, padding:'14px 16px', marginBottom:14,
-                textAlign:'center', fontSize:13, color:'#ef4444',
-              }}>
-                Wallet address not configured for {selectedCoin?.label}
+              <div style={{background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,padding:'14px 16px',marginBottom:14,textAlign:'center',fontSize:13,color:'#ef4444'}}>
+                {selectedToken?.label} on {selectedChain?.label} — wallet not configured yet
               </div>
             )}
 
+            {/* Amount */}
             <div className="input-wrap">
-              <label className="input-label">Amount (BDT)</label>
-              <input className="inp" type="number" placeholder="Enter amount in BDT" value={cryptoAmount} onChange={e => setCryptoAmount(e.target.value)} />
+              <label className="input-label">{amountLabel}</label>
+              <input className="inp" type="number" placeholder={amountPlaceholder}
+                value={cryptoAmount} onChange={e => setCryptoAmount(e.target.value)} />
             </div>
+
+            {/* TxnHash */}
             <div className="input-wrap">
               <label className="input-label">Transaction Hash (TxnHash)</label>
-              <input className="inp" placeholder="Paste your TxnHash here" value={txnHash} onChange={e => setTxnHash(e.target.value)} />
+              <input className="inp" placeholder="Paste your TxnHash here"
+                value={txnHash} onChange={e => setTxnHash(e.target.value)} />
             </div>
           </div>
         )}
 
-        {/* Crypto withdraw not supported notice */}
+        {/* Crypto withdraw notice */}
         {isCrypto && tab === 'withdraw' && (
-          <div style={{
-            background:'rgba(217,119,6,.08)', border:'1px solid rgba(217,119,6,.2)',
-            borderRadius:10, padding:'14px 16px', margin:'4px 0 14px',
-            textAlign:'center', fontSize:13, color:'var(--yellow)',
-          }}>
-            Crypto withdrawal is not available. Please use bKash/Nagad/Rocket/Bank for withdrawals.
+          <div style={{background:'rgba(217,119,6,.08)',border:'1px solid rgba(217,119,6,.2)',borderRadius:10,padding:'14px 16px',margin:'4px 0 14px',textAlign:'center',fontSize:13,color:'var(--yellow)'}}>
+            {isBn
+              ? 'ক্রিপ্টো উইথড্র সম্ভব নয়। bKash / Nagad / Rocket / Bank ব্যবহার করুন।'
+              : 'Crypto withdrawal is not available. Please use bKash / Nagad / Rocket / Bank.'}
           </div>
         )}
 
-        {/* Account number fields for non-crypto */}
+        {/* Non-crypto fields */}
         {!isCrypto && (
           <>
             <div className="input-wrap">
               <label className="input-label">
-                {method === 'bank'
-                  ? (t.wallet_bank_account)
-                  : t.account_number}
+                {method === 'bank' ? t.wallet_bank_account : t.account_number}
               </label>
-              <input
-                className="inp"
+              <input className="inp"
                 placeholder={`${method.toUpperCase()} ${t.number_placeholder}`}
-                value={acct}
-                onChange={e=>setAcct(e.target.value)}
-              />
+                value={acct} onChange={e => setAcct(e.target.value)} />
             </div>
             <div className="input-wrap">
               <label className="input-label">{t.amount_label}</label>
-              <input className="inp" type="number" placeholder={t.enter_amount} value={amount} onChange={e=>setAmount(e.target.value)}/>
+              <input className="inp" type="number" placeholder={t.enter_amount}
+                value={amount} onChange={e => setAmount(e.target.value)} />
             </div>
           </>
         )}
 
-        {/* Warning note */}
+        {/* Warning */}
         {!isCrypto && (
           <div style={{background:'rgba(217,119,6,.08)',border:'1px solid rgba(217,119,6,.2)',borderRadius:10,padding:12,marginBottom:14,fontSize:12,color:'var(--yellow)'}}>
             {t.wallet_note}
           </div>
         )}
 
-        {/* Submit button */}
+        {/* Submit */}
         {(!isCrypto || (isCrypto && tab === 'deposit')) && !(isCrypto && tab === 'withdraw') && (
-          <button className="btn btn-primary btn-full" onClick={submit} disabled={submitted || (isCrypto && !cryptoAddress)}>
+          <button className="btn btn-primary btn-full" onClick={submit}
+            disabled={submitted || (isCrypto && !cryptoAddr)}>
             {submitted
               ? t.processing_lbl
               : isCrypto
-                ? <><Icons.Coin size={16}/> Submit Crypto Deposit</>
+                ? <><Icons.Coin size={16}/> {isBn ? 'ক্রিপ্টো ডিপোজিট সাবমিট করুন' : 'Submit Crypto Deposit'}</>
                 : tab === 'withdraw'
                   ? <><Icons.Transfer size={16}/> {t.req_withdraw}</>
-                  : <><Icons.Coin size={16}/> {t.sub_deposit}</>
-            }
+                  : <><Icons.Coin size={16}/> {t.sub_deposit}</>}
           </button>
         )}
       </div>
@@ -367,38 +370,30 @@ function WalletScreen({user, setUser, showToast, lang}) {
       <div className="card">
         <div className="card-title">{t.tx_history}</div>
         {txLoading ? (
-          <div style={{ textAlign: 'center', padding: 20, color: 'var(--text2)' }}>{t.loading}</div>
+          <div style={{textAlign:'center',padding:20,color:'var(--text2)'}}>{t.loading}</div>
         ) : transactions.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 20, color: 'var(--text2)', fontSize: 13 }}>
-            {t.no_transactions}
-          </div>
+          <div style={{textAlign:'center',padding:20,color:'var(--text2)',fontSize:13}}>{t.no_transactions}</div>
         ) : (
           transactions.map((tx, i) => (
-            <div key={tx.id} style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0',
-              borderBottom: i < transactions.length - 1 ? '1px solid var(--border)' : 'none',
-            }}>
-              <span style={{ color: 'var(--accent)', display: 'flex', flexShrink: 0 }}>
-                {tx.type === 'deposit' ? <Icons.TrendUp size={18} /> : <Icons.Transfer size={18} />}
+            <div key={tx.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:i<transactions.length-1?'1px solid var(--border)':'none'}}>
+              <span style={{color:'var(--accent)',display:'flex',flexShrink:0}}>
+                {tx.type==='deposit'?<Icons.TrendUp size={18}/>:<Icons.Transfer size={18}/>}
               </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>
-                  {tx.type === 'deposit' ? t.deposit : t.withdraw} — {convertCurrency(Number(tx.amount), lang)}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:13}}>
+                  {tx.type==='deposit'?t.deposit:t.withdraw} — {convertCurrency(Number(tx.amount),lang)}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text2)' }}>
-                  {tx.method?.toUpperCase()} | {tx.created_at ? new Date(tx.created_at + 'Z').toLocaleDateString() : ''}
+                <div style={{fontSize:11,color:'var(--text2)'}}>
+                  {tx.method?.toUpperCase()} | {tx.created_at?new Date(tx.created_at+'Z').toLocaleDateString():''}
                 </div>
-                {tx.admin_note ? (
-                  <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 2 }}>
-                    <Icons.Note size={12} /> {tx.admin_note}
+                {tx.admin_note && (
+                  <div style={{fontSize:11,color:'var(--yellow)',marginTop:2}}>
+                    <Icons.Note size={12}/> {tx.admin_note}
                   </div>
-                ) : null}
+                )}
               </div>
-              <span className={`badge ${
-                tx.status === 'approved' ? 'badge-green' :
-                tx.status === 'rejected' ? 'badge-orange' : 'badge-blue'
-              }`}>
-                {tx.status === 'approved' ? t.approved : tx.status === 'rejected' ? t.rejected : t.pending}
+              <span className={`badge ${tx.status==='approved'?'badge-green':tx.status==='rejected'?'badge-orange':'badge-blue'}`}>
+                {tx.status==='approved'?t.approved:tx.status==='rejected'?t.rejected:t.pending}
               </span>
             </div>
           ))
