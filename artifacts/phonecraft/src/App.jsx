@@ -79,6 +79,7 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [user,          setUser         ] = useState(null);
   const [fontSize,      setFontSize     ] = useState(() => localStorage.getItem('app-font-size') || 'medium');
+  const [appSettings,   setAppSettings  ] = useState({ maintenance_mode: 'false', announcement_banner: '' });
 
   // Apply font size as CSS variable on root
   useEffect(() => {
@@ -92,6 +93,19 @@ export default function App() {
 
   // Persist theme to localStorage
   useEffect(() => { localStorage.setItem('app-theme', isDark ? 'dark' : 'light'); }, [isDark]);
+
+  // Fetch & poll app settings (maintenance mode, announcement banner)
+  useEffect(() => {
+    const fetchAppSettings = () => {
+      fetch(`${API_URL}/api/app-settings`)
+        .then(r => r.json())
+        .then(data => setAppSettings(data))
+        .catch(() => {});
+    };
+    fetchAppSettings();
+    const interval = setInterval(fetchAppSettings, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Persist user session to localStorage (auto-updates on any user change)
   useEffect(() => {
@@ -512,6 +526,43 @@ export default function App() {
                 )}
               </div>
             </header>
+
+            {/* ── ANNOUNCEMENT BANNER ── */}
+            {appSettings.announcement_banner && (
+              <div style={{
+                background: 'linear-gradient(90deg, #f59e0b, #ef4444)',
+                color: '#fff', padding: '10px 16px',
+                fontSize: 13, fontWeight: 600, textAlign: 'center',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                letterSpacing: .2, lineHeight: 1.4,
+              }}>
+                <span>📢</span>
+                {appSettings.announcement_banner}
+              </div>
+            )}
+
+            {/* ── MAINTENANCE MODE SCREEN ── */}
+            {appSettings.maintenance_mode === 'true' && !user?.isAdmin && (
+              <div style={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                background: 'var(--bg)', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                padding: 32, textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 64, marginBottom: 20 }}>🔧</div>
+                <div style={{ fontFamily: 'Space Grotesk', fontSize: 24, fontWeight: 800, color: 'var(--accent)', marginBottom: 12 }}>
+                  Under Maintenance
+                </div>
+                <div style={{ fontSize: 15, color: 'var(--text2)', maxWidth: 320, lineHeight: 1.6 }}>
+                  {lang === 'bn'
+                    ? 'PhoneCraft এখন রক্ষণাবেক্ষণে আছে। অল্প কিছুক্ষণ পর আবার চেষ্টা করুন।'
+                    : 'PhoneCraft is currently under maintenance. Please check back soon.'}
+                </div>
+                <div style={{ marginTop: 24, fontSize: 12, color: 'var(--text2)', opacity: .6 }}>
+                  {lang === 'bn' ? 'আমরা দ্রুত ফিরে আসছি ⏳' : 'We\'ll be back shortly ⏳'}
+                </div>
+              </div>
+            )}
 
             {/* SCREEN */}
             <main className="screen screen-enter" key={screen}>

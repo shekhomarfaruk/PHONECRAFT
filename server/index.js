@@ -866,6 +866,21 @@ app.get('/api/user/:id/referral-activity', authRequired, requireSelfOrAdmin('id'
   }
 });
 
+// ── Public app settings (maintenance mode, announcement banner) ──────────────
+app.get('/api/app-settings', (req, res) => {
+  try {
+    const rows = stmts.getAllSettings.all();
+    const info = {};
+    rows.forEach(r => { info[r.key] = r.value; });
+    res.json({
+      maintenance_mode:     info.maintenance_mode     || 'false',
+      announcement_banner:  info.announcement_banner  || '',
+    });
+  } catch (e) {
+    res.json({ maintenance_mode: 'false', announcement_banner: '' });
+  }
+});
+
 // ── Deposit payment info (public) ────────────────────────────────────────────
 app.get('/api/deposit-info', (req, res) => {
   try {
