@@ -260,6 +260,7 @@ function WalletScreen({ user, setUser, showToast, lang }) {
               <div style={{display:'flex',gap:10}}>
                 {TOKEN_OPTIONS.map(tk => (
                   <button
+                    type="button"
                     key={tk.value}
                     onClick={() => setToken(tk.value)}
                     style={{
@@ -275,30 +276,32 @@ function WalletScreen({ user, setUser, showToast, lang }) {
               </div>
             </div>
 
-            {/* QR + address or not-configured notice */}
-            {cryptoAddr ? (
-              <div style={{background:'rgba(0,210,180,.07)',border:'1px solid rgba(0,210,180,.25)',borderRadius:10,padding:'16px 14px',marginBottom:14,textAlign:'center'}}>
-                <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',marginBottom:4,textTransform:'uppercase',letterSpacing:.5}}>
-                  {selectedToken?.label} · {selectedChain?.label}
+            {/* QR + address — key forces full re-mount when blockchain/token changes */}
+            <div key={cryptoKey}>
+              {cryptoAddr ? (
+                <div style={{background:'rgba(0,210,180,.07)',border:'1px solid rgba(0,210,180,.25)',borderRadius:10,padding:'16px 14px',marginBottom:14,textAlign:'center'}}>
+                  <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',marginBottom:4,textTransform:'uppercase',letterSpacing:.5}}>
+                    {selectedToken?.label} · {selectedChain?.label}
+                  </div>
+                  <div style={{fontSize:10,color:'var(--text2)',marginBottom:12}}>Deposit Wallet Address</div>
+                  <div style={{display:'inline-block',background:'#fff',borderRadius:12,padding:12,boxShadow:'0 2px 12px rgba(0,0,0,.1)'}}>
+                    <QRCodeSVG value={cryptoAddr} size={180} level="H"
+                      imageSettings={{ src:`${import.meta.env.BASE_URL}logo.png`, height:36, width:36, excavate:true }}
+                    />
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:12,justifyContent:'center'}}>
+                    <span style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontFamily:'monospace',fontSize:12,fontWeight:600,letterSpacing:.5,wordBreak:'break-all',flex:1,textAlign:'center'}}>
+                      {cryptoAddr}
+                    </span>
+                    <CopyButton text={cryptoAddr} showToast={showToast}/>
+                  </div>
                 </div>
-                <div style={{fontSize:10,color:'var(--text2)',marginBottom:12}}>Wallet Address</div>
-                <div style={{display:'inline-block',background:'#fff',borderRadius:12,padding:12,boxShadow:'0 2px 12px rgba(0,0,0,.1)'}}>
-                  <QRCodeSVG value={cryptoAddr} size={180} level="H"
-                    imageSettings={{ src:`${import.meta.env.BASE_URL}logo.png`, height:36, width:36, excavate:true }}
-                  />
+              ) : (
+                <div style={{background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,padding:'14px 16px',marginBottom:14,textAlign:'center',fontSize:13,color:'#ef4444'}}>
+                  {selectedToken?.label} on {selectedChain?.label} — wallet not configured yet
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginTop:12,justifyContent:'center'}}>
-                  <span style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontFamily:'monospace',fontSize:12,fontWeight:600,letterSpacing:.5,wordBreak:'break-all',flex:1,textAlign:'center'}}>
-                    {cryptoAddr}
-                  </span>
-                  <CopyButton text={cryptoAddr} showToast={showToast}/>
-                </div>
-              </div>
-            ) : (
-              <div style={{background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,padding:'14px 16px',marginBottom:14,textAlign:'center',fontSize:13,color:'#ef4444'}}>
-                {selectedToken?.label} on {selectedChain?.label} — wallet not configured yet
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Amount */}
             <div className="input-wrap">
