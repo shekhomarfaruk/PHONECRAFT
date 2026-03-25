@@ -9,21 +9,50 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 const USD_RATE = 122.80;
 
 const BLOCKCHAIN_OPTIONS = [
-  { value: 'eth',      label: 'Ethereum',       short: 'ETH'  },
-  { value: 'op',       label: 'Optimism (OP)',   short: 'OP'   },
-  { value: 'base',     label: 'Base',            short: 'BASE' },
-  { value: 'polygon',  label: 'Polygon',         short: 'POL'  },
-  { value: 'arbitrum', label: 'Arbitrum',        short: 'ARB'  },
+  { value: 'eth',      label: 'Ethereum',  short: 'ETH',  icon: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png' },
+  { value: 'op',       label: 'Optimism',  short: 'OP',   icon: 'https://assets.coingecko.com/coins/images/25244/small/Optimism.png' },
+  { value: 'base',     label: 'Base',      short: 'BASE', icon: 'https://assets.coingecko.com/asset_platforms/images/131/small/base.jpeg' },
+  { value: 'polygon',  label: 'Polygon',   short: 'POL',  icon: 'https://assets.coingecko.com/coins/images/4713/small/matic-token-icon.png' },
+  { value: 'arbitrum', label: 'Arbitrum',  short: 'ARB',  icon: 'https://assets.coingecko.com/coins/images/16547/small/photo_2023-03-29_21.47.00.jpeg' },
 ];
 
 const TOKEN_OPTIONS = [
-  { value: 'usdt', label: 'USDT' },
-  { value: 'usdc', label: 'USDC' },
+  { value: 'usdt', label: 'USDT', icon: 'https://assets.coingecko.com/coins/images/325/small/Tether.png',  color: '#26A17B' },
+  { value: 'usdc', label: 'USDC', icon: 'https://assets.coingecko.com/coins/images/6319/small/usdc.png',  color: '#2775CA' },
+];
+
+const PAYMENT_OPTIONS = [
+  { value: 'bkash',  label: 'bKash',  logo: 'https://logo.clearbit.com/bkash.com',            bg: '#E2136E', text: '#fff', letter: 'b' },
+  { value: 'nagad',  label: 'Nagad',  logo: 'https://logo.clearbit.com/nagad.com.bd',          bg: '#F05A28', text: '#fff', letter: 'N' },
+  { value: 'rocket', label: 'Rocket', logo: 'https://logo.clearbit.com/dutchbanglabank.com',   bg: '#8B2FC9', text: '#fff', letter: 'R' },
+  { value: 'bank',   label: 'Bank',   logo: null,                                               bg: '#2563EB', text: '#fff', letter: '🏦' },
+  { value: 'crypto', label: 'Crypto', logo: null,                                               bg: '#00D2B4', text: '#111', letter: '💎' },
 ];
 
 const ALL_CRYPTO_KEYS = BLOCKCHAIN_OPTIONS.flatMap(b =>
   TOKEN_OPTIONS.map(tk => `crypto_${b.value}_${tk.value}`)
 );
+
+function ImgIcon({ src, alt, size = 28, fallback, fallbackBg = '#555', fallbackColor = '#fff' }) {
+  const [err, setErr] = useState(false);
+  if (!src || err) {
+    return (
+      <span style={{
+        width: size, height: size, borderRadius: '50%',
+        background: fallbackBg, color: fallbackColor,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: size * 0.45, fontWeight: 800, flexShrink: 0,
+      }}>
+        {fallback}
+      </span>
+    );
+  }
+  return (
+    <img src={src} alt={alt} width={size} height={size}
+      style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+      onError={() => setErr(true)} />
+  );
+}
 
 function CopyButton({ text, showToast }) {
   const [copied, setCopied] = useState(false);
@@ -38,25 +67,16 @@ function CopyButton({ text, showToast }) {
     }
   };
   return (
-    <button
-      onClick={handleCopy}
-      style={{
-        background: copied ? 'rgba(0,210,180,.15)' : 'var(--input-bg)',
-        border: `1px solid ${copied ? 'var(--accent)' : 'var(--border)'}`,
-        borderRadius: 8,
-        padding: '6px 12px',
-        cursor: 'pointer',
-        fontSize: 12,
-        fontWeight: 600,
-        color: copied ? 'var(--accent)' : 'var(--text2)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        transition: 'all .2s',
-        flexShrink: 0,
-      }}
-    >
-      {copied ? <Icons.CheckCircle size={13} /> : <Icons.Copy size={13} />}
+    <button type="button" onClick={handleCopy} style={{
+      background: copied ? 'rgba(0,210,180,.15)' : 'var(--input-bg)',
+      border: `1px solid ${copied ? 'var(--accent)' : 'var(--border)'}`,
+      borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+      fontSize: 12, fontWeight: 600,
+      color: copied ? 'var(--accent)' : 'var(--text2)',
+      display: 'flex', alignItems: 'center', gap: 4,
+      transition: 'all .2s', flexShrink: 0,
+    }}>
+      {copied ? <Icons.CheckCircle size={13}/> : <Icons.Copy size={13}/>}
       {copied ? 'Copied' : 'Copy'}
     </button>
   );
@@ -66,16 +86,17 @@ function WalletScreen({ user, setUser, showToast, lang }) {
   const t = I18N[lang] || I18N.en;
   const isBn = lang === 'bn';
 
-  const [tab,       setTab      ] = useState('withdraw');
-  const [amount,    setAmount   ] = useState('');
-  const [method,    setMethod   ] = useState('bkash');
-  const [acct,      setAcct     ] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [tab,        setTab      ] = useState('withdraw');
+  const [amount,     setAmount   ] = useState('');
+  const [method,     setMethod   ] = useState('bkash');
+  const [acct,       setAcct     ] = useState('');
+  const [submitted,  setSubmitted] = useState(false);
 
-  const emptyDepositInfo = { bkash:'', nagad:'', rocket:'', bank:'',
-    ...Object.fromEntries(ALL_CRYPTO_KEYS.map(k => [k, ''])) };
-  const [depositInfo, setDepositInfo] = useState(emptyDepositInfo);
-
+  const emptyDepositInfo = {
+    bkash: '', nagad: '', rocket: '', bank: '',
+    ...Object.fromEntries(ALL_CRYPTO_KEYS.map(k => [k, ''])),
+  };
+  const [depositInfo,  setDepositInfo ] = useState(emptyDepositInfo);
   const [transactions, setTransactions] = useState([]);
   const [txLoading,    setTxLoading   ] = useState(false);
 
@@ -101,15 +122,15 @@ function WalletScreen({ user, setUser, showToast, lang }) {
       .finally(() => setTxLoading(false));
   }, [user?.id]);
 
-  const isCrypto   = method === 'crypto';
-  const cryptoKey  = `crypto_${blockchain}_${token}`;
-  const cryptoAddr = depositInfo[cryptoKey] || '';
+  const isCrypto      = method === 'crypto';
+  const cryptoKey     = `crypto_${blockchain}_${token}`;
+  const cryptoAddr    = depositInfo[cryptoKey] || '';
   const selectedChain = BLOCKCHAIN_OPTIONS.find(b => b.value === blockchain);
   const selectedToken = TOKEN_OPTIONS.find(tk => tk.value === token);
-  const coinLabel  = `${selectedToken?.label} on ${selectedChain?.label}`;
+  const coinLabel     = `${selectedToken?.label} on ${selectedChain?.label}`;
 
-  const amountLabel       = isBn ? `পরিমাণ (৳ BDT)` : `Amount ($ USD)`;
-  const amountPlaceholder = isBn ? `৳ পরিমাণ লিখুন` : `$ Enter USD amount`;
+  const amountLabel       = isBn ? 'পরিমাণ (৳ BDT)' : 'Amount ($ USD)';
+  const amountPlaceholder = isBn ? '৳ পরিমাণ লিখুন'  : '$ Enter USD amount';
 
   const submit = async () => {
     if (isCrypto) {
@@ -123,14 +144,9 @@ function WalletScreen({ user, setUser, showToast, lang }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userId: user.id,
-            user: user.name,
-            identifier: user.identifier,
-            amount: amountInBDT,
-            method: 'crypto',
-            account: txnHash.trim(),
-            type: 'deposit',
-            coinType: coinLabel,
+            userId: user.id, user: user.name, identifier: user.identifier,
+            amount: amountInBDT, method: 'crypto',
+            account: txnHash.trim(), type: 'deposit', coinType: coinLabel,
           }),
         });
         const data = await res.json();
@@ -139,24 +155,18 @@ function WalletScreen({ user, setUser, showToast, lang }) {
           if (data.newBalance !== undefined)
             setUser(prev => ({ ...prev, balance: data.newBalance }));
           authFetch(`${API_URL}/api/user/${user.id}/transactions`)
-            .then(r => r.json())
-            .then(d => { if (d.transactions) setTransactions(d.transactions); })
-            .catch(() => {});
+            .then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
         } else {
           showToast(data.error || t.toast_request_failed);
         }
-      } catch (_) {
-        showToast(t.toast_connection_error);
-      }
+      } catch (_) { showToast(t.toast_connection_error); }
       setTimeout(() => setSubmitted(false), 3000);
       setTxnHash(''); setCryptoAmount('');
       return;
     }
 
     if (!amount || !acct) { showToast(t.fill_all_fields); return; }
-    if (tab === 'withdraw' && parseInt(amount) > user.balance) {
-      showToast(t.insufficient_balance); return;
-    }
+    if (tab === 'withdraw' && parseInt(amount) > user.balance) { showToast(t.insufficient_balance); return; }
     setSubmitted(true);
     try {
       const res = await authFetch(`${API_URL}/api/withdraw`, {
@@ -173,30 +183,26 @@ function WalletScreen({ user, setUser, showToast, lang }) {
         if (data.newBalance !== undefined)
           setUser(prev => ({ ...prev, balance: data.newBalance }));
         authFetch(`${API_URL}/api/user/${user.id}/transactions`)
-          .then(r => r.json())
-          .then(d => { if (d.transactions) setTransactions(d.transactions); })
-          .catch(() => {});
-      } else {
-        showToast(data.error || t.toast_request_failed);
-      }
-    } catch (_) {
-      showToast(t.toast_connection_error);
-    }
+          .then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
+      } else { showToast(data.error || t.toast_request_failed); }
+    } catch (_) { showToast(t.toast_connection_error); }
     setTimeout(() => setSubmitted(false), 3000);
     setAmount(''); setAcct('');
   };
 
-  const depositNumber = { bkash: depositInfo.bkash, nagad: depositInfo.nagad,
-    rocket: depositInfo.rocket, bank: depositInfo.bank }[method] || '';
+  const depositNumber = {
+    bkash: depositInfo.bkash, nagad: depositInfo.nagad,
+    rocket: depositInfo.rocket, bank: depositInfo.bank,
+  }[method] || '';
 
   return (
     <>
       <div className="screen-title"><Icons.Wallet size={18}/> {t.withdraw_deposit}</div>
       <div className="tabs">
-        <div className={`tab ${tab==='withdraw'?'active':''}`} onClick={()=>setTab('withdraw')}>
+        <div className={`tab ${tab==='withdraw'?'active':''}`} onClick={() => setTab('withdraw')}>
           <Icons.Transfer size={14}/> {t.withdraw}
         </div>
-        <div className={`tab ${tab==='deposit'?'active':''}`} onClick={()=>setTab('deposit')}>
+        <div className={`tab ${tab==='deposit'?'active':''}`} onClick={() => setTab('deposit')}>
           <Icons.Coin size={14}/> {t.deposit}
         </div>
       </div>
@@ -210,16 +216,49 @@ function WalletScreen({ user, setUser, showToast, lang }) {
           </div>
         </div>
 
-        {/* Payment method */}
+        {/* ── Payment Method Grid ── */}
         <div className="input-wrap">
           <label className="input-label">{t.payment_method}</label>
-          <select className="inp" value={method} onChange={e => setMethod(e.target.value)}>
-            <option value="bkash">bKash</option>
-            <option value="nagad">Nagad</option>
-            <option value="rocket">Rocket</option>
-            <option value="bank">{t.bank_transfer}</option>
-            <option value="crypto">💎 Crypto (USDT / USDC)</option>
-          </select>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8}}>
+            {PAYMENT_OPTIONS.map(opt => {
+              const isActive = method === opt.value;
+              return (
+                <button
+                  type="button"
+                  key={opt.value}
+                  onClick={() => setMethod(opt.value)}
+                  style={{
+                    display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                    gap:6, padding:'10px 4px', borderRadius:12,
+                    border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isActive ? 'rgba(0,210,180,.1)' : 'var(--input-bg)',
+                    cursor:'pointer', transition:'all .2s',
+                  }}
+                >
+                  {opt.logo ? (
+                    <ImgIcon src={opt.logo} alt={opt.label} size={32}
+                      fallback={opt.letter} fallbackBg={opt.bg} fallbackColor={opt.text} />
+                  ) : (
+                    <span style={{
+                      width:32, height:32, borderRadius:'50%',
+                      background: isActive ? opt.bg : 'var(--border)',
+                      display:'inline-flex', alignItems:'center', justifyContent:'center',
+                      fontSize:16, transition:'all .2s',
+                    }}>
+                      {opt.letter}
+                    </span>
+                  )}
+                  <span style={{
+                    fontSize:10, fontWeight:700, letterSpacing:.3,
+                    color: isActive ? 'var(--accent)' : 'var(--text2)',
+                    lineHeight:1,
+                  }}>
+                    {opt.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Non-crypto deposit instruction */}
@@ -244,50 +283,91 @@ function WalletScreen({ user, setUser, showToast, lang }) {
         {isCrypto && tab === 'deposit' && (
           <div style={{marginBottom:14}}>
 
-            {/* Blockchain selector */}
+            {/* Blockchain selector — horizontal scroll cards */}
             <div className="input-wrap">
               <label className="input-label">⛓ Blockchain</label>
-              <select className="inp" value={blockchain} onChange={e => setBlockchain(e.target.value)}>
-                {BLOCKCHAIN_OPTIONS.map(b => (
-                  <option key={b.value} value={b.value}>{b.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Token selector */}
-            <div className="input-wrap">
-              <label className="input-label">💎 Which Token?</label>
-              <div style={{display:'flex',gap:10}}>
-                {TOKEN_OPTIONS.map(tk => (
-                  <button
-                    type="button"
-                    key={tk.value}
-                    onClick={() => setToken(tk.value)}
-                    style={{
-                      flex:1, padding:'10px 0', borderRadius:10, border:`2px solid ${token===tk.value?'var(--accent)':'var(--border)'}`,
-                      background: token===tk.value ? 'rgba(0,210,180,.12)' : 'var(--input-bg)',
-                      color: token===tk.value ? 'var(--accent)' : 'var(--text2)',
-                      fontWeight:700, fontSize:15, cursor:'pointer', transition:'all .2s',
-                    }}
-                  >
-                    {tk.label}
-                  </button>
-                ))}
+              <div style={{display:'flex', gap:8, overflowX:'auto', paddingBottom:4, WebkitOverflowScrolling:'touch'}}>
+                {BLOCKCHAIN_OPTIONS.map(b => {
+                  const isActive = blockchain === b.value;
+                  return (
+                    <button
+                      type="button"
+                      key={b.value}
+                      onClick={() => setBlockchain(b.value)}
+                      style={{
+                        display:'flex', flexDirection:'column', alignItems:'center', gap:5,
+                        padding:'10px 12px', borderRadius:12, flexShrink:0,
+                        border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                        background: isActive ? 'rgba(0,210,180,.1)' : 'var(--input-bg)',
+                        cursor:'pointer', transition:'all .2s', minWidth:70,
+                      }}
+                    >
+                      <ImgIcon src={b.icon} alt={b.label} size={30} fallback={b.short[0]} />
+                      <span style={{
+                        fontSize:10, fontWeight:700, letterSpacing:.3,
+                        color: isActive ? 'var(--accent)' : 'var(--text2)',
+                        whiteSpace:'nowrap',
+                      }}>
+                        {b.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* QR + address — key forces full re-mount when blockchain/token changes */}
+            {/* Token selector — two big cards with icons */}
+            <div className="input-wrap">
+              <label className="input-label">💎 Which Token?</label>
+              <div style={{display:'flex', gap:10}}>
+                {TOKEN_OPTIONS.map(tk => {
+                  const isActive = token === tk.value;
+                  return (
+                    <button
+                      type="button"
+                      key={tk.value}
+                      onClick={() => setToken(tk.value)}
+                      style={{
+                        flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                        gap:8, padding:'12px 0', borderRadius:12,
+                        border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                        background: isActive ? 'rgba(0,210,180,.12)' : 'var(--input-bg)',
+                        cursor:'pointer', transition:'all .2s',
+                      }}
+                    >
+                      <ImgIcon src={tk.icon} alt={tk.label} size={24}
+                        fallback={tk.label[0]} fallbackBg={tk.color} fallbackColor="#fff" />
+                      <span style={{
+                        fontWeight:700, fontSize:15,
+                        color: isActive ? 'var(--accent)' : 'var(--text2)',
+                      }}>
+                        {tk.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* QR + address — key forces full re-mount on change */}
             <div key={cryptoKey}>
               {cryptoAddr ? (
                 <div style={{background:'rgba(0,210,180,.07)',border:'1px solid rgba(0,210,180,.25)',borderRadius:10,padding:'16px 14px',marginBottom:14,textAlign:'center'}}>
-                  <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',marginBottom:4,textTransform:'uppercase',letterSpacing:.5}}>
-                    {selectedToken?.label} · {selectedChain?.label}
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:12}}>
+                    <ImgIcon src={selectedChain?.icon} alt={selectedChain?.label} size={22} fallback={selectedChain?.short[0]}/>
+                    <span style={{fontWeight:700,fontSize:13,color:'var(--text)'}}>
+                      {selectedChain?.label}
+                    </span>
+                    <span style={{color:'var(--text2)',fontSize:12}}>·</span>
+                    <ImgIcon src={selectedToken?.icon} alt={selectedToken?.label} size={22} fallback={selectedToken?.label[0]} fallbackBg={selectedToken?.color} fallbackColor="#fff"/>
+                    <span style={{fontWeight:700,fontSize:13,color:'var(--text)'}}>
+                      {selectedToken?.label}
+                    </span>
                   </div>
-                  <div style={{fontSize:10,color:'var(--text2)',marginBottom:12}}>Deposit Wallet Address</div>
+                  <div style={{fontSize:10,color:'var(--text2)',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Deposit Wallet Address</div>
                   <div style={{display:'inline-block',background:'#fff',borderRadius:12,padding:12,boxShadow:'0 2px 12px rgba(0,0,0,.1)'}}>
                     <QRCodeSVG value={cryptoAddr} size={180} level="H"
-                      imageSettings={{ src:`${import.meta.env.BASE_URL}logo.png`, height:36, width:36, excavate:true }}
-                    />
+                      imageSettings={{ src:`${import.meta.env.BASE_URL}logo.png`, height:36, width:36, excavate:true }}/>
                   </div>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginTop:12,justifyContent:'center'}}>
                     <span style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontFamily:'monospace',fontSize:12,fontWeight:600,letterSpacing:.5,wordBreak:'break-all',flex:1,textAlign:'center'}}>
@@ -298,7 +378,14 @@ function WalletScreen({ user, setUser, showToast, lang }) {
                 </div>
               ) : (
                 <div style={{background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,padding:'14px 16px',marginBottom:14,textAlign:'center',fontSize:13,color:'#ef4444'}}>
-                  {selectedToken?.label} on {selectedChain?.label} — wallet not configured yet
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginBottom:4}}>
+                    <ImgIcon src={selectedToken?.icon} alt={selectedToken?.label} size={18} fallback={selectedToken?.label[0]} fallbackBg={selectedToken?.color} fallbackColor="#fff"/>
+                    <span>{selectedToken?.label}</span>
+                    <span>on</span>
+                    <ImgIcon src={selectedChain?.icon} alt={selectedChain?.label} size={18} fallback={selectedChain?.short[0]}/>
+                    <span>{selectedChain?.label}</span>
+                  </div>
+                  <span style={{fontSize:12}}>— wallet not configured yet</span>
                 </div>
               )}
             </div>
@@ -307,14 +394,14 @@ function WalletScreen({ user, setUser, showToast, lang }) {
             <div className="input-wrap">
               <label className="input-label">{amountLabel}</label>
               <input className="inp" type="number" placeholder={amountPlaceholder}
-                value={cryptoAmount} onChange={e => setCryptoAmount(e.target.value)} />
+                value={cryptoAmount} onChange={e => setCryptoAmount(e.target.value)}/>
             </div>
 
             {/* TxnHash */}
             <div className="input-wrap">
               <label className="input-label">Transaction Hash (TxnHash)</label>
               <input className="inp" placeholder="Paste your TxnHash here"
-                value={txnHash} onChange={e => setTxnHash(e.target.value)} />
+                value={txnHash} onChange={e => setTxnHash(e.target.value)}/>
             </div>
           </div>
         )}
@@ -328,7 +415,7 @@ function WalletScreen({ user, setUser, showToast, lang }) {
           </div>
         )}
 
-        {/* Non-crypto fields */}
+        {/* Non-crypto account + amount fields */}
         {!isCrypto && (
           <>
             <div className="input-wrap">
@@ -337,12 +424,12 @@ function WalletScreen({ user, setUser, showToast, lang }) {
               </label>
               <input className="inp"
                 placeholder={`${method.toUpperCase()} ${t.number_placeholder}`}
-                value={acct} onChange={e => setAcct(e.target.value)} />
+                value={acct} onChange={e => setAcct(e.target.value)}/>
             </div>
             <div className="input-wrap">
               <label className="input-label">{t.amount_label}</label>
               <input className="inp" type="number" placeholder={t.enter_amount}
-                value={amount} onChange={e => setAmount(e.target.value)} />
+                value={amount} onChange={e => setAmount(e.target.value)}/>
             </div>
           </>
         )}
@@ -364,7 +451,8 @@ function WalletScreen({ user, setUser, showToast, lang }) {
                 ? <><Icons.Coin size={16}/> {isBn ? 'ক্রিপ্টো ডিপোজিট সাবমিট করুন' : 'Submit Crypto Deposit'}</>
                 : tab === 'withdraw'
                   ? <><Icons.Transfer size={16}/> {t.req_withdraw}</>
-                  : <><Icons.Coin size={16}/> {t.sub_deposit}</>}
+                  : <><Icons.Coin size={16}/> {t.sub_deposit}</>
+            }
           </button>
         )}
       </div>
