@@ -578,6 +578,18 @@ app.post('/api/login', loginLimiter, async (req, res) => {
   }
 });
 
+app.get('/api/me', authRequired, (req, res) => {
+  try {
+    const user = stmts.getUserById.get(req.auth.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const plan = stmts.getPlan.get(user.plan_id);
+    res.json({ user: toClientUser(user), plan });
+  } catch (err) {
+    console.error('GET /api/me error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
 // ── Plan update guard — REJECT all plan changes ─────────────────────────────
 app.put('/api/users/:id/plan', (_req, res) => {
   res.status(403).json({ error: 'Plan cannot be changed after registration' });
@@ -861,10 +873,18 @@ app.get('/api/deposit-info', (req, res) => {
     const info = {};
     rows.forEach(r => { info[r.key] = r.value; });
     res.json({
-      bkash:  info.deposit_bkash  || '',
-      nagad:  info.deposit_nagad  || '',
-      rocket: info.deposit_rocket || '',
-      bank:   info.deposit_bank   || '',
+      bkash:             info.deposit_bkash       || '',
+      nagad:             info.deposit_nagad       || '',
+      rocket:            info.deposit_rocket      || '',
+      bank:              info.deposit_bank        || '',
+      crypto_usdt_trc20: info.crypto_usdt_trc20 || '',
+      crypto_usdt_bep20: info.crypto_usdt_bep20 || '',
+      crypto_usdt_erc20: info.crypto_usdt_erc20 || '',
+      crypto_bnb:        info.crypto_bnb        || '',
+      crypto_eth:        info.crypto_eth        || '',
+      crypto_btc:        info.crypto_btc        || '',
+      crypto_trx:        info.crypto_trx        || '',
+      crypto_ltc:        info.crypto_ltc        || '',
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch deposit info' });
@@ -1440,6 +1460,15 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
         user_id: id, type: 'admin_adjustment', amount: diff,
         note: `Admin ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`,
       });
+      stmts.insertNotification.run(id, `Your balance has been updated to ৳${balance.toLocaleString()}`, 'info');
+    }
+
+    if (plan_id !== user.plan_id) {
+      stmts.insertNotification.run(id, `Your plan has been changed to ${plan.name}`, 'info');
+    }
+
+    if (banned !== user.banned) {
+      stmts.insertNotification.run(id, banned ? 'Your account has been suspended' : 'Your account has been reactivated', banned ? 'warning' : 'success');
     }
 
     const updated = stmts.getUserById.get(id);
@@ -1502,6 +1531,7 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
     // Notify admin on Telegram about approval/rejection
     if (result.status === 200) {
       const tx = result.body.transaction;
+      logAdminAction(req, `transaction_${status}`, 'transaction', txId, `${tx.type} ৳${tx.amount}`);
       const icon = status === 'approved' ? '✅' : '❌';
       const tgMsg = [
         `${icon} <b>${tx.type === 'deposit' ? 'Deposit' : 'Withdraw'} ${status === 'approved' ? 'Approved' : 'Rejected'}</b>`,
@@ -1522,20 +1552,48 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
   }
 });
 
-// ── GET /api/admin/stats — financial dashboard data ─────────────────────────
+// ── GET /api/admin/stats — enhanced financial dashboard data ─────────────────
 app.get('/api/admin/stats', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
   try {
     const stats = stmts.getFinancialStats.get();
+    const todaySignups = stmts.getTodaySignups.get()?.count || 0;
+    const activeToday = stmts.getActiveUsersToday.get()?.count || 0;
+    const planDist = stmts.getPlanDistribution.all();
+    const topEarners = stmts.getTopEarners.all();
+    const recentActivity = stmts.getRecentActivity.all();
+    const revenueChart = stmts.getRevenueByPeriod.all();
+    const supportStats = stmts.getSupportStats.get();
+    const methodBreakdown = stmts.getMethodBreakdown.all();
+    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_admin = 0').get()?.count || 0;
+
+    const pendingDeposits = db.prepare("SELECT COUNT(*) as count FROM transactions WHERE type='deposit' AND status='pending'").get()?.count || 0;
+    const pendingWithdrawals = db.prepare("SELECT COUNT(*) as count FROM transactions WHERE type='withdraw' AND status='pending'").get()?.count || 0;
+
     res.json({
       withdrawals: { count: stats.withdraw_count, sum: stats.withdraw_sum },
       deposits: { count: stats.deposit_count, sum: stats.deposit_sum },
       pendingCount: stats.pending_count,
+      pendingDeposits,
+      pendingWithdrawals,
       referralCount: stats.referral_count,
       todayEarnings: stats.today_earnings,
       alltimeEarnings: stats.alltime_earnings,
       profitLoss: stats.deposit_sum - stats.withdraw_sum,
+      newUsersToday: todaySignups,
+      activeToday,
+      totalUsers,
+      planDistribution: planDist,
+      topEarners,
+      recentActivity,
+      revenueChart,
+      support: supportStats ? {
+        totalSessions: supportStats.total_sessions || 0,
+        unrepliedSessions: supportStats.unreplied_sessions || 0,
+        adminReplies: supportStats.admin_replies || 0,
+      } : null,
+      methodBreakdown,
     });
   } catch (err) {
     console.error('Admin stats error:', err.message);
@@ -1591,6 +1649,351 @@ app.post('/api/admin/messages', authRequired, (req, res) => {
   } catch (err) {
     console.error('Admin message error:', err.message);
     res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// ── Admin activity log helper ────────────────────────────────────────────────
+function logAdminAction(req, action, targetType = '', targetId = 0, details = '') {
+  try {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
+    stmts.insertAdminLog.run({
+      admin_id: req.auth?.userId || 0,
+      action, target_type: targetType, target_id: targetId, details, ip,
+    });
+  } catch (_) {}
+}
+
+// ── GET /api/admin/activity-log — admin audit trail ─────────────────────────
+app.get('/api/admin/activity-log', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const logs = stmts.getAdminLogs.all();
+    res.json({ logs });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch activity logs' });
+  }
+});
+
+// ── GET /api/admin/users/:id/full-profile — complete user profile ───────────
+app.get('/api/admin/users/:id/full-profile', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const userId = Number(req.params.id);
+    const user = stmts.getUserById.get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const plan = stmts.getPlan.get(user.plan_id);
+    const txStats = stmts.getUserTransactionStats.get(userId);
+    const mfgStats = stmts.getUserManufacturingStats.get(userId);
+    const transactions = stmts.getUserTransactions.all(userId);
+    const recentJobs = stmts.getUserRecentJobs.all(userId);
+    const loginLogs = stmts.getUserLoginLogs.all(userId);
+    const balanceLog = stmts.getBalanceLog.all(userId);
+    const balanceSummary = stmts.getBalanceSummary.get(userId);
+
+    const referralStats = stmts.getReferralStats.get(userId);
+    const referralMembers = stmts.getReferralMemberCounts.get(
+      user.refer_code, user.refer_code, user.refer_code
+    );
+    const referralTree = stmts.getReferralTreeMembers.all(user.refer_code);
+
+    const supportMsgs = db.prepare(`
+      SELECT COUNT(*) as count FROM support_chats WHERE session_id = ?
+    `).get(`user_${userId}`);
+
+    const { password, ...safeUser } = user;
+
+    res.json({
+      user: safeUser,
+      plan,
+      txStats,
+      mfgStats,
+      transactions,
+      recentJobs,
+      loginLogs,
+      balanceLog,
+      balanceSummary,
+      referralStats,
+      referralMembers,
+      referralTree,
+      supportMessageCount: supportMsgs?.count || 0,
+    });
+  } catch (err) {
+    console.error('Full profile error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch user profile' });
+  }
+});
+
+// ── Admin permissions CRUD ──────────────────────────────────────────────────
+const ALL_PERMISSIONS = [
+  'view_users', 'edit_users', 'ban_users',
+  'approve_deposits', 'approve_withdrawals',
+  'change_settings', 'manage_admins',
+  'view_reports', 'export_data',
+  'access_support',
+];
+
+app.get('/api/admin/permissions/:adminId', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const adminId = Number(req.params.adminId);
+    const perms = stmts.getAdminPermissions.all(adminId);
+    const permMap = {};
+    ALL_PERMISSIONS.forEach(p => { permMap[p] = false; });
+    perms.forEach(p => { if (p.granted) permMap[p.permission] = true; });
+    res.json({ permissions: permMap, allPermissions: ALL_PERMISSIONS });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch permissions' });
+  }
+});
+
+app.post('/api/admin/permissions/:adminId', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const adminId = Number(req.params.adminId);
+    const { permissions } = req.body || {};
+    if (!permissions || typeof permissions !== 'object') {
+      return res.status(400).json({ error: 'Invalid permissions' });
+    }
+
+    stmts.deleteAdminPermissions.run(adminId);
+    for (const [perm, granted] of Object.entries(permissions)) {
+      if (ALL_PERMISSIONS.includes(perm)) {
+        stmts.setAdminPermission.run(adminId, perm, granted ? 1 : 0);
+      }
+    }
+
+    logAdminAction(req, 'update_permissions', 'user', adminId, JSON.stringify(permissions));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update permissions' });
+  }
+});
+
+// ── Canned responses CRUD ───────────────────────────────────────────────────
+app.get('/api/admin/canned-responses', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const responses = stmts.getAllCannedResponses.all();
+    res.json({ responses });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch canned responses' });
+  }
+});
+
+app.post('/api/admin/canned-responses', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { title, message, category } = req.body || {};
+    if (!title || !message) return res.status(400).json({ error: 'Title and message required' });
+    stmts.insertCannedResponse.run({
+      title, message, category: category || 'general', created_by: req.auth.userId,
+    });
+    logAdminAction(req, 'create_canned_response', 'canned', 0, title);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create canned response' });
+  }
+});
+
+app.delete('/api/admin/canned-responses/:id', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    stmts.deleteCannedResponse.run(Number(req.params.id));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete canned response' });
+  }
+});
+
+// ── Support session management ──────────────────────────────────────────────
+app.patch('/api/admin/support/sessions/:sessionId/status', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const sessionId = req.params.sessionId;
+    const { status } = req.body || {};
+    if (!['open', 'in_progress', 'resolved'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const existing = stmts.getSupportSession.get(sessionId);
+    if (!existing) {
+      const m = sessionId.match(/^user_(\d+)$/);
+      const userId = m ? Number(m[1]) : 0;
+      stmts.upsertSupportSession.run({
+        session_id: sessionId, user_id: userId, status, assigned_to: 0,
+      });
+    } else {
+      stmts.updateSupportSessionStatus.run(status, sessionId);
+    }
+
+    logAdminAction(req, 'update_support_status', 'support', 0, `${sessionId}: ${status}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update session status' });
+  }
+});
+
+app.patch('/api/admin/support/sessions/:sessionId/assign', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const sessionId = req.params.sessionId;
+    const { adminId } = req.body || {};
+
+    const existing = stmts.getSupportSession.get(sessionId);
+    if (!existing) {
+      const m = sessionId.match(/^user_(\d+)$/);
+      const userId = m ? Number(m[1]) : 0;
+      stmts.upsertSupportSession.run({
+        session_id: sessionId, user_id: userId, status: 'in_progress', assigned_to: Number(adminId) || 0,
+      });
+    } else {
+      stmts.updateSupportSessionAssign.run(Number(adminId) || 0, sessionId);
+    }
+
+    logAdminAction(req, 'assign_support', 'support', Number(adminId) || 0, sessionId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to assign session' });
+  }
+});
+
+// ── Bulk user actions ───────────────────────────────────────────────────────
+app.post('/api/admin/bulk-action', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { action, userIds } = req.body || {};
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'No users selected' });
+    }
+    if (!['ban', 'unban'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    let affected = 0;
+    db.transaction(() => {
+      for (const uid of userIds) {
+        const id = Number(uid);
+        if (id === req.auth.userId) continue;
+        const user = stmts.getUserById.get(id);
+        if (!user) continue;
+        if (!req.auth.isMainAdmin && user.is_admin) continue;
+
+        if (action === 'ban') {
+          stmts.bulkBanUsers.run(id);
+        } else {
+          stmts.bulkUnbanUsers.run(id);
+        }
+        affected++;
+      }
+    })();
+
+    logAdminAction(req, `bulk_${action}`, 'users', 0, `${affected} users`);
+    res.json({ ok: true, affected });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to perform bulk action' });
+  }
+});
+
+// ── CSV export endpoints ────────────────────────────────────────────────────
+app.get('/api/admin/export/users', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const users = stmts.getAllUsers.all().map(u => {
+      const { password, ...safe } = u;
+      return safe;
+    });
+    logAdminAction(req, 'export_users', 'export', 0, `${users.length} users`);
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export' });
+  }
+});
+
+app.get('/api/admin/export/transactions', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const transactions = db.prepare(`
+      SELECT t.*, u.name as user_name, u.identifier as user_identifier
+      FROM transactions t LEFT JOIN users u ON u.id = t.user_id
+      ORDER BY t.id DESC
+    `).all();
+    logAdminAction(req, 'export_transactions', 'export', 0, `${transactions.length} transactions`);
+    res.json({ transactions });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export' });
+  }
+});
+
+// ── Plan management (admin) ─────────────────────────────────────────────────
+app.get('/api/admin/plans', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const plans = stmts.getAllPlans.all();
+    res.json({ plans });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch plans' });
+  }
+});
+
+app.patch('/api/admin/plans/:id', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const planId = req.params.id;
+    const existing = stmts.getPlan.get(planId);
+    if (!existing) return res.status(404).json({ error: 'Plan not found' });
+
+    const updates = req.body || {};
+    const plan = {
+      id: planId,
+      name: updates.name || existing.name,
+      price_display: updates.price_display || existing.price_display,
+      rate: updates.rate !== undefined ? Number(updates.rate) : existing.rate,
+      per_task: updates.per_task !== undefined ? Number(updates.per_task) : existing.per_task,
+      daily_earn: updates.daily_earn !== undefined ? Number(updates.daily_earn) : existing.daily_earn,
+      daily: updates.daily !== undefined ? Number(updates.daily) : existing.daily,
+      task_time: updates.task_time !== undefined ? Number(updates.task_time) : existing.task_time,
+      color: updates.color || existing.color,
+      l1: updates.l1 !== undefined ? Number(updates.l1) : existing.l1,
+      l2: updates.l2 !== undefined ? Number(updates.l2) : existing.l2,
+      l3: updates.l3 !== undefined ? Number(updates.l3) : existing.l3,
+    };
+
+    db.prepare(`
+      INSERT OR REPLACE INTO plans (id, name, price_display, rate, per_task, daily_earn, daily, task_time, color, l1, l2, l3)
+      VALUES (@id, @name, @price_display, @rate, @per_task, @daily_earn, @daily, @task_time, @color, @l1, @l2, @l3)
+    `).run(plan);
+
+    logAdminAction(req, 'update_plan', 'plan', 0, `${planId}: ${JSON.stringify(updates)}`);
+    res.json({ ok: true, plan });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update plan' });
+  }
+});
+
+// ── Admin force password reset ──────────────────────────────────────────────
+app.post('/api/admin/users/:id/force-password-reset', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const userId = Number(req.params.id);
+    const { newPassword } = req.body || {};
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    const hash = bcrypt.hashSync(newPassword, 10);
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, userId);
+    logAdminAction(req, 'force_password_reset', 'user', userId, '');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 

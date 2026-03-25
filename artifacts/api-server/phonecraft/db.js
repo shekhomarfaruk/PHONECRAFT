@@ -88,19 +88,6 @@ try { db.exec('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0'); } catch 
 try { db.exec('ALTER TABLE notifications ADD COLUMN meta TEXT DEFAULT NULL'); } catch (_) {}
 // Add avatar_img column for user profile photo
 try { db.exec('ALTER TABLE users ADD COLUMN avatar_img TEXT DEFAULT NULL'); } catch (_) {}
-// Admin role system: balance limit for user-admins
-try { db.exec('ALTER TABLE users ADD COLUMN admin_balance_limit REAL DEFAULT 0'); } catch (_) {}
-
-// Track daily balance additions by user-admins (max 3 per day)
-db.exec(`
-  CREATE TABLE IF NOT EXISTS admin_balance_adds (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    admin_id   INTEGER NOT NULL REFERENCES users(id),
-    target_id  INTEGER NOT NULL REFERENCES users(id),
-    amount     REAL NOT NULL,
-    created_at TEXT DEFAULT (datetime('now'))
-  );
-`);
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`
@@ -164,59 +151,18 @@ db.exec(`
     session_id  TEXT NOT NULL,
     sender      TEXT NOT NULL,
     message     TEXT NOT NULL,
-    sender_name TEXT,
     created_at  TEXT DEFAULT (datetime('now'))
   );
 `);
 
-// Migrate existing support_chats if sender_name column is missing
-try {
-  const scCols = db.prepare('PRAGMA table_info(support_chats)').all();
-  if (!scCols.some(c => c.name === 'sender_name')) {
-    db.exec('ALTER TABLE support_chats ADD COLUMN sender_name TEXT');
-    console.log('[DB] support_chats: added sender_name column');
-  }
-} catch (e) {
-  console.warn('[DB] support_chats migration skipped:', e.message);
-}
-
-// Telegram (chat_id, message_id) → support session mapping (for webhook replies)
-// Note: Telegram message_ids are scoped per-chat, so we use a composite key to avoid collisions
+// Telegram message_id → support session mapping (for webhook replies)
 db.exec(`
   CREATE TABLE IF NOT EXISTS tg_msg_map (
-    chat_id       INTEGER NOT NULL DEFAULT 0,
-    tg_message_id INTEGER NOT NULL,
+    tg_message_id INTEGER PRIMARY KEY,
     session_id    TEXT NOT NULL,
-    created_at    TEXT DEFAULT (datetime('now')),
-    PRIMARY KEY (chat_id, tg_message_id)
+    created_at    TEXT DEFAULT (datetime('now'))
   );
 `);
-
-// Migrate existing tg_msg_map if it still uses the old single-column primary key
-try {
-  const cols = db.prepare('PRAGMA table_info(tg_msg_map)').all();
-  const hasChatId = cols.some(c => c.name === 'chat_id');
-  if (!hasChatId) {
-    db.exec(`
-      ALTER TABLE tg_msg_map RENAME TO tg_msg_map_old;
-      CREATE TABLE tg_msg_map (
-        chat_id       INTEGER NOT NULL DEFAULT 0,
-        tg_message_id INTEGER NOT NULL,
-        session_id    TEXT NOT NULL,
-        created_at    TEXT DEFAULT (datetime('now')),
-        PRIMARY KEY (chat_id, tg_message_id)
-      );
-      INSERT INTO tg_msg_map (chat_id, tg_message_id, session_id, created_at)
-        SELECT 0, tg_message_id, session_id, created_at FROM tg_msg_map_old;
-      DROP TABLE tg_msg_map_old;
-    `);
-    // NOTE: legacy rows are migrated with chat_id=0; replies to pre-migration forwarded
-    // messages will not match new chat-scoped lookups — only new messages are affected.
-    console.log('[DB] tg_msg_map migrated to composite (chat_id, tg_message_id) primary key');
-  }
-} catch (e) {
-  console.warn('[DB] tg_msg_map migration skipped:', e.message);
-}
 
 // Telegram integration audit logs
 db.exec(`
@@ -229,19 +175,6 @@ db.exec(`
   );
 `);
 
-// Team chat messages (referral-based group chat)
-db.exec(`
-  CREATE TABLE IF NOT EXISTS team_messages (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    room_id     INTEGER NOT NULL,
-    sender_id   INTEGER NOT NULL,
-    sender_name TEXT NOT NULL,
-    message     TEXT NOT NULL,
-    created_at  TEXT DEFAULT (datetime('now'))
-  );
-  CREATE INDEX IF NOT EXISTS idx_team_messages_room ON team_messages(room_id, id);
-`);
-
 // App settings (key-value store for deposit numbers, etc.)
 db.exec(`
   CREATE TABLE IF NOT EXISTS app_settings (
@@ -250,8 +183,62 @@ db.exec(`
   );
 `);
 
+// Admin activity log
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_activity_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id    INTEGER NOT NULL REFERENCES users(id),
+    action      TEXT NOT NULL,
+    target_type TEXT DEFAULT '',
+    target_id   INTEGER DEFAULT 0,
+    details     TEXT DEFAULT '',
+    ip          TEXT DEFAULT '',
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Admin permissions (granular)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_permissions (
+    admin_id    INTEGER NOT NULL REFERENCES users(id),
+    permission  TEXT NOT NULL,
+    granted     INTEGER DEFAULT 1,
+    PRIMARY KEY (admin_id, permission)
+  );
+`);
+
+// Canned responses for support
+db.exec(`
+  CREATE TABLE IF NOT EXISTS canned_responses (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT NOT NULL,
+    message     TEXT NOT NULL,
+    category    TEXT DEFAULT 'general',
+    created_by  INTEGER NOT NULL REFERENCES users(id),
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Add support chat status columns
+try { db.exec('ALTER TABLE support_chats ADD COLUMN status TEXT DEFAULT NULL'); } catch (_) {}
+
+// Support session metadata table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS support_sessions (
+    session_id  TEXT PRIMARY KEY,
+    user_id     INTEGER DEFAULT 0,
+    status      TEXT DEFAULT 'open',
+    assigned_to INTEGER DEFAULT 0,
+    created_at  TEXT DEFAULT (datetime('now')),
+    updated_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // Seed default deposit numbers if not set
-const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposit_bank', 'deposit_crypto_usdt_trc20', 'deposit_crypto_usdt_bep20', 'deposit_crypto_bnb'];
+const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposit_bank',
+  'maintenance_mode', 'announcement_banner', 'min_withdraw', 'max_withdraw',
+  'min_deposit', 'max_deposit', 'daily_withdraw_limit', 'auto_hold_threshold',
+  'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
 
@@ -512,47 +499,10 @@ const stmts = {
     WHERE banned = 0 AND is_admin = 0
     ORDER BY id ASC
   `),
-  // Admin balance add tracking (user-admin daily limit)
-  insertAdminBalanceAdd: db.prepare('INSERT INTO admin_balance_adds (admin_id, target_id, amount) VALUES (?, ?, ?)'),
-  getAdminBalanceAddsToday: db.prepare(`
-    SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total
-    FROM admin_balance_adds
-    WHERE admin_id = ? AND date(created_at, '+6 hours') = date('now', '+6 hours')
-  `),
-  updateAdminBalanceLimit: db.prepare('UPDATE users SET admin_balance_limit = ? WHERE id = ?'),
-
-  // Team chat
-  insertTeamMessage:  db.prepare('INSERT INTO team_messages (room_id, sender_id, sender_name, message) VALUES (?, ?, ?, ?)'),
-  getTeamMessages:    db.prepare('SELECT * FROM team_messages WHERE room_id = ? ORDER BY id ASC LIMIT 100'),
-  getTeamMembers:     db.prepare(`
-    SELECT id, name, avatar, avatar_img, plan_id
-    FROM users
-    WHERE (id = ? OR referred_by = (SELECT refer_code FROM users WHERE id = ?))
-      AND is_admin = 0
-    ORDER BY id ASC
-  `),
-  getTeamRoomInfo:    db.prepare('SELECT id, name, refer_code FROM users WHERE id = ?'),
-
-  insertSupportMsg:   db.prepare('INSERT INTO support_chats (session_id, sender, message, sender_name) VALUES (?, ?, ?, ?)'),
+  insertSupportMsg:   db.prepare('INSERT INTO support_chats (session_id, sender, message) VALUES (?, ?, ?)'),
   getSupportMsgs:     db.prepare('SELECT * FROM support_chats WHERE session_id = ? ORDER BY id ASC LIMIT 100'),
-  insertTgMsgMap:     db.prepare('INSERT OR IGNORE INTO tg_msg_map (chat_id, tg_message_id, session_id) VALUES (?, ?, ?)'),
-  getSessionByTgMsg:  db.prepare('SELECT session_id FROM tg_msg_map WHERE chat_id = ? AND tg_message_id = ?'),
-
-  // Admin support session queries
-  getAllSupportSessions: db.prepare(`
-    SELECT
-      sc.session_id,
-      COUNT(sc.id) AS msg_count,
-      MAX(sc.created_at) AS last_active,
-      SUM(CASE WHEN sc.sender = 'user' THEN 1 ELSE 0 END) AS user_msgs,
-      SUM(CASE WHEN sc.sender = 'admin' THEN 1 ELSE 0 END) AS admin_replies,
-      (SELECT sc2.message FROM support_chats sc2 WHERE sc2.session_id = sc.session_id ORDER BY sc2.id DESC LIMIT 1) AS last_message,
-      (SELECT sc3.sender_name FROM support_chats sc3 WHERE sc3.session_id = sc.session_id AND sc3.sender = 'user' AND sc3.sender_name IS NOT NULL ORDER BY sc3.id ASC LIMIT 1) AS user_name
-    FROM support_chats sc
-    GROUP BY sc.session_id
-    ORDER BY MAX(sc.id) DESC
-    LIMIT 100
-  `),
+  insertTgMsgMap:     db.prepare('INSERT OR IGNORE INTO tg_msg_map (tg_message_id, session_id) VALUES (?, ?)'),
+  getSessionByTgMsg:  db.prepare('SELECT session_id FROM tg_msg_map WHERE tg_message_id = ?'),
   insertTelegramLog:  db.prepare(`
     INSERT INTO telegram_action_logs (action, ok, details)
     VALUES (@action, @ok, @details)
@@ -562,6 +512,109 @@ const stmts = {
   getSetting:     db.prepare('SELECT value FROM app_settings WHERE key = ?'),
   getAllSettings: db.prepare('SELECT key, value FROM app_settings'),
   setSetting:     db.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)'),
+
+  // Admin activity log
+  insertAdminLog: db.prepare(`
+    INSERT INTO admin_activity_log (admin_id, action, target_type, target_id, details, ip)
+    VALUES (@admin_id, @action, @target_type, @target_id, @details, @ip)
+  `),
+  getAdminLogs: db.prepare(`
+    SELECT al.*, u.name as admin_name
+    FROM admin_activity_log al
+    LEFT JOIN users u ON u.id = al.admin_id
+    ORDER BY al.id DESC LIMIT 200
+  `),
+
+  // Admin permissions
+  getAdminPermissions: db.prepare('SELECT permission, granted FROM admin_permissions WHERE admin_id = ?'),
+  setAdminPermission: db.prepare('INSERT OR REPLACE INTO admin_permissions (admin_id, permission, granted) VALUES (?, ?, ?)'),
+  deleteAdminPermissions: db.prepare('DELETE FROM admin_permissions WHERE admin_id = ?'),
+
+  // Canned responses
+  getAllCannedResponses: db.prepare('SELECT * FROM canned_responses ORDER BY category, title'),
+  insertCannedResponse: db.prepare('INSERT INTO canned_responses (title, message, category, created_by) VALUES (@title, @message, @category, @created_by)'),
+  deleteCannedResponse: db.prepare('DELETE FROM canned_responses WHERE id = ?'),
+
+  // Support sessions
+  upsertSupportSession: db.prepare(`
+    INSERT INTO support_sessions (session_id, user_id, status, assigned_to, created_at, updated_at)
+    VALUES (@session_id, @user_id, @status, @assigned_to, datetime('now'), datetime('now'))
+    ON CONFLICT(session_id) DO UPDATE SET updated_at = datetime('now')
+  `),
+  getSupportSession: db.prepare('SELECT * FROM support_sessions WHERE session_id = ?'),
+  updateSupportSessionStatus: db.prepare('UPDATE support_sessions SET status = ?, updated_at = datetime(\'now\') WHERE session_id = ?'),
+  updateSupportSessionAssign: db.prepare('UPDATE support_sessions SET assigned_to = ?, updated_at = datetime(\'now\') WHERE session_id = ?'),
+  getAllSupportSessions: db.prepare('SELECT * FROM support_sessions ORDER BY updated_at DESC'),
+
+  // Enhanced stats
+  getTodaySignups: db.prepare(`SELECT COUNT(*) as count FROM users WHERE date(created_at, '+6 hours') = date('now', '+6 hours')`),
+  getActiveUsersToday: db.prepare(`SELECT COUNT(DISTINCT user_id) as count FROM login_logs WHERE date(logged_at, '+6 hours') = date('now', '+6 hours')`),
+  getPlanDistribution: db.prepare(`
+    SELECT p.name, p.color, COUNT(u.id) as count
+    FROM plans p LEFT JOIN users u ON u.plan_id = p.id AND u.banned = 0 AND u.is_admin = 0
+    GROUP BY p.id ORDER BY p.rate ASC
+  `),
+  getTopEarners: db.prepare(`
+    SELECT id, name, balance, plan_id FROM users
+    WHERE banned = 0 AND is_admin = 0
+    ORDER BY balance DESC LIMIT 10
+  `),
+  getRecentActivity: db.prepare(`
+    SELECT 'signup' as type, id, name as detail, created_at FROM users WHERE created_at > datetime('now', '-24 hours')
+    UNION ALL
+    SELECT type as type, id, amount || ' ' || method as detail, created_at FROM transactions WHERE created_at > datetime('now', '-24 hours')
+    ORDER BY created_at DESC LIMIT 30
+  `),
+  getRevenueByPeriod: db.prepare(`
+    SELECT
+      date(created_at, '+6 hours') as day,
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as deposits,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as withdrawals
+    FROM transactions
+    WHERE created_at > datetime('now', '-30 days')
+    GROUP BY day ORDER BY day ASC
+  `),
+  getSupportStats: db.prepare(`
+    SELECT
+      COUNT(DISTINCT session_id) as total_sessions,
+      COUNT(DISTINCT CASE WHEN sender = 'user' THEN session_id END) as user_sessions,
+      SUM(CASE WHEN sender = 'admin' THEN 1 ELSE 0 END) as admin_replies,
+      COUNT(DISTINCT CASE WHEN sender = 'user' AND session_id NOT IN
+        (SELECT DISTINCT session_id FROM support_chats WHERE sender = 'admin')
+        THEN session_id END) as unreplied_sessions
+    FROM support_chats
+  `),
+  getMethodBreakdown: db.prepare(`
+    SELECT method, type,
+      COUNT(*) as count,
+      COALESCE(SUM(amount), 0) as total
+    FROM transactions WHERE status = 'approved'
+    GROUP BY method, type
+  `),
+
+  // User full profile
+  getUserTransactionStats: db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as total_deposited,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as total_withdrawn,
+      COUNT(*) as total_transactions
+    FROM transactions WHERE user_id = ?
+  `),
+  getUserManufacturingStats: db.prepare(`
+    SELECT
+      COUNT(*) as total_jobs,
+      COALESCE(SUM(earned), 0) as total_earned,
+      COUNT(CASE WHEN status='completed' THEN 1 END) as completed_jobs
+    FROM manufacturing_jobs WHERE user_id = ?
+  `),
+  getUserRecentJobs: db.prepare('SELECT * FROM manufacturing_jobs WHERE user_id = ? ORDER BY id DESC LIMIT 20'),
+
+  // Bulk actions
+  bulkBanUsers: db.prepare('UPDATE users SET banned = 1 WHERE id = ?'),
+  bulkUnbanUsers: db.prepare('UPDATE users SET banned = 0 WHERE id = ?'),
+
+  // All plans (for admin editing)
+  getAllPlans: db.prepare('SELECT * FROM plans ORDER BY rate ASC'),
 };
 
 // ── Helper: strip password from user object ─────────────────────────────────────

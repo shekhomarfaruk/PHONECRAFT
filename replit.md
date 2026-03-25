@@ -24,6 +24,15 @@ pnpm workspace monorepo. The primary product is **PhoneCraft** — a virtual pho
 - **Auth**: JWT signed with `AUTH_SECRET` secret (stored in Replit Secrets, NOT env vars)
 - **DB file**: `artifacts/api-server/phonecraft/phonecraft.db` (gitignored)
 
+### Admin Panel (`artifacts/admin-panel`)
+- **Framework**: React + Vite (JSX)
+- **Preview path**: `/admin-panel/` (port 24480 in dev)
+- **Dev command**: `pnpm --filter @workspace/admin-panel run dev`
+- Proxies `/api/*` to API server at `http://localhost:8080` via `vite.config.ts`
+- Standalone login screen with sidebar navigation and 6 pages (Dashboard, Users, Finance, Support, Admins, Settings)
+- Uses `is_main_admin` from API responses to determine admin role level
+- Auto-logout on 401 responses, plan options fetched from `/api/admin/plans`
+
 ### Component Preview Server (`artifacts/mockup-sandbox`)
 - Used for UI mockup prototyping on canvas (not part of the main product)
 
@@ -75,6 +84,10 @@ workspace/
 │   │       ├── db.js             # SQLite DB schema + prepared statements
 │   │       └── services/
 │   │           └── telegramService.js
+│   ├── admin-panel/              # Standalone admin panel (React + Vite)
+│   │   └── src/
+│   │       ├── App.jsx           # Full admin panel (login, dashboard, users, finance, support, admins, settings)
+│   │       └── styles.css        # Responsive CSS with .grid-2/.grid-3/.grid-4 utilities, sidebar overlay, breakpoints at 1024/768/480px
 │   └── mockup-sandbox/           # UI prototyping sandbox
 ├── scripts/
 ├── pnpm-workspace.yaml
@@ -83,36 +96,59 @@ workspace/
 
 ## Admin Panel
 
-The admin panel (`AdminScreen.jsx`) has the following tabs:
-- **Users** — manage users, search, filter by status (All/Active/Banned/Admin), edit balance/plan, ban/unban
-- **Admins** — manage admin access (main admin only)
-- **Transactions** — approve/reject deposits and withdrawals
-- **Support** — view all support sessions, read message threads, send replies
-- **Ops** — system operations
-- **Dashboard** — financial stats, user activity, top earners, support summary (main admin only)
-- **Settings** — payment account settings (main admin only)
+The admin panel (`AdminScreen.jsx`) is a comprehensive control center with 6 tabs:
+
+- **Dashboard** (main admin only) — live stats (total users, active today, new signups), revenue overview with mini bar chart (last 14 days deposits vs withdrawals), pending actions with quick-process button, plan distribution bars, top 10 earners, recent activity feed, support summary, payment method breakdown
+- **Users** — full-featured user management with search/filter (All/Active/Banned/Admin), bulk select for ban/unban, CSV export, broadcast messaging. User profile modal with 5 sub-tabs: Info (balance stats, edit balance/plan/admin toggle, force password reset), Transactions (full history), Referrals (L1/L2/L3 tree), Manufacturing (job history), Logins (IP/device/location)
+- **Finance** — transaction queue with status filter (Pending/Approved/Rejected/All) and type filter (Deposit/Withdraw/All). Inline approve/reject with admin notes. CSV export
+- **Support** — session list with unanswered filter, chat thread view with real-time polling, canned responses management (create/delete/quick-insert), session status management (resolve), admin assignment
+- **Admins** (main admin only) — admin list with role badges, granular permission editor (10 permissions: view_users, edit_users, ban_users, approve_deposits, approve_withdrawals, change_settings, manage_admins, view_reports, export_data, access_support), admin activity audit log
+- **Settings** (main admin only) — app control (maintenance mode toggle, announcement banner), payment accounts (bKash/Nagad/Rocket/Bank), financial limits (min/max deposit/withdraw, daily withdrawal limit, auto-hold threshold), plan management (edit price, per-task earnings, daily tasks, task time, referral percentages)
 
 ### Admin Role System
 
-Three-tier role hierarchy:
-- **Main Admin** (`refer_code = ADMIN01`): Full access — users, admins, settings, dashboard. Can promote users to User Admin and set their daily balance limit.
-- **User Admin** (`is_admin = 1`): Can see only regular users (no admins visible). Can add balance to users max **3 times per day** up to `admin_balance_limit` (set by Main Admin). Cannot promote others or change plans.
-- **Regular User** (`is_admin = 0`): No admin access.
+Two-tier role hierarchy:
+- **Main Admin** (`refer_code = ADMIN01`): Full access to all tabs and features
+- **Sub-Admin** (`is_admin = 1`): Access to Users, Finance, Support tabs only. Granular permissions controlled by Main Admin via the Admins tab
 
-Key columns: `users.is_admin` (0/1), `users.admin_balance_limit` (REAL), table `admin_balance_adds` tracks daily usage.
+### Database Tables for Admin
+
+- `admin_activity_log` — audit trail of all admin actions (who, what, when, IP)
+- `admin_permissions` — granular permission grants per sub-admin
+- `canned_responses` — pre-written support reply templates
+- `support_sessions` — session metadata (status: open/in_progress/resolved, assigned_to)
 
 ## Key API Endpoints
 
 - `GET  /api/health` — health check
+- `GET  /api/me` — get current user profile (requires auth)
 - `POST /api/auth/login` — login
 - `POST /api/auth/register` — register
 - `GET  /api/admin/users` — list users (filtered by role)
-- `PATCH /api/admin/users/:id` — update user (role-aware: user-admins can only add balance)
-- `GET  /api/admin/my-quota` — user-admin daily balance add quota
+- `PATCH /api/admin/users/:id` — update user
+- `GET  /api/admin/users/:id/full-profile` — complete user profile with tx/mfg/referral/login data
+- `POST /api/admin/users/:id/force-password-reset` — force password reset
+- `POST /api/admin/bulk-action` — bulk ban/unban users
+- `GET  /api/admin/transactions` — list all transactions
+- `PATCH /api/admin/transactions/:id` — approve/reject transaction
+- `GET  /api/admin/stats` — enhanced dashboard stats (signups, activity, revenue chart, plan dist, top earners, support stats, method breakdown)
+- `POST /api/admin/messages` — send message to user(s)
 - `GET  /api/admin/support/sessions` — list support sessions
-- `GET  /api/admin/support/messages/:sessionId` — get messages for a session
-- `POST /api/admin/support/reply` — send admin reply to support session
-- `POST /api/admin/support/reply/:sessionId` — REST-style admin reply
-- `GET  /api/admin/stats` — financial + activity dashboard stats (main admin only)
+- `GET  /api/admin/support/messages/:sessionId` — get messages
+- `POST /api/admin/support/reply` — send admin reply
+- `PATCH /api/admin/support/sessions/:sessionId/status` — update session status
+- `PATCH /api/admin/support/sessions/:sessionId/assign` — assign session to admin
+- `GET  /api/admin/canned-responses` — list canned responses
+- `POST /api/admin/canned-responses` — create canned response
+- `DELETE /api/admin/canned-responses/:id` — delete canned response
+- `GET  /api/admin/permissions/:adminId` — get admin permissions
+- `POST /api/admin/permissions/:adminId` — set admin permissions
+- `GET  /api/admin/activity-log` — admin audit trail
+- `GET  /api/admin/export/users` — export users CSV
+- `GET  /api/admin/export/transactions` — export transactions CSV
+- `GET  /api/admin/plans` — list plans
+- `PATCH /api/admin/plans/:id` — update plan
+- `GET  /api/admin/settings` — get app settings
+- `POST /api/admin/settings` — save app settings
 - `POST /webhook/telegram` — support bot webhook
 - `POST /webhook/telegram/finance` — finance bot webhook

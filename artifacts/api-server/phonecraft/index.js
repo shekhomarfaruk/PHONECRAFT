@@ -10,10 +10,6 @@ const { db, stmts, sanitizeUser, todayDate } = require('./db');
 const { TelegramService } = require('./services/telegramService');
 
 const app  = express();
-
-// ── Bilingual notification helper ────────────────────────────────────────────
-// Stores both English and Bengali text so the frontend can pick by lang.
-const biMsg = (en, bn) => JSON.stringify({ en, bn });
 const PORT = process.env.PORT || 4000;
 const DEFAULT_TELEGRAM_BOT = process.env.TELEGRAM_BOT_TOKEN || '';
 const FINANCE_BOT = process.env.TELEGRAM_FINANCE_BOT_TOKEN || DEFAULT_TELEGRAM_BOT;
@@ -213,8 +209,8 @@ try {
   if (capped.changes > 0) console.log(`[Migration] Capped ${capped.changes} marketplace item price(s) to max $10`);
 } catch (_) {}
 
-// ── Frontend served separately by Vite (in development) ──────────────────────
-// app.use(express.static(path.join(__dirname, '..', 'dist')));
+// ── Serve frontend build ──────────────────────────────────────────────────────
+app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status:'ok', service:'PhoneCraft API' }));
@@ -275,7 +271,7 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
         user_id: tx.user_id,
         type: 'withdrawal_refund',
         amount: tx.amount,
-        note: biMsg(`Withdrawal Refund (Declined) — ${tx.method}`, `উইথড্র রিফান্ড (প্রত্যাখ্যাত) — ${tx.method}`),
+        note: `উইথড্র রিফান্ড (প্রত্যাখ্যাত) — ${tx.method}`,
       });
     }
 
@@ -285,19 +281,13 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
         user_id: tx.user_id,
         type: 'deposit',
         amount: tx.amount,
-        note: biMsg(`Deposit Approved (${tx.method} - ${tx.account})`, `ডিপোজিট অনুমোদিত (${tx.method} - ${tx.account})`),
+        note: `ডিপোজিট অনুমোদিত (${tx.method} - ${tx.account})`,
       });
     }
 
     const action = status === 'approved' ? 'approved' : 'rejected';
-    const actionBn = status === 'approved' ? 'অনুমোদিত' : 'প্রত্যাখ্যাত';
-    const typeBn = tx.type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র';
     const noteStr = adminNote ? ` Note: ${adminNote}` : '';
-    const noteStrBn = adminNote ? ` নোট: ${adminNote}` : '';
-    const notifMsg = biMsg(
-      `Your ${tx.type} of ৳${tx.amount.toLocaleString()} has been ${action}.${noteStr}`,
-      `আপনার ${typeBn} ৳${tx.amount.toLocaleString()} ${actionBn} হয়েছে।${noteStrBn}`
-    );
+    const notifMsg = `Your ${tx.type} of ৳${tx.amount.toLocaleString()} has been ${action}.${noteStr}`;
     stmts.insertNotification.run(tx.user_id, notifMsg, status === 'approved' ? 'success' : 'warning');
 
     return { status: 200, body: { transaction: stmts.getTransactionById.get(Number(txId)) } };
@@ -313,7 +303,7 @@ const telegramService = new TelegramService({
   stmts,
   processTransactionAction,
   onSupportSessionReply: ({ sessionId, text }) => {
-    stmts.insertSupportMsg.run(sessionId, 'admin', String(text || '').trim(), 'Telegram Admin');
+    stmts.insertSupportMsg.run(sessionId, 'admin', String(text || '').trim());
   },
 });
 
@@ -393,10 +383,7 @@ app.post('/api/register', registerLimiter, (req, res) => {
     const meta = JSON.stringify({ pending_id: pendingId, plan_name: planRow.name, amount: planRow.rate, new_user_name: name.trim() });
     stmts.insertNotifWithMeta.run(
       referrer.id,
-      biMsg(
-        `🔔 ${name.trim()} wants to join ${planRow.name} plan with your referral code. ৳${planRow.rate.toLocaleString()} will be deducted from your balance.`,
-        `🔔 ${name.trim()} আপনার রেফারেল কোড ব্যবহার করে ${planRow.name} প্ল্যানে যোগ দিতে চাইছেন। আপনার ব্যালেন্স থেকে ৳${planRow.rate.toLocaleString()} কাটা হবে।`
-      ),
+      `🔔 ${name.trim()} আপনার রেফারেল কোড ব্যবহার করে ${planRow.name} প্ল্যানে যোগ দিতে চাইছেন। আপনার ব্যালেন্স থেকে ৳${planRow.rate.toLocaleString()} কাটা হবে।`,
       'registration_request',
       meta
     );
@@ -452,7 +439,7 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
       });
       stmts.insertBalanceLog.run({
         user_id: referrer.id, type: 'referral_spend', amount: -pending.plan_rate,
-        note: biMsg(`${planRow ? planRow.name : ''} plan purchase for ${pending.name}`, `${pending.name}-এর জন্য ${planRow ? planRow.name : ''} প্ল্যান ক্রয়`),
+        note: `${pending.name}-এর জন্য ${planRow ? planRow.name : ''} প্ল্যান ক্রয়`,
       });
 
       // ── 2. Create the new user ────────────────────────────────────────────
@@ -460,7 +447,7 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
         name: pending.name, identifier: pending.identifier,
         password: pending.password_hash, plan_id: pending.plan_id,
         balance: 0, daily_done: 0,
-        refer_code: pending.new_refer_code, referred_by: pending.refer_code_used, avatar: '/avatars/male-1.png',
+        refer_code: pending.new_refer_code, referred_by: pending.refer_code_used, avatar: '🧑',
       });
 
       stmts.updatePendingStatus.run('approved', pendingId);
@@ -482,14 +469,11 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
           });
           stmts.insertBalanceLog.run({
             user_id: currentUser.id, type: logType, amount: bonus,
-            note: biMsg(`L${lvl} commission (${pct}%) from ${pending.name}'s registration`, `${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন (${pct}%)`),
+            note: `${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন (${pct}%)`,
           });
           stmts.insertNotification.run(
             currentUser.id,
-            biMsg(
-              `🎁 Referral Bonus: +৳${bonus.toLocaleString()} L${lvl} commission from ${pending.name}'s registration added to your balance.`,
-              `🎁 রেফারেল বোনাস: ${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন +৳${bonus.toLocaleString()} আপনার ব্যালেন্সে যোগ হয়েছে।`
-            ),
+            `🎁 রেফারেল বোনাস: ${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন +৳${bonus.toLocaleString()} আপনার ব্যালেন্সে যোগ হয়েছে।`,
             'success'
           );
         }
@@ -502,10 +486,7 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
       // ── 4. Notify direct referrer of approval ────────────────────────────
       stmts.insertNotification.run(
         referrer.id,
-        biMsg(
-          `✅ You approved ${pending.name}'s registration. ৳${pending.plan_rate.toLocaleString()} has been deducted from your balance.`,
-          `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ৳${pending.plan_rate.toLocaleString()} কাটা হয়েছে।`
-        ),
+        `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ৳${pending.plan_rate.toLocaleString()} কাটা হয়েছে।`,
         'success'
       );
 
@@ -594,6 +575,18 @@ app.post('/api/login', loginLimiter, async (req, res) => {
   } catch (err) {
     console.error('Login error:', err.message);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+app.get('/api/me', authRequired, (req, res) => {
+  try {
+    const user = stmts.getUserById.get(req.auth.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const plan = stmts.getPlan.get(user.plan_id);
+    res.json({ user: toClientUser(user), plan });
+  } catch (err) {
+    console.error('GET /api/me error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
 
@@ -732,7 +725,7 @@ const completeManufactureTx = db.transaction((body) => {
   // Log to balance_log
   stmts.insertBalanceLog.run({
     user_id: userId, type: 'daily_earn', amount: earned,
-    note: biMsg(`${job.device_name} manufacturing complete`, `${job.device_name} উৎপাদন সম্পন্ন`),
+    note: `${job.device_name} উৎপাদন সম্পন্ন`,
   });
 
   // Auto-post to marketplace with random price in USD (capped at $10)
@@ -747,10 +740,7 @@ const completeManufactureTx = db.transaction((body) => {
   // Create notification
   stmts.insertNotification.run(
     userId,
-    biMsg(
-      `Your ${job.device_name} has been manufactured and posted to Marketplace for $${marketPrice}!`,
-      `আপনার ${job.device_name} উৎপাদন সম্পন্ন! মার্কেটপ্লেসে $${marketPrice}-এ পোস্ট করা হয়েছে।`
-    ),
+    `Your ${job.device_name} has been manufactured and posted to Marketplace for $${marketPrice}!`,
     'success'
   );
 
@@ -883,13 +873,18 @@ app.get('/api/deposit-info', (req, res) => {
     const info = {};
     rows.forEach(r => { info[r.key] = r.value; });
     res.json({
-      bkash:  info.deposit_bkash  || '',
-      nagad:  info.deposit_nagad  || '',
-      rocket: info.deposit_rocket || '',
-      bank:   info.deposit_bank   || '',
-      crypto_usdt_trc20: info.deposit_crypto_usdt_trc20 || '',
-      crypto_usdt_bep20: info.deposit_crypto_usdt_bep20 || '',
-      crypto_bnb: info.deposit_crypto_bnb || '',
+      bkash:             info.deposit_bkash       || '',
+      nagad:             info.deposit_nagad       || '',
+      rocket:            info.deposit_rocket      || '',
+      bank:              info.deposit_bank        || '',
+      crypto_usdt_trc20: info.crypto_usdt_trc20 || '',
+      crypto_usdt_bep20: info.crypto_usdt_bep20 || '',
+      crypto_usdt_erc20: info.crypto_usdt_erc20 || '',
+      crypto_bnb:        info.crypto_bnb        || '',
+      crypto_eth:        info.crypto_eth        || '',
+      crypto_btc:        info.crypto_btc        || '',
+      crypto_trx:        info.crypto_trx        || '',
+      crypto_ltc:        info.crypto_ltc        || '',
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch deposit info' });
@@ -983,7 +978,7 @@ app.get('/api/user/:id/transactions', authRequired, requireSelfOrAdmin('id'), (r
 
 // ── Withdraw / Deposit request (DB-tracked) ─────────────────────────────────
 app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
-  const { amount, method, account, type, coinType } = req.body || {};
+  const { amount, method, account, type } = req.body || {};
 
   if (!amount || !method || !account || !type) {
     return res.status(400).json({ error: 'Missing fields' });
@@ -1011,7 +1006,7 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         }
         stmts.insertBalanceLog.run({
           user_id: userRow.id, type: 'withdrawal', amount: -numAmount,
-          note: biMsg(`Withdrawal Request (${method} - ${account})`, `উইথড্র রিকোয়েস্ট (${method} - ${account})`),
+          note: `উইথড্র রিকোয়েস্ট (${method} - ${account})`,
         });
       }
       if (type === 'deposit') {
@@ -1027,11 +1022,7 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
 
       // Notify all admin users
       const admins = stmts.getAdminUsers.all();
-      const typeLabelBn = type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র';
-      const notifMsg = biMsg(
-        `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`,
-        `নতুন ${typeLabelBn} অনুরোধ: ৳${numAmount.toLocaleString()} ${userRow.name}-এর কাছ থেকে (${method})`
-      );
+      const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`;
       for (const admin of admins) {
         stmts.insertNotification.run(admin.id, notifMsg, 'info');
       }
@@ -1058,7 +1049,6 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       requestId: txId,
       paymentMethod: String(method || '').toUpperCase(),
       accountNumber: account,
-      coinType: coinType || null,
       timestamp: new Date().toISOString(),
     };
 
@@ -1112,21 +1102,18 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       stmts.deductBalance.run(numAmount, sender.id, numAmount);
       stmts.insertBalanceLog.run({
         user_id: sender.id, type: 'transfer_sent', amount: -numAmount,
-        note: biMsg(`Transfer to ${receiver.name}`, `${receiver.name}-কে ট্রান্সফার`),
+        note: `${receiver.name}-কে ট্রান্সফার`,
       });
 
       stmts.creditBalance.run(numAmount, receiver.id);
       stmts.insertBalanceLog.run({
         user_id: receiver.id, type: 'transfer_received', amount: numAmount,
-        note: biMsg(`Transfer from ${sender.name}`, `${sender.name}-এর কাছ থেকে ট্রান্সফার`),
+        note: `${sender.name}-এর কাছ থেকে ট্রান্সফার`,
       });
 
       stmts.insertNotification.run(
         receiver.id,
-        biMsg(
-          `${sender.name} transferred ৳${numAmount.toLocaleString()} to you.`,
-          `${sender.name} আপনাকে ৳${numAmount.toLocaleString()} ট্রান্সফার করেছেন।`
-        ),
+        `${sender.name} আপনাকে ৳${numAmount.toLocaleString()} ট্রান্সফার করেছেন।`,
         'success'
       );
 
@@ -1142,83 +1129,12 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
   }
 });
 
-// ── Team Chat (referral-based group chat) ─────────────────────────────────────
-// Helper: get team room ID for a user (referrer's ID if they have one, else own ID)
-function getTeamRoomId(user) {
-  if (user.referred_by) {
-    const referrer = stmts.getUserByReferCode.get(user.referred_by);
-    if (referrer) return referrer.id;
-  }
-  return user.id;
-}
-
-// Helper: check if user has access to a room
-function canAccessTeamRoom(user, roomId) {
-  if (user.id === roomId) return true; // own room
-  if (user.referred_by) {
-    const referrer = stmts.getUserByReferCode.get(user.referred_by);
-    if (referrer && referrer.id === roomId) return true; // referrer's room
-  }
-  return false;
-}
-
-const teamChatLimiter = createRateLimiter({ windowMs: 60_000, max: 30, prefix: 'team_chat' });
-
-// GET /api/team/room — get user's default team room info + messages + members
-app.get('/api/team/room', authRequired, (req, res) => {
-  try {
-    const user = stmts.getUserById.get(req.auth.userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    const roomId = getTeamRoomId(user);
-    const roomOwner = stmts.getTeamRoomInfo.get(roomId);
-    const messages  = stmts.getTeamMessages.all(roomId);
-    const members   = stmts.getTeamMembers.all(roomId, roomId);
-
-    res.json({
-      roomId,
-      roomOwnerName: roomOwner?.name || '',
-      isOwnRoom: roomId === user.id,
-      messages,
-      members: members.map(m => ({
-        id: m.id,
-        name: m.name,
-        avatar: m.avatar,
-        avatar_img: m.avatar_img,
-        plan_id: m.plan_id,
-        isMe: m.id === user.id,
-      })),
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/team/message — send a message to team room
-app.post('/api/team/message', authRequired, teamChatLimiter, (req, res) => {
-  const { message } = req.body || {};
-  if (!message || !message.trim()) return res.status(400).json({ error: 'Missing message' });
-  if (message.trim().length > 500) return res.status(400).json({ error: 'Message too long' });
-
-  try {
-    const user = stmts.getUserById.get(req.auth.userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.banned) return res.status(403).json({ error: 'Account suspended' });
-
-    const roomId = getTeamRoomId(user);
-    stmts.insertTeamMessage.run(roomId, user.id, user.name, message.trim());
-    res.json({ ok: true, roomId });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ── Live Support Chat ──────────────────────────────────────────────────────────
 app.post('/api/support/message', supportLimiter, async (req, res) => {
   const { sessionId, message, senderName } = req.body || {};
   if (!sessionId || !message) return res.status(400).json({ error: 'Missing fields' });
   try {
-    stmts.insertSupportMsg.run(sessionId, 'user', message.trim(), senderName || null);
+    stmts.insertSupportMsg.run(sessionId, 'user', message.trim());
 
     await telegramService.forwardSupportMessage({
       sessionId,
@@ -1240,6 +1156,132 @@ app.get('/api/support/messages/:sessionId', (req, res) => {
     res.json({ messages: msgs });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+// ── Admin Support: list sessions ────────────────────────────────────────────
+app.get('/api/admin/support/sessions', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const rows = db.prepare(`
+      SELECT
+        sc.session_id,
+        MAX(sc.created_at) AS last_active,
+        COALESCE(SUM(CASE WHEN sc.sender = 'user' THEN 1 ELSE 0 END), 0) AS user_msgs,
+        COALESCE(SUM(CASE WHEN sc.sender = 'admin' THEN 1 ELSE 0 END), 0) AS admin_replies,
+        (
+          SELECT sc2.message
+          FROM support_chats sc2
+          WHERE sc2.session_id = sc.session_id
+          ORDER BY sc2.id DESC
+          LIMIT 1
+        ) AS last_message
+      FROM support_chats sc
+      GROUP BY sc.session_id
+      ORDER BY MAX(sc.id) DESC
+      LIMIT 200
+    `).all();
+
+    const usersById = new Map();
+    for (const row of rows) {
+      const m = String(row.session_id || '').match(/^user_(\d+)$/);
+      if (!m) continue;
+      const uid = Number(m[1]);
+      if (!usersById.has(uid)) {
+        usersById.set(uid, stmts.getUserById.get(uid) || null);
+      }
+    }
+
+    const sessions = rows.map((row) => {
+      const sid = String(row.session_id || '');
+      let user_name = '';
+      const m = sid.match(/^user_(\d+)$/);
+      if (m) {
+        const uid = Number(m[1]);
+        const u = usersById.get(uid);
+        user_name = u?.name || '';
+      }
+
+      return {
+        session_id: sid,
+        user_name,
+        last_message: row.last_message || '',
+        last_active: row.last_active || null,
+        user_msgs: Number(row.user_msgs) || 0,
+        admin_replies: Number(row.admin_replies) || 0,
+      };
+    });
+
+    res.json({ sessions });
+  } catch (err) {
+    console.error('Admin support sessions error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch support sessions' });
+  }
+});
+
+// ── Admin Support: session messages ─────────────────────────────────────────
+app.get('/api/admin/support/messages/:sessionId', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const sessionId = String(req.params.sessionId || '').trim();
+    if (!sessionId) return res.status(400).json({ error: 'Session ID required' });
+
+    const msgs = stmts.getSupportMsgs.all(sessionId).map((m) => ({
+      ...m,
+      sender_name: m.sender === 'admin' ? (req.auth.user?.name || 'Admin') : 'User',
+    }));
+
+    res.json({ messages: msgs });
+  } catch (err) {
+    console.error('Admin support messages error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch support messages' });
+  }
+});
+
+// ── Admin Support: reply to session ─────────────────────────────────────────
+app.post('/api/admin/support/reply', authRequired, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const sessionId = String(req.body?.sessionId || '').trim();
+    const message = String(req.body?.message || '').trim();
+    if (!sessionId || !message) return res.status(400).json({ error: 'sessionId and message are required' });
+
+    stmts.insertSupportMsg.run(sessionId, 'admin', message);
+
+    if (sessionId.startsWith('tguser:')) {
+      const tgUserId = sessionId.slice('tguser:'.length).trim();
+      if (tgUserId) {
+        await telegramService.replyToUser({
+          targetChatId: tgUserId,
+          text: message,
+        }).catch((err) => {
+          console.error('Admin support TG direct reply error:', err.message);
+        });
+      }
+    }
+
+    // Mirror admin replies to support channel for audit trail.
+    if (SUPPORT_BOT && SUPPORT_CHAT_IDS.length > 0) {
+      const text = [
+        '🛠️ <b>Admin Support Reply</b>',
+        `🔑 Session: <code>${sessionId}</code>`,
+        `👮 Admin: ${req.auth.user?.name || 'Admin'}`,
+        '━━━━━━━━━━━━━━━',
+        message,
+      ].join('\n');
+
+      await sendTelegram(text, {
+        botToken: SUPPORT_BOT,
+        chatIds: SUPPORT_CHAT_IDS,
+      }).catch((err) => {
+        console.error('Admin support Telegram mirror error:', err.message);
+      });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Admin support reply error:', err.message);
+    res.status(500).json({ error: 'Failed to send support reply' });
   }
 });
 
@@ -1335,8 +1377,7 @@ app.get('/api/admin/users', authRequired, (req, res) => {
     let rows = stmts.getAllUsers.all();
 
     if (!requesterIsMain) {
-      // User admins: hide main admin AND other admins — only see regular users
-      rows = rows.filter((r) => !r.is_admin);
+      rows = rows.filter((r) => !isMainAdminUser(r));
     }
 
     const users = rows.map(row => {
@@ -1348,7 +1389,6 @@ app.get('/api/admin/users', authRequired, (req, res) => {
       return {
         ...u,
         is_main_admin: row.refer_code === MAIN_ADMIN_REFER_CODE,
-        admin_balance_limit: row.admin_balance_limit || 0,
         lastLogin,
       };
     });
@@ -1370,6 +1410,22 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
     const user = stmts.getUserById.get(id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    if (!requesterIsMain) {
+      if (user.is_admin) {
+        return res.status(403).json({ error: 'You cannot manage admin accounts' });
+      }
+      if (req.body.is_admin !== undefined) {
+        return res.status(403).json({ error: 'You cannot change admin privileges' });
+      }
+      if ((req.body.balance !== undefined && Number(req.body.balance) !== Number(user.balance)) ||
+          (req.body.plan_id !== undefined && req.body.plan_id !== user.plan_id)) {
+        return res.status(403).json({ error: 'You cannot modify user balance or plan' });
+      }
+      if (id === adminId && req.body.banned !== undefined && req.body.banned) {
+        return res.status(400).json({ error: 'Cannot ban yourself' });
+      }
+    }
+
     // Prevent admin from banning themselves
     if (id === adminId && req.body.banned) {
       return res.status(400).json({ error: 'Cannot ban yourself' });
@@ -1380,46 +1436,6 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       return res.status(400).json({ error: 'Cannot remove your own admin status' });
     }
 
-    if (!requesterIsMain) {
-      // User-admin restrictions
-      if (user.is_admin) {
-        return res.status(403).json({ error: 'You cannot manage admin accounts' });
-      }
-      if (req.body.is_admin !== undefined) {
-        return res.status(403).json({ error: 'You cannot change admin privileges' });
-      }
-      if (req.body.plan_id !== undefined && req.body.plan_id !== user.plan_id) {
-        return res.status(403).json({ error: 'You cannot change user plans' });
-      }
-      if (req.body.admin_balance_limit !== undefined) {
-        return res.status(403).json({ error: 'You cannot set balance limits' });
-      }
-
-      // User-admin balance addition: max 3/day, within admin_balance_limit
-      if (req.body.balance !== undefined && Number(req.body.balance) !== Number(user.balance)) {
-        const addAmount = Number(req.body.balance) - Number(user.balance);
-        if (addAmount <= 0) {
-          return res.status(403).json({ error: 'You can only add balance, not reduce it' });
-        }
-        const dailyLimit = requester.admin_balance_limit || 0;
-        if (dailyLimit <= 0) {
-          return res.status(403).json({ error: 'আপনার ব্যালেন্স লিমিট নেই। এই ইউজারকে ডিপোজিট করতে বলুন।' });
-        }
-        const today = stmts.getAdminBalanceAddsToday.get(adminId);
-        if (today.count >= 3) {
-          return res.status(403).json({ error: 'আজকের ৩ বার লিমিট শেষ। ইউজারকে ডিপোজিট করতে বলুন।' });
-        }
-        if (today.total + addAmount > dailyLimit) {
-          const remaining = Math.max(0, dailyLimit - today.total);
-          return res.status(403).json({
-            error: `লিমিট অতিক্রম। আজ বাকি: ৳${remaining}। ইউজারকে ডিপোজিট করতে বলুন।`
-          });
-        }
-        // Record the balance add
-        stmts.insertAdminBalanceAdd.run(adminId, id, addAmount);
-      }
-    }
-
     let balance  = req.body.balance !== undefined ? Number(req.body.balance) : user.balance;
     const plan_id  = req.body.plan_id || user.plan_id;
     const banned   = req.body.banned !== undefined ? (req.body.banned ? 1 : 0) : user.banned;
@@ -1427,16 +1443,9 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       ? (req.body.is_admin !== undefined ? (req.body.is_admin ? 1 : 0) : user.is_admin)
       : user.is_admin;
 
-    // When main admin promotes to user-admin, set their balance limit
+    // Newly promoted delegated admins must start from zero and earn via work.
     if (requesterIsMain && !user.is_admin && is_admin === 1) {
       balance = 0;
-      const balanceLimit = Number(req.body.admin_balance_limit) || 0;
-      stmts.updateAdminBalanceLimit.run(balanceLimit, id);
-    }
-
-    // Main admin can update balance limit for existing user-admins
-    if (requesterIsMain && user.is_admin && req.body.admin_balance_limit !== undefined) {
-      stmts.updateAdminBalanceLimit.run(Number(req.body.admin_balance_limit) || 0, id);
     }
 
     const plan = stmts.getPlan.get(plan_id);
@@ -1447,11 +1456,19 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
     // Log balance change if admin adjusted it
     if (balance !== user.balance) {
       const diff = balance - user.balance;
-      const byLabel = requesterIsMain ? 'Main Admin' : requester.name;
       stmts.insertBalanceLog.run({
         user_id: id, type: 'admin_adjustment', amount: diff,
-        note: biMsg(`${byLabel} balance adjustment: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`, `${byLabel} ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`),
+        note: `Admin ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`,
       });
+      stmts.insertNotification.run(id, `Your balance has been updated to ৳${balance.toLocaleString()}`, 'info');
+    }
+
+    if (plan_id !== user.plan_id) {
+      stmts.insertNotification.run(id, `Your plan has been changed to ${plan.name}`, 'info');
+    }
+
+    if (banned !== user.banned) {
+      stmts.insertNotification.run(id, banned ? 'Your account has been suspended' : 'Your account has been reactivated', banned ? 'warning' : 'success');
     }
 
     const updated = stmts.getUserById.get(id);
@@ -1514,6 +1531,7 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
     // Notify admin on Telegram about approval/rejection
     if (result.status === 200) {
       const tx = result.body.transaction;
+      logAdminAction(req, `transaction_${status}`, 'transaction', txId, `${tx.type} ৳${tx.amount}`);
       const icon = status === 'approved' ? '✅' : '❌';
       const tgMsg = [
         `${icon} <b>${tx.type === 'deposit' ? 'Deposit' : 'Withdraw'} ${status === 'approved' ? 'Approved' : 'Rejected'}</b>`,
@@ -1534,166 +1552,54 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
   }
 });
 
-// ── GET /api/admin/my-quota — user-admin daily balance quota ────────────────
-app.get('/api/admin/my-quota', authRequired, (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  try {
-    const adminId = req.auth.userId;
-    const admin = req.auth.user;
-    const today = stmts.getAdminBalanceAddsToday.get(adminId);
-    res.json({
-      daily_limit: admin.admin_balance_limit || 0,
-      used_today: today.total,
-      adds_today: today.count,
-      max_adds_per_day: 3,
-      remaining_amount: Math.max(0, (admin.admin_balance_limit || 0) - today.total),
-      remaining_adds: Math.max(0, 3 - today.count),
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch quota' });
-  }
-});
-
-// ── GET /api/admin/stats — financial dashboard data ─────────────────────────
+// ── GET /api/admin/stats — enhanced financial dashboard data ─────────────────
 app.get('/api/admin/stats', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
   try {
     const stats = stmts.getFinancialStats.get();
+    const todaySignups = stmts.getTodaySignups.get()?.count || 0;
+    const activeToday = stmts.getActiveUsersToday.get()?.count || 0;
+    const planDist = stmts.getPlanDistribution.all();
+    const topEarners = stmts.getTopEarners.all();
+    const recentActivity = stmts.getRecentActivity.all();
+    const revenueChart = stmts.getRevenueByPeriod.all();
+    const supportStats = stmts.getSupportStats.get();
+    const methodBreakdown = stmts.getMethodBreakdown.all();
+    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_admin = 0').get()?.count || 0;
 
-    // Extra stats for improved dashboard
-    const today = todayDate();
-    const activeToday = db.prepare(`
-      SELECT COUNT(DISTINCT user_id) AS cnt FROM login_logs
-      WHERE DATE(logged_at) = ?
-    `).get(today)?.cnt || 0;
-
-    const newUsersToday = db.prepare(`
-      SELECT COUNT(*) AS cnt FROM users WHERE DATE(created_at) = ?
-    `).get(today)?.cnt || 0;
-
-    const topEarners = db.prepare(`
-      SELECT name, balance, plan_id FROM users
-      WHERE banned = 0 AND is_admin = 0
-      ORDER BY balance DESC LIMIT 5
-    `).all();
-
-    const supportStats = db.prepare(`
-      SELECT
-        COUNT(DISTINCT session_id) AS total_sessions,
-        SUM(CASE WHEN sender = 'user' THEN 1 ELSE 0 END) AS user_msgs,
-        SUM(CASE WHEN sender = 'admin' THEN 1 ELSE 0 END) AS admin_replies
-      FROM support_chats
-    `).get();
-
-    const unrepliedSessions = db.prepare(`
-      SELECT COUNT(DISTINCT session_id) AS cnt FROM support_chats
-      WHERE session_id NOT IN (
-        SELECT DISTINCT session_id FROM support_chats WHERE sender = 'admin'
-      )
-    `).get()?.cnt || 0;
+    const pendingDeposits = db.prepare("SELECT COUNT(*) as count FROM transactions WHERE type='deposit' AND status='pending'").get()?.count || 0;
+    const pendingWithdrawals = db.prepare("SELECT COUNT(*) as count FROM transactions WHERE type='withdraw' AND status='pending'").get()?.count || 0;
 
     res.json({
       withdrawals: { count: stats.withdraw_count, sum: stats.withdraw_sum },
       deposits: { count: stats.deposit_count, sum: stats.deposit_sum },
       pendingCount: stats.pending_count,
+      pendingDeposits,
+      pendingWithdrawals,
       referralCount: stats.referral_count,
       todayEarnings: stats.today_earnings,
       alltimeEarnings: stats.alltime_earnings,
       profitLoss: stats.deposit_sum - stats.withdraw_sum,
+      newUsersToday: todaySignups,
       activeToday,
-      newUsersToday,
+      totalUsers,
+      planDistribution: planDist,
       topEarners,
-      support: {
-        totalSessions: supportStats?.total_sessions || 0,
-        userMessages: supportStats?.user_msgs || 0,
-        adminReplies: supportStats?.admin_replies || 0,
-        unrepliedSessions,
-      },
+      recentActivity,
+      revenueChart,
+      support: supportStats ? {
+        totalSessions: supportStats.total_sessions || 0,
+        unrepliedSessions: supportStats.unreplied_sessions || 0,
+        adminReplies: supportStats.admin_replies || 0,
+      } : null,
+      methodBreakdown,
     });
   } catch (err) {
     console.error('Admin stats error:', err.message);
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
-
-// ── GET /api/admin/telegram/webhooks — diagnostic: current webhook info ──────
-app.get('/api/admin/telegram/webhooks', authRequired, async (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  try {
-    async function getWebhookInfo(botToken, label) {
-      if (!botToken) return { label, configured: false };
-      const r = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
-      const d = await r.json().catch(() => ({}));
-      const info = d.result || {};
-      return {
-        label,
-        configured: true,
-        url: info.url || null,
-        pending_update_count: info.pending_update_count || 0,
-        last_error_message: info.last_error_message || null,
-        last_error_date: info.last_error_date || null,
-      };
-    }
-    const [support, finance] = await Promise.all([
-      getWebhookInfo(SUPPORT_BOT, 'support'),
-      getWebhookInfo(FINANCE_BOT, 'finance'),
-    ]);
-    res.json({ webhooks: [support, finance] });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ── GET /api/admin/support/sessions — list all support chat sessions ─────────
-app.get('/api/admin/support/sessions', authRequired, (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  try {
-    const sessions = stmts.getAllSupportSessions.all();
-    res.json({ sessions });
-  } catch (err) {
-    console.error('Admin support sessions error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch support sessions' });
-  }
-});
-
-// ── GET /api/admin/support/messages/:sessionId — messages for a session ──────
-app.get('/api/admin/support/messages/:sessionId', authRequired, (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  try {
-    const msgs = stmts.getSupportMsgs.all(req.params.sessionId);
-    res.json({ messages: msgs });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch messages' });
-  }
-});
-
-// ── POST /api/admin/support/reply — admin sends a reply to a session ─────────
-// Also supports /api/admin/support/reply/:sessionId (REST-style)
-async function handleAdminSupportReply(req, res) {
-  if (!requireAdmin(req, res)) return;
-  const sessionId = req.params.sessionId || (req.body || {}).sessionId;
-  const message = (req.body || {}).message;
-  const text = String(message || '').trim();
-  if (!sessionId || !text) return res.status(400).json({ error: 'sessionId and message required' });
-  const adminName = req.auth.user?.name || 'Admin';
-  try {
-    stmts.insertSupportMsg.run(sessionId, 'admin', text, adminName);
-
-    // Also forward to Telegram support group so Telegram-based admins see web-panel replies
-    const tgMsg = `💬 Web Admin Reply\n👤 ${adminName}\nSession: ${sessionId.slice(0, 12)}...\n\n${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}`;
-    telegramService.sendMessage(tgMsg, {
-      botToken: SUPPORT_BOT,
-      chatIds: SUPPORT_CHAT_IDS,
-    }).catch(err => console.warn('[Support] Telegram notify admin reply failed:', err.message));
-
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to send reply' });
-  }
-}
-app.post('/api/admin/support/reply', authRequired, handleAdminSupportReply);
-app.post('/api/admin/support/reply/:sessionId', authRequired, handleAdminSupportReply);
 
 // ── POST /api/admin/messages — send message to one user or all users ───────
 app.post('/api/admin/messages', authRequired, (req, res) => {
@@ -1731,10 +1637,7 @@ app.post('/api/admin/messages', authRequired, (req, res) => {
     }
 
     const senderName = req.auth.user?.name || 'Admin';
-    const payload = biMsg(
-      `📢 Admin Message from ${senderName}: ${text}`,
-      `📢 অ্যাডমিন মেসেজ ${senderName}: ${text}`
-    );
+    const payload = `📢 Admin Message from ${senderName}: ${text}`;
 
     db.transaction(() => {
       for (const r of recipients) {
@@ -1746,6 +1649,351 @@ app.post('/api/admin/messages', authRequired, (req, res) => {
   } catch (err) {
     console.error('Admin message error:', err.message);
     res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// ── Admin activity log helper ────────────────────────────────────────────────
+function logAdminAction(req, action, targetType = '', targetId = 0, details = '') {
+  try {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
+    stmts.insertAdminLog.run({
+      admin_id: req.auth?.userId || 0,
+      action, target_type: targetType, target_id: targetId, details, ip,
+    });
+  } catch (_) {}
+}
+
+// ── GET /api/admin/activity-log — admin audit trail ─────────────────────────
+app.get('/api/admin/activity-log', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const logs = stmts.getAdminLogs.all();
+    res.json({ logs });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch activity logs' });
+  }
+});
+
+// ── GET /api/admin/users/:id/full-profile — complete user profile ───────────
+app.get('/api/admin/users/:id/full-profile', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const userId = Number(req.params.id);
+    const user = stmts.getUserById.get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const plan = stmts.getPlan.get(user.plan_id);
+    const txStats = stmts.getUserTransactionStats.get(userId);
+    const mfgStats = stmts.getUserManufacturingStats.get(userId);
+    const transactions = stmts.getUserTransactions.all(userId);
+    const recentJobs = stmts.getUserRecentJobs.all(userId);
+    const loginLogs = stmts.getUserLoginLogs.all(userId);
+    const balanceLog = stmts.getBalanceLog.all(userId);
+    const balanceSummary = stmts.getBalanceSummary.get(userId);
+
+    const referralStats = stmts.getReferralStats.get(userId);
+    const referralMembers = stmts.getReferralMemberCounts.get(
+      user.refer_code, user.refer_code, user.refer_code
+    );
+    const referralTree = stmts.getReferralTreeMembers.all(user.refer_code);
+
+    const supportMsgs = db.prepare(`
+      SELECT COUNT(*) as count FROM support_chats WHERE session_id = ?
+    `).get(`user_${userId}`);
+
+    const { password, ...safeUser } = user;
+
+    res.json({
+      user: safeUser,
+      plan,
+      txStats,
+      mfgStats,
+      transactions,
+      recentJobs,
+      loginLogs,
+      balanceLog,
+      balanceSummary,
+      referralStats,
+      referralMembers,
+      referralTree,
+      supportMessageCount: supportMsgs?.count || 0,
+    });
+  } catch (err) {
+    console.error('Full profile error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch user profile' });
+  }
+});
+
+// ── Admin permissions CRUD ──────────────────────────────────────────────────
+const ALL_PERMISSIONS = [
+  'view_users', 'edit_users', 'ban_users',
+  'approve_deposits', 'approve_withdrawals',
+  'change_settings', 'manage_admins',
+  'view_reports', 'export_data',
+  'access_support',
+];
+
+app.get('/api/admin/permissions/:adminId', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const adminId = Number(req.params.adminId);
+    const perms = stmts.getAdminPermissions.all(adminId);
+    const permMap = {};
+    ALL_PERMISSIONS.forEach(p => { permMap[p] = false; });
+    perms.forEach(p => { if (p.granted) permMap[p.permission] = true; });
+    res.json({ permissions: permMap, allPermissions: ALL_PERMISSIONS });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch permissions' });
+  }
+});
+
+app.post('/api/admin/permissions/:adminId', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const adminId = Number(req.params.adminId);
+    const { permissions } = req.body || {};
+    if (!permissions || typeof permissions !== 'object') {
+      return res.status(400).json({ error: 'Invalid permissions' });
+    }
+
+    stmts.deleteAdminPermissions.run(adminId);
+    for (const [perm, granted] of Object.entries(permissions)) {
+      if (ALL_PERMISSIONS.includes(perm)) {
+        stmts.setAdminPermission.run(adminId, perm, granted ? 1 : 0);
+      }
+    }
+
+    logAdminAction(req, 'update_permissions', 'user', adminId, JSON.stringify(permissions));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update permissions' });
+  }
+});
+
+// ── Canned responses CRUD ───────────────────────────────────────────────────
+app.get('/api/admin/canned-responses', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const responses = stmts.getAllCannedResponses.all();
+    res.json({ responses });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch canned responses' });
+  }
+});
+
+app.post('/api/admin/canned-responses', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { title, message, category } = req.body || {};
+    if (!title || !message) return res.status(400).json({ error: 'Title and message required' });
+    stmts.insertCannedResponse.run({
+      title, message, category: category || 'general', created_by: req.auth.userId,
+    });
+    logAdminAction(req, 'create_canned_response', 'canned', 0, title);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create canned response' });
+  }
+});
+
+app.delete('/api/admin/canned-responses/:id', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    stmts.deleteCannedResponse.run(Number(req.params.id));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete canned response' });
+  }
+});
+
+// ── Support session management ──────────────────────────────────────────────
+app.patch('/api/admin/support/sessions/:sessionId/status', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const sessionId = req.params.sessionId;
+    const { status } = req.body || {};
+    if (!['open', 'in_progress', 'resolved'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const existing = stmts.getSupportSession.get(sessionId);
+    if (!existing) {
+      const m = sessionId.match(/^user_(\d+)$/);
+      const userId = m ? Number(m[1]) : 0;
+      stmts.upsertSupportSession.run({
+        session_id: sessionId, user_id: userId, status, assigned_to: 0,
+      });
+    } else {
+      stmts.updateSupportSessionStatus.run(status, sessionId);
+    }
+
+    logAdminAction(req, 'update_support_status', 'support', 0, `${sessionId}: ${status}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update session status' });
+  }
+});
+
+app.patch('/api/admin/support/sessions/:sessionId/assign', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const sessionId = req.params.sessionId;
+    const { adminId } = req.body || {};
+
+    const existing = stmts.getSupportSession.get(sessionId);
+    if (!existing) {
+      const m = sessionId.match(/^user_(\d+)$/);
+      const userId = m ? Number(m[1]) : 0;
+      stmts.upsertSupportSession.run({
+        session_id: sessionId, user_id: userId, status: 'in_progress', assigned_to: Number(adminId) || 0,
+      });
+    } else {
+      stmts.updateSupportSessionAssign.run(Number(adminId) || 0, sessionId);
+    }
+
+    logAdminAction(req, 'assign_support', 'support', Number(adminId) || 0, sessionId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to assign session' });
+  }
+});
+
+// ── Bulk user actions ───────────────────────────────────────────────────────
+app.post('/api/admin/bulk-action', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { action, userIds } = req.body || {};
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'No users selected' });
+    }
+    if (!['ban', 'unban'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    let affected = 0;
+    db.transaction(() => {
+      for (const uid of userIds) {
+        const id = Number(uid);
+        if (id === req.auth.userId) continue;
+        const user = stmts.getUserById.get(id);
+        if (!user) continue;
+        if (!req.auth.isMainAdmin && user.is_admin) continue;
+
+        if (action === 'ban') {
+          stmts.bulkBanUsers.run(id);
+        } else {
+          stmts.bulkUnbanUsers.run(id);
+        }
+        affected++;
+      }
+    })();
+
+    logAdminAction(req, `bulk_${action}`, 'users', 0, `${affected} users`);
+    res.json({ ok: true, affected });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to perform bulk action' });
+  }
+});
+
+// ── CSV export endpoints ────────────────────────────────────────────────────
+app.get('/api/admin/export/users', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const users = stmts.getAllUsers.all().map(u => {
+      const { password, ...safe } = u;
+      return safe;
+    });
+    logAdminAction(req, 'export_users', 'export', 0, `${users.length} users`);
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export' });
+  }
+});
+
+app.get('/api/admin/export/transactions', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const transactions = db.prepare(`
+      SELECT t.*, u.name as user_name, u.identifier as user_identifier
+      FROM transactions t LEFT JOIN users u ON u.id = t.user_id
+      ORDER BY t.id DESC
+    `).all();
+    logAdminAction(req, 'export_transactions', 'export', 0, `${transactions.length} transactions`);
+    res.json({ transactions });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export' });
+  }
+});
+
+// ── Plan management (admin) ─────────────────────────────────────────────────
+app.get('/api/admin/plans', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const plans = stmts.getAllPlans.all();
+    res.json({ plans });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch plans' });
+  }
+});
+
+app.patch('/api/admin/plans/:id', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const planId = req.params.id;
+    const existing = stmts.getPlan.get(planId);
+    if (!existing) return res.status(404).json({ error: 'Plan not found' });
+
+    const updates = req.body || {};
+    const plan = {
+      id: planId,
+      name: updates.name || existing.name,
+      price_display: updates.price_display || existing.price_display,
+      rate: updates.rate !== undefined ? Number(updates.rate) : existing.rate,
+      per_task: updates.per_task !== undefined ? Number(updates.per_task) : existing.per_task,
+      daily_earn: updates.daily_earn !== undefined ? Number(updates.daily_earn) : existing.daily_earn,
+      daily: updates.daily !== undefined ? Number(updates.daily) : existing.daily,
+      task_time: updates.task_time !== undefined ? Number(updates.task_time) : existing.task_time,
+      color: updates.color || existing.color,
+      l1: updates.l1 !== undefined ? Number(updates.l1) : existing.l1,
+      l2: updates.l2 !== undefined ? Number(updates.l2) : existing.l2,
+      l3: updates.l3 !== undefined ? Number(updates.l3) : existing.l3,
+    };
+
+    db.prepare(`
+      INSERT OR REPLACE INTO plans (id, name, price_display, rate, per_task, daily_earn, daily, task_time, color, l1, l2, l3)
+      VALUES (@id, @name, @price_display, @rate, @per_task, @daily_earn, @daily, @task_time, @color, @l1, @l2, @l3)
+    `).run(plan);
+
+    logAdminAction(req, 'update_plan', 'plan', 0, `${planId}: ${JSON.stringify(updates)}`);
+    res.json({ ok: true, plan });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update plan' });
+  }
+});
+
+// ── Admin force password reset ──────────────────────────────────────────────
+app.post('/api/admin/users/:id/force-password-reset', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const userId = Number(req.params.id);
+    const { newPassword } = req.body || {};
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    const hash = bcrypt.hashSync(newPassword, 10);
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, userId);
+    logAdminAction(req, 'force_password_reset', 'user', userId, '');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
@@ -1775,10 +2023,7 @@ const autoSellTx = db.transaction(() => {
     const days    = SELL_DURATIONS[Math.floor(Math.random() * SELL_DURATIONS.length)];
     stmts.insertNotification.run(
       item.user_id,
-      biMsg(
-        `${item.device_name} — Your manufactured device sold to ${buyer} from ${country.name} ${country.flag} for ${days} days • $${item.price}`,
-        `${item.device_name} — ${country.name} ${country.flag}-এর ${buyer}-এর কাছে ${days} দিনের জন্য $${item.price}-এ বিক্রি হয়েছে।`
-      ),
+      `${item.device_name} — Your manufactured device sold to ${buyer} from ${country.name} ${country.flag} for ${days} days • $${item.price}`,
       'sold'
     );
   }
@@ -1794,10 +2039,9 @@ setInterval(() => {
   }
 }, 60_000);
 
-// ── SPA handled by Vite frontend (development) or static serve ───────────────
-// Non-API routes return 404 in API-only mode
+// ── SPA fallback — serve index.html for non-API routes ───────────────────────
 app.get('*', (_req, res) => {
-  res.status(404).json({ error: 'Not found' });
+  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -1807,66 +2051,28 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Telegram] Admin chat ids configured: ${ADMIN_CHAT_IDS.length}`);
 
   // Auto-register Telegram webhooks on startup
-  // Priority: explicit WEBHOOK_URL (production) → REPLIT_DEV_DOMAIN (dev) → REPLIT_DOMAINS (first entry)
-  function resolveWebhookBase() {
-    if (process.env.WEBHOOK_URL) return process.env.WEBHOOK_URL.replace(/\/$/, '');
-    const devDomain = process.env.REPLIT_DEV_DOMAIN;
-    if (devDomain) return `https://${devDomain.trim()}`;
-    const domains = process.env.REPLIT_DOMAINS;
-    if (domains) {
-      const first = domains.split(/[\s,]+/)[0].trim();
-      if (first) return `https://${first}`;
-    }
-    return null;
-  }
-
-  async function registerAndVerifyWebhook(botToken, webhookUrl, label) {
-    try {
-      // Register
-      const setRes = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message'] }),
-      });
-      const setData = await setRes.json().catch(() => ({}));
-      if (!setData.ok) {
-        console.error(`[Telegram] ${label} webhook registration failed: ${setData.description || 'unknown'}`);
-        return;
-      }
-      console.log(`[Telegram] ${label} webhook registered ✓: ${webhookUrl}`);
-
-      // Verify via getWebhookInfo
-      const infoRes = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
-      const infoData = await infoRes.json().catch(() => ({}));
-      if (infoData.ok) {
-        const info = infoData.result || {};
-        const registered = info.url || '';
-        if (registered !== webhookUrl) {
-          console.warn(`[Telegram] ${label} webhook mismatch! Expected: ${webhookUrl} | Got: ${registered}`);
-        } else {
-          console.log(`[Telegram] ${label} webhook verified ✓ | pending_update_count: ${info.pending_update_count || 0}`);
-        }
-        if (info.last_error_message) {
-          console.warn(`[Telegram] ${label} last error: ${info.last_error_message} (at ${info.last_error_date})`);
-        }
-      }
-    } catch (err) {
-      console.error(`[Telegram] ${label} webhook setup error: ${err.message}`);
-    }
-  }
-
-  const webhookBase = resolveWebhookBase();
-  if (webhookBase) {
-    console.log(`[Telegram] Using webhook base: ${webhookBase}`);
-  } else {
-    console.warn('[Telegram] No webhook base configured (set WEBHOOK_URL or run on Replit)');
-  }
-
+  const webhookBase = process.env.WEBHOOK_URL;
   if (SUPPORT_BOT && webhookBase) {
-    registerAndVerifyWebhook(SUPPORT_BOT, `${webhookBase}/webhook/telegram`, 'Support');
+    const webhookUrl = `${webhookBase}/webhook/telegram`;
+    fetch(`https://api.telegram.org/bot${SUPPORT_BOT}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: webhookUrl, allowed_updates: ['message'] }),
+    })
+      .then(r => r.json())
+      .then(d => console.log(`[Telegram] Support webhook ${d.ok ? 'registered ✓' : 'failed ✗'}: ${webhookUrl}`))
+      .catch(e => console.error('[Telegram] Support webhook registration failed:', e.message));
   }
 
   if (FINANCE_BOT && webhookBase) {
-    registerAndVerifyWebhook(FINANCE_BOT, `${webhookBase}/webhook/telegram/finance`, 'Finance');
+    const financeWebhookUrl = `${webhookBase}/webhook/telegram/finance`;
+    fetch(`https://api.telegram.org/bot${FINANCE_BOT}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: financeWebhookUrl, allowed_updates: ['message'] }),
+    })
+      .then(r => r.json())
+      .then(d => console.log(`[Telegram] Finance webhook ${d.ok ? 'registered ✓' : 'failed ✗'}: ${financeWebhookUrl}`))
+      .catch(e => console.error('[Telegram] Finance webhook registration failed:', e.message));
   }
 });

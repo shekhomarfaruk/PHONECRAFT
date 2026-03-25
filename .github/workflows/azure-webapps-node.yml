@@ -28,8 +28,13 @@ jobs:
       - name: Install all dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build frontend
+      - name: Build main frontend
         run: PORT=3000 BASE_PATH=/ pnpm --filter @workspace/phonecraft run build
+        env:
+          NODE_ENV: production
+
+      - name: Build admin panel
+        run: PORT=3000 BASE_PATH=/admin-panel/ pnpm --filter @workspace/admin-panel run build
         env:
           NODE_ENV: production
 
@@ -73,13 +78,47 @@ jobs:
           SUPPORT_TOKEN: ${{ secrets.TELEGRAM_SUPPORT_BOT_TOKEN }}
           FINANCE_TOKEN: ${{ secrets.TELEGRAM_FINANCE_BOT_TOKEN }}
 
-      - name: Copy frontend build
-        run: cp -r artifacts/phonecraft/dist/public dist
-
-      - name: Enable static file serving and SPA fallback
+      - name: Copy frontend builds
         run: |
-          sed -i "s|// app.use(express.static(path.join(__dirname, '..', 'dist')));|app.use(express.static(path.join(__dirname, '..', 'dist')));|" server/index.js
-          sed -i "s|res.status(404).json({ error: 'Not found' });|res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));|" server/index.js
+          cp -r artifacts/phonecraft/dist/public dist
+          cp -r artifacts/admin-panel/dist/public dist/admin-panel
+
+      - name: Inject admin panel SPA routing into server
+        run: |
+          python3 - << 'PYEOF'
+          with open('server/index.js', 'r') as f:
+              code = f.read()
+
+          # Replace existing single-app SPA catch-all with two-app version.
+          # Admin panel gets its own index.html; main app gets the other.
+          old_catchall = (
+              "// ── SPA fallback — serve index.html for non-API routes ───────────────────────\n"
+              "app.get('*', (_req, res) => {\n"
+              "  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));\n"
+              "});"
+          )
+          new_catchall = (
+              "// ── SPA fallback (admin panel + main app) ──────────────────────────────────────\n"
+              "app.get('/admin-panel', (req, res) => res.redirect('/admin-panel/'));\n"
+              "app.get('/admin-panel/*', (req, res) => {\n"
+              "  res.sendFile(path.join(__dirname, '..', 'dist', 'admin-panel', 'index.html'));\n"
+              "});\n"
+              "app.get('*', (_req, res) => {\n"
+              "  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));\n"
+              "});"
+          )
+
+          if old_catchall in code:
+              code = code.replace(old_catchall, new_catchall, 1)
+              print("SPA catch-all replaced successfully.")
+          else:
+              # Fallback: inject before app.listen if pattern changed
+              code = code.replace('app.listen(', new_catchall + '\n\napp.listen(', 1)
+              print("Fallback: injected before app.listen.")
+
+          with open('server/index.js', 'w') as f:
+              f.write(code)
+          PYEOF
 
       - name: Archive production artifacts
         run: zip -r release.zip server dist .env

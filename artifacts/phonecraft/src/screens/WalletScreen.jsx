@@ -8,9 +8,14 @@ import { authFetch } from "../session.js";
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 const COIN_OPTIONS = [
-  { value: 'usdt_trc20', label: 'USDT (TRC20)', key: 'crypto_usdt_trc20' },
-  { value: 'usdt_bep20', label: 'USDT (BEP20)', key: 'crypto_usdt_bep20' },
-  { value: 'bnb',        label: 'BNB (BEP20)',  key: 'crypto_bnb' },
+  { value: 'usdt_trc20', label: 'USDT (TRC20 – Tron)',     key: 'crypto_usdt_trc20' },
+  { value: 'usdt_bep20', label: 'USDT (BEP20 – BSC)',      key: 'crypto_usdt_bep20' },
+  { value: 'usdt_erc20', label: 'USDT (ERC20 – Ethereum)', key: 'crypto_usdt_erc20' },
+  { value: 'bnb',        label: 'BNB (BEP20 – BSC)',       key: 'crypto_bnb'        },
+  { value: 'eth',        label: 'ETH (ERC20 – Ethereum)',  key: 'crypto_eth'        },
+  { value: 'btc',        label: 'BTC (Bitcoin)',            key: 'crypto_btc'        },
+  { value: 'trx',        label: 'TRX (TRC20 – Tron)',      key: 'crypto_trx'        },
+  { value: 'ltc',        label: 'LTC (Litecoin)',           key: 'crypto_ltc'        },
 ];
 
 function CopyButton({ text, showToast }) {
@@ -58,7 +63,7 @@ function WalletScreen({user, setUser, showToast, lang}) {
   const [acct,      setAcct     ] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  const [depositInfo, setDepositInfo] = useState({ bkash:'', nagad:'', rocket:'', bank:'', crypto_usdt_trc20:'', crypto_usdt_bep20:'', crypto_bnb:'' });
+  const [depositInfo, setDepositInfo] = useState({ bkash:'', nagad:'', rocket:'', bank:'', crypto_usdt_trc20:'', crypto_usdt_bep20:'', crypto_usdt_erc20:'', crypto_bnb:'', crypto_eth:'', crypto_btc:'', crypto_trx:'', crypto_ltc:'' });
 
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading]       = useState(false);

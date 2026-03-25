@@ -11,7 +11,7 @@ function TeamChat({ user, showToast, lang }) {
   const [roomData,  setRoomData]  = useState(null);
   const [input,     setInput]     = useState('');
   const [sending,   setSending]   = useState(false);
-  const [showMembers, setShowMembers] = useState(true);
+  const [showMembers, setShowMembers] = useState(false);
   const bottomRef = useRef(null);
   const pollRef   = useRef(null);
 
@@ -233,7 +233,7 @@ function SupportScreen({ user, showToast, lang }) {
   const [messages, setMessages] = useState([]);
   const [input,    setInput]    = useState('');
   const [sending,  setSending]  = useState(false);
-  const [tab,      setTab]      = useState('chat');
+  const [tab,      setTab]      = useState('team');
   const bottomRef = useRef(null);
   const pollRef   = useRef(null);
 
@@ -298,6 +298,9 @@ function SupportScreen({ user, showToast, lang }) {
       <div className="screen-title"><Icons.Support size={18}/> {t.support_title}</div>
 
       <div className="tabs" style={{ marginBottom: 0 }}>
+        <div className={`tab ${tab === 'team' ? 'active' : ''}`} onClick={() => setTab('team')}>
+          <Icons.People size={14}/> {t.team_chat}
+        </div>
         <div className={`tab ${tab === 'chat' ? 'active' : ''}`} onClick={() => setTab('chat')}>
           <Icons.Chat size={14}/> {t.supp_live_chat}
         </div>
@@ -305,6 +308,11 @@ function SupportScreen({ user, showToast, lang }) {
           <Icons.Info size={14}/> FAQ
         </div>
       </div>
+
+      {/* ── Team Chat ────────────────────────────────────────────────── */}
+      {tab === 'team' && (
+        <TeamChat user={user} showToast={showToast} lang={lang} />
+      )}
 
       {/* ── FAQ ─────────────────────────────────────────────────── */}
       {tab === 'faq' && (

@@ -220,7 +220,7 @@ export default function App() {
     refreshReferralTree();
 
     notifTimer = setInterval(fetchNotifications, 8_000);
-    balanceTimer = setInterval(refreshBalance, 45_000);
+    balanceTimer = setInterval(refreshBalance, 15_000);
     treeTimer = setInterval(refreshReferralTree, 120_000);
 
     const onVisChange = () => {

@@ -183,8 +183,62 @@ db.exec(`
   );
 `);
 
+// Admin activity log
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_activity_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id    INTEGER NOT NULL REFERENCES users(id),
+    action      TEXT NOT NULL,
+    target_type TEXT DEFAULT '',
+    target_id   INTEGER DEFAULT 0,
+    details     TEXT DEFAULT '',
+    ip          TEXT DEFAULT '',
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Admin permissions (granular)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_permissions (
+    admin_id    INTEGER NOT NULL REFERENCES users(id),
+    permission  TEXT NOT NULL,
+    granted     INTEGER DEFAULT 1,
+    PRIMARY KEY (admin_id, permission)
+  );
+`);
+
+// Canned responses for support
+db.exec(`
+  CREATE TABLE IF NOT EXISTS canned_responses (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT NOT NULL,
+    message     TEXT NOT NULL,
+    category    TEXT DEFAULT 'general',
+    created_by  INTEGER NOT NULL REFERENCES users(id),
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Add support chat status columns
+try { db.exec('ALTER TABLE support_chats ADD COLUMN status TEXT DEFAULT NULL'); } catch (_) {}
+
+// Support session metadata table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS support_sessions (
+    session_id  TEXT PRIMARY KEY,
+    user_id     INTEGER DEFAULT 0,
+    status      TEXT DEFAULT 'open',
+    assigned_to INTEGER DEFAULT 0,
+    created_at  TEXT DEFAULT (datetime('now')),
+    updated_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // Seed default deposit numbers if not set
-const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposit_bank'];
+const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposit_bank',
+  'maintenance_mode', 'announcement_banner', 'min_withdraw', 'max_withdraw',
+  'min_deposit', 'max_deposit', 'daily_withdraw_limit', 'auto_hold_threshold',
+  'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
 
@@ -458,6 +512,109 @@ const stmts = {
   getSetting:     db.prepare('SELECT value FROM app_settings WHERE key = ?'),
   getAllSettings: db.prepare('SELECT key, value FROM app_settings'),
   setSetting:     db.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)'),
+
+  // Admin activity log
+  insertAdminLog: db.prepare(`
+    INSERT INTO admin_activity_log (admin_id, action, target_type, target_id, details, ip)
+    VALUES (@admin_id, @action, @target_type, @target_id, @details, @ip)
+  `),
+  getAdminLogs: db.prepare(`
+    SELECT al.*, u.name as admin_name
+    FROM admin_activity_log al
+    LEFT JOIN users u ON u.id = al.admin_id
+    ORDER BY al.id DESC LIMIT 200
+  `),
+
+  // Admin permissions
+  getAdminPermissions: db.prepare('SELECT permission, granted FROM admin_permissions WHERE admin_id = ?'),
+  setAdminPermission: db.prepare('INSERT OR REPLACE INTO admin_permissions (admin_id, permission, granted) VALUES (?, ?, ?)'),
+  deleteAdminPermissions: db.prepare('DELETE FROM admin_permissions WHERE admin_id = ?'),
+
+  // Canned responses
+  getAllCannedResponses: db.prepare('SELECT * FROM canned_responses ORDER BY category, title'),
+  insertCannedResponse: db.prepare('INSERT INTO canned_responses (title, message, category, created_by) VALUES (@title, @message, @category, @created_by)'),
+  deleteCannedResponse: db.prepare('DELETE FROM canned_responses WHERE id = ?'),
+
+  // Support sessions
+  upsertSupportSession: db.prepare(`
+    INSERT INTO support_sessions (session_id, user_id, status, assigned_to, created_at, updated_at)
+    VALUES (@session_id, @user_id, @status, @assigned_to, datetime('now'), datetime('now'))
+    ON CONFLICT(session_id) DO UPDATE SET updated_at = datetime('now')
+  `),
+  getSupportSession: db.prepare('SELECT * FROM support_sessions WHERE session_id = ?'),
+  updateSupportSessionStatus: db.prepare('UPDATE support_sessions SET status = ?, updated_at = datetime(\'now\') WHERE session_id = ?'),
+  updateSupportSessionAssign: db.prepare('UPDATE support_sessions SET assigned_to = ?, updated_at = datetime(\'now\') WHERE session_id = ?'),
+  getAllSupportSessions: db.prepare('SELECT * FROM support_sessions ORDER BY updated_at DESC'),
+
+  // Enhanced stats
+  getTodaySignups: db.prepare(`SELECT COUNT(*) as count FROM users WHERE date(created_at, '+6 hours') = date('now', '+6 hours')`),
+  getActiveUsersToday: db.prepare(`SELECT COUNT(DISTINCT user_id) as count FROM login_logs WHERE date(logged_at, '+6 hours') = date('now', '+6 hours')`),
+  getPlanDistribution: db.prepare(`
+    SELECT p.name, p.color, COUNT(u.id) as count
+    FROM plans p LEFT JOIN users u ON u.plan_id = p.id AND u.banned = 0 AND u.is_admin = 0
+    GROUP BY p.id ORDER BY p.rate ASC
+  `),
+  getTopEarners: db.prepare(`
+    SELECT id, name, balance, plan_id FROM users
+    WHERE banned = 0 AND is_admin = 0
+    ORDER BY balance DESC LIMIT 10
+  `),
+  getRecentActivity: db.prepare(`
+    SELECT 'signup' as type, id, name as detail, created_at FROM users WHERE created_at > datetime('now', '-24 hours')
+    UNION ALL
+    SELECT type as type, id, amount || ' ' || method as detail, created_at FROM transactions WHERE created_at > datetime('now', '-24 hours')
+    ORDER BY created_at DESC LIMIT 30
+  `),
+  getRevenueByPeriod: db.prepare(`
+    SELECT
+      date(created_at, '+6 hours') as day,
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as deposits,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as withdrawals
+    FROM transactions
+    WHERE created_at > datetime('now', '-30 days')
+    GROUP BY day ORDER BY day ASC
+  `),
+  getSupportStats: db.prepare(`
+    SELECT
+      COUNT(DISTINCT session_id) as total_sessions,
+      COUNT(DISTINCT CASE WHEN sender = 'user' THEN session_id END) as user_sessions,
+      SUM(CASE WHEN sender = 'admin' THEN 1 ELSE 0 END) as admin_replies,
+      COUNT(DISTINCT CASE WHEN sender = 'user' AND session_id NOT IN
+        (SELECT DISTINCT session_id FROM support_chats WHERE sender = 'admin')
+        THEN session_id END) as unreplied_sessions
+    FROM support_chats
+  `),
+  getMethodBreakdown: db.prepare(`
+    SELECT method, type,
+      COUNT(*) as count,
+      COALESCE(SUM(amount), 0) as total
+    FROM transactions WHERE status = 'approved'
+    GROUP BY method, type
+  `),
+
+  // User full profile
+  getUserTransactionStats: db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as total_deposited,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as total_withdrawn,
+      COUNT(*) as total_transactions
+    FROM transactions WHERE user_id = ?
+  `),
+  getUserManufacturingStats: db.prepare(`
+    SELECT
+      COUNT(*) as total_jobs,
+      COALESCE(SUM(earned), 0) as total_earned,
+      COUNT(CASE WHEN status='completed' THEN 1 END) as completed_jobs
+    FROM manufacturing_jobs WHERE user_id = ?
+  `),
+  getUserRecentJobs: db.prepare('SELECT * FROM manufacturing_jobs WHERE user_id = ? ORDER BY id DESC LIMIT 20'),
+
+  // Bulk actions
+  bulkBanUsers: db.prepare('UPDATE users SET banned = 1 WHERE id = ?'),
+  bulkUnbanUsers: db.prepare('UPDATE users SET banned = 0 WHERE id = ?'),
+
+  // All plans (for admin editing)
+  getAllPlans: db.prepare('SELECT * FROM plans ORDER BY rate ASC'),
 };
 
 // ── Helper: strip password from user object ─────────────────────────────────────
