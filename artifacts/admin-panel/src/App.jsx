@@ -1103,8 +1103,10 @@ function SettingsPage({ authFetch, toast }) {
     setSaving(true);
     try {
       const r = await authFetch(`${API}/api/admin/settings`, { method: 'POST', body: JSON.stringify({ settings }) });
-      if (r.ok) toast('Settings saved');
-      else toast('Failed to save', 'error');
+      if (r.ok) {
+        toast('Settings saved');
+        await load();
+      } else toast('Failed to save', 'error');
     } catch { toast('Failed', 'error'); }
     finally { setSaving(false); }
   };
@@ -1160,26 +1162,39 @@ function SettingsPage({ authFetch, toast }) {
           { chain: 'base',     label: 'Base'          },
           { chain: 'polygon',  label: 'Polygon'       },
           { chain: 'arbitrum', label: 'Arbitrum'      },
-        ].map(({ chain, label }) => (
-          <div key={chain} style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 10, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              ⛓ {label}
-            </div>
-            <div className="grid-2">
-              {['usdt', 'usdc'].map(tok => (
-                <div key={tok}>
-                  <label className="input-label">{tok.toUpperCase()} Address</label>
-                  <input
-                    className="inp"
-                    placeholder="0x..."
-                    value={settings[`crypto_${chain}_${tok}`] || ''}
-                    onChange={e => setSettings(p => ({ ...p, [`crypto_${chain}_${tok}`]: e.target.value }))}
-                  />
+        ].map(({ chain, label }) => {
+          const usdtVal = settings[`crypto_${chain}_usdt`] || '';
+          const usdcVal = settings[`crypto_${chain}_usdc`] || '';
+          const sameAddr = usdtVal && usdcVal && usdtVal === usdcVal;
+          return (
+            <div key={chain} style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 10, background: 'var(--bg2)', border: `1px solid ${sameAddr ? 'var(--yellow,#f59e0b)' : 'var(--border)'}` }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                ⛓ {label}
+              </div>
+              {sameAddr && (
+                <div style={{ fontSize: 11, color: '#f59e0b', background: 'rgba(245,158,11,.1)', border: '1px solid rgba(245,158,11,.3)', borderRadius: 6, padding: '6px 10px', marginBottom: 10 }}>
+                  ⚠️ USDT and USDC have the SAME address. Enter different addresses below if needed.
                 </div>
-              ))}
+              )}
+              <div className="grid-2">
+                {['usdt', 'usdc'].map(tok => {
+                  const key = `crypto_${chain}_${tok}`;
+                  return (
+                    <div key={tok}>
+                      <label className="input-label">{tok.toUpperCase()} Address</label>
+                      <input
+                        className="inp"
+                        placeholder="0x..."
+                        value={settings[key] || ''}
+                        onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="card">
