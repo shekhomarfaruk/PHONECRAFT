@@ -22,11 +22,11 @@ const TOKEN_OPTIONS = [
 ];
 
 const PAYMENT_OPTIONS = [
-  { value: 'bkash',  label: 'bKash',  logo: 'https://logo.clearbit.com/bkash.com',            bg: '#E2136E', text: '#fff', letter: 'b' },
-  { value: 'nagad',  label: 'Nagad',  logo: 'https://logo.clearbit.com/nagad.com.bd',          bg: '#F05A28', text: '#fff', letter: 'N' },
-  { value: 'rocket', label: 'Rocket', logo: 'https://logo.clearbit.com/dutchbanglabank.com',   bg: '#8B2FC9', text: '#fff', letter: 'R' },
-  { value: 'bank',   label: 'Bank',   logo: null,                                               bg: '#2563EB', text: '#fff', letter: '🏦' },
-  { value: 'crypto', label: 'Crypto', logo: null,                                               bg: '#00D2B4', text: '#111', letter: '💎' },
+  { value: 'bkash',  label: 'bKash',  logo: 'https://cdn.brandfetch.io/id_4D40okd/w/400/h/400/theme/dark/icon.jpeg',   bg: '#E2136E', text: '#fff', letter: 'b' },
+  { value: 'nagad',  label: 'Nagad',  logo: 'https://cdn.brandfetch.io/idPKXOsXfF/w/512/h/512/theme/dark/logo.png',     bg: '#F05A28', text: '#fff', letter: 'N' },
+  { value: 'rocket', label: 'Rocket', logo: 'https://cdn.brandfetch.io/idDpUTM3Ow/w/400/h/400/theme/dark/icon.png',     bg: '#8B2FC9', text: '#fff', letter: 'R' },
+  { value: 'bank',   label: 'Bank',   logo: null,                                                                        bg: '#2563EB', text: '#fff', letter: '🏦' },
+  { value: 'crypto', label: 'Crypto', logo: null,                                                                        bg: '#00D2B4', text: '#111', letter: '💎' },
 ];
 
 const ALL_CRYPTO_KEYS = BLOCKCHAIN_OPTIONS.flatMap(b =>
