@@ -1,5 +1,6 @@
 kind = "web"
 previewPath = "/"
+externalPreviewUrl = "https://phonecraft.tech/"
 title = "PhoneCraft"
 version = "1.0.0"
 id = "artifacts/phonecraft"
