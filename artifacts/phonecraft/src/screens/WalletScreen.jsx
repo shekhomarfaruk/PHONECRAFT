@@ -24,9 +24,8 @@ const TOKEN_OPTIONS = [
 const PAYMENT_OPTIONS = [
   { value: 'bkash',  label: 'bKash',  logo: 'https://cdn.brandfetch.io/id_4D40okd/w/400/h/400/theme/dark/icon.jpeg',   bg: '#E2136E', text: '#fff', letter: 'b' },
   { value: 'nagad',  label: 'Nagad',  logo: 'https://cdn.brandfetch.io/idPKXOsXfF/w/512/h/512/theme/dark/logo.png',     bg: '#F05A28', text: '#fff', letter: 'N' },
-  { value: 'rocket', label: 'Rocket', logo: 'https://cdn.brandfetch.io/idDpUTM3Ow/w/400/h/400/theme/dark/icon.png',     bg: '#8B2FC9', text: '#fff', letter: 'R' },
-  { value: 'bank',   label: 'Bank',   logo: null,                                                                        bg: '#2563EB', text: '#fff', letter: '🏦' },
-  { value: 'crypto', label: 'Crypto', logo: null,                                                                        bg: '#00D2B4', text: '#111', letter: '💎' },
+  { value: 'rocket', label: 'Rocket', logo: '/rocket-logo.png',                                                          bg: '#8B2FC9', text: '#fff', letter: 'R' },
+  { value: 'crypto', label: 'Crypto', logo: '/crypto-logo.png',                                                          bg: '#00D2B4', text: '#111', letter: 'C' },
 ];
 
 const ALL_CRYPTO_KEYS = BLOCKCHAIN_OPTIONS.flatMap(b =>
@@ -94,7 +93,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
   const [submitted,  setSubmitted] = useState(false);
 
   const emptyDepositInfo = {
-    bkash: '', nagad: '', rocket: '', bank: '',
+    bkash: '', nagad: '', rocket: '',
     ...Object.fromEntries(ALL_CRYPTO_KEYS.map(k => [k, ''])),
   };
   const [depositInfo,  setDepositInfo ] = useState(emptyDepositInfo);
@@ -201,7 +200,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
 
   const depositNumber = {
     bkash: depositInfo.bkash, nagad: depositInfo.nagad,
-    rocket: depositInfo.rocket, bank: depositInfo.bank,
+    rocket: depositInfo.rocket,
   }[method] || '';
 
   return (

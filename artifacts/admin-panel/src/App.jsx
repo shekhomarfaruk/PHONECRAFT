@@ -1142,7 +1142,7 @@ function SettingsPage({ authFetch, toast }) {
       <div className="card">
         <div className="card-title"><CreditCard size={16} /> Payment Accounts</div>
         <div className="grid-2">
-          {['bkash', 'nagad', 'rocket', 'bank'].map(m => (
+          {['bkash', 'nagad', 'rocket'].map(m => (
             <div key={m}>
               <label className="input-label">{m.charAt(0).toUpperCase() + m.slice(1)} Number</label>
               <input className="inp" value={settings[`deposit_${m}`] || ''} onChange={e => setSettings(p => ({ ...p, [`deposit_${m}`]: e.target.value }))} />
