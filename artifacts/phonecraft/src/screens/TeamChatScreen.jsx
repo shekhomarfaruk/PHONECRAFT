@@ -105,7 +105,7 @@ function TeamChatScreen({ user, showToast, lang }) {
       <div className="card" style={{ marginBottom: 10 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, justifyContent:'space-between' }}>
           <div>
-            <div style={{ fontSize:11, color:'var(--text2)', marginBottom:2 }}>মোট Team Member</div>
+            <div style={{ fontSize:11, color:'var(--text2)', marginBottom:2 }}>{t.team_total_members}</div>
             <div style={{ fontFamily:'Space Grotesk', fontSize:22, fontWeight:800, color:'var(--accent)' }}>
               {localMembers.length}
             </div>
@@ -113,10 +113,10 @@ function TeamChatScreen({ user, showToast, lang }) {
           <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
             {user?.referralCode && (
               <span className="badge badge-blue" style={{fontSize:11,padding:'3px 10px'}}>
-                কোড: {user.referralCode}
+                {t.team_code_prefix} {user.referralCode}
               </span>
             )}
-            <div style={{ fontSize:11, color:'var(--text2)' }}>আপনার রেফারেল কোড</div>
+            <div style={{ fontSize:11, color:'var(--text2)' }}>{t.your_ref_code_lbl}</div>
           </div>
         </div>
       </div>
@@ -124,14 +124,14 @@ function TeamChatScreen({ user, showToast, lang }) {
       {loading ? (
         <div style={{ textAlign:'center', padding:40, color:'var(--text2)' }}>
           <div style={{ marginBottom:8 }}><Icons.People size={32}/></div>
-          <div>Loading team...</div>
+          <div>{t.team_loading}</div>
         </div>
       ) : localMembers.length === 0 ? (
         <div className="card" style={{ textAlign:'center', padding:32 }}>
           <div style={{ fontSize:40, marginBottom:12 }}>👥</div>
-          <div style={{ fontWeight:700, fontSize:15, marginBottom:6 }}>কোনো Team Member নেই</div>
+          <div style={{ fontWeight:700, fontSize:15, marginBottom:6 }}>{t.team_no_members_title}</div>
           <div style={{ fontSize:12, color:'var(--text2)', lineHeight:1.7 }}>
-            আপনার Referral Code শেয়ার করুন<br/>এবং নতুন সদস্য আনুন!
+            {t.team_share_ref_cta}
           </div>
         </div>
       ) : (

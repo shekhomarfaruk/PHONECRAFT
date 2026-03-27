@@ -882,6 +882,37 @@ app.get('/api/user/:id/referral-activity', authRequired, requireSelfOrAdmin('id'
   }
 });
 
+// ── Work country access check ─────────────────────────────────────────────────
+app.get('/api/work/access', authRequired, async (req, res) => {
+  try {
+    const rows = stmts.getAllSettings.all();
+    const settings = {};
+    rows.forEach(r => { settings[r.key] = r.value; });
+    const blockedList = (settings.work_blocked_countries || '').trim();
+
+    if (!blockedList) return res.json({ blocked: false, country: '' });
+
+    // Detect user country from IP
+    const rawIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+    const ip    = rawIp.split(',')[0].trim().replace(/^::ffff:/, '');
+    const isLocal = !ip || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.');
+    if (isLocal) return res.json({ blocked: false, country: 'LOCAL' });
+
+    try {
+      const geoResp = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode`);
+      const geo     = await geoResp.json();
+      const code    = (geo.countryCode || '').toUpperCase();
+      const blocked = blockedList.toUpperCase().split(',').map(c => c.trim()).includes(code);
+      return res.json({ blocked, country: code });
+    } catch (_) {
+      return res.json({ blocked: false, country: '' });
+    }
+  } catch (err) {
+    console.error('Work access check error:', err.message);
+    res.json({ blocked: false });
+  }
+});
+
 // ── Team members (referred users) list ───────────────────────────────────────
 app.get('/api/user/:id/team-members', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {

@@ -579,6 +579,35 @@ export const I18N = {
     auth_task:              'task',
     auth_tasks_day:         'tasks/day',
     auth_daily:             'Daily',
+
+    // ── Wallet Crypto (extra) ────────────────────────────────────────────────
+    crypto_wallet_addr_lbl: '🔑 Your Crypto Wallet Address',
+    crypto_wallet_addr_ph:  '0x... or your wallet address',
+    upload_screenshot:      'Upload Screenshot',
+    screenshot_change:      'Click to change screenshot',
+    screenshot_optional:    'Transaction screenshot (optional)',
+    screenshot_done:        'Screenshot uploaded ✓',
+
+    // ── Team Members Screen ──────────────────────────────────────────────────
+    team_total_members:     'Total Team Members',
+    your_ref_code_lbl:      'Your Referral Code',
+    team_code_prefix:       'Code:',
+    team_no_members_title:  'No Team Members',
+    team_share_ref_cta:     'Share your Referral Code and bring new members!',
+    team_loading:           'Loading team...',
+
+    // ── Work time restriction ────────────────────────────────────────────────
+    work_time_over:         'Work Hours Over',
+    work_time_msg_line1:    'Work Screen is available only from',
+    work_time_range:        '9 AM to 10 PM',
+    work_time_msg_line2:    '(Bangladesh Time)',
+    work_cur_time_lbl:      'Current BDT time:',
+
+    // ── Work country restriction ─────────────────────────────────────────────
+    work_country_blocked:   'Work Not Available',
+    work_country_msg:       'Manufacturing work is currently not available in your country.',
+    work_country_sub:       'Please contact support for more information.',
+    work_checking_access:   'Checking access...',
   },
 
   bn: {
@@ -1160,5 +1189,34 @@ export const I18N = {
     auth_task:              'টাস্ক',
     auth_tasks_day:         'টাস্ক/দিন',
     auth_daily:             'দৈনিক',
+
+    // ── Wallet Crypto (extra) ────────────────────────────────────────────────
+    crypto_wallet_addr_lbl: '🔑 আপনার Crypto Wallet Address',
+    crypto_wallet_addr_ph:  '0x... অথবা আপনার wallet address',
+    upload_screenshot:      'ছবি আপলোড করুন',
+    screenshot_change:      'ছবি পরিবর্তন করতে ক্লিক করুন',
+    screenshot_optional:    'Transaction-এর screenshot দিন (optional)',
+    screenshot_done:        'Screenshot আপলোড হয়েছে ✓',
+
+    // ── Team Members Screen ──────────────────────────────────────────────────
+    team_total_members:     'মোট টিম মেম্বার',
+    your_ref_code_lbl:      'আপনার রেফারেল কোড',
+    team_code_prefix:       'কোড:',
+    team_no_members_title:  'কোনো টিম মেম্বার নেই',
+    team_share_ref_cta:     'আপনার Referral Code শেয়ার করুন এবং নতুন সদস্য আনুন!',
+    team_loading:           'লোড হচ্ছে...',
+
+    // ── Work time restriction ────────────────────────────────────────────────
+    work_time_over:         'কাজের সময় শেষ',
+    work_time_msg_line1:    'Work Screen শুধুমাত্র',
+    work_time_range:        'সকাল ৯টা থেকে রাত ১০টা',
+    work_time_msg_line2:    'পর্যন্ত ব্যবহার করা যাবে (Bangladesh Time)',
+    work_cur_time_lbl:      'বর্তমান BDT সময়:',
+
+    // ── Work country restriction ─────────────────────────────────────────────
+    work_country_blocked:   'কাজ পাওয়া যাচ্ছে না',
+    work_country_msg:       'আপনার দেশে বর্তমানে কাজ করার সুবিধা নেই।',
+    work_country_sub:       'আরও তথ্যের জন্য সাপোর্টে যোগাযোগ করুন।',
+    work_checking_access:   'যাচাই করা হচ্ছে...',
   },
 };

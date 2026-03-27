@@ -300,6 +300,15 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
   const bdtHour = nowBDT.getUTCHours();
   const isWorkHour = bdtHour >= 9 && bdtHour < 22;
 
+  // ── Country access check ──────────────────────────────────────────────────
+  const [countryAccess, setCountryAccess] = useState({ loading: false, blocked: false });
+  useEffect(() => {
+    authFetch(`${API_URL}/api/work/access`)
+      .then(r => r.json())
+      .then(d => setCountryAccess({ loading: false, blocked: !!d.blocked }))
+      .catch(() => setCountryAccess({ loading: false, blocked: false }));
+  }, []);
+
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER: CONFIG PHASE
   // ════════════════════════════════════════════════════════════════════════════
@@ -308,8 +317,18 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
       <>
         <div className="screen-title"><Icons.Work size={18}/> {t.nav_work}</div>
 
+        {/* Country blocked overlay */}
+        {countryAccess.blocked && (
+          <div style={{position:'fixed',inset:0,zIndex:1000,backdropFilter:'blur(18px)',WebkitBackdropFilter:'blur(18px)',background:'rgba(0,0,0,.72)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16,textAlign:'center',padding:24}}>
+            <div style={{fontSize:44}}>🌍</div>
+            <div style={{fontFamily:'Space Grotesk',fontSize:22,fontWeight:800,color:'#fff'}}>{t.work_country_blocked}</div>
+            <div style={{fontSize:14,color:'rgba(255,255,255,.8)',maxWidth:280,lineHeight:1.7}}>{t.work_country_msg}</div>
+            <div style={{fontSize:12,color:'rgba(255,255,255,.5)'}}>{t.work_country_sub}</div>
+          </div>
+        )}
+
         {/* Time restriction blur overlay */}
-        {!isWorkHour && (
+        {!isWorkHour && !countryAccess.blocked && (
           <div style={{
             position:'fixed', inset:0, zIndex:999,
             backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)',
@@ -319,15 +338,15 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
           }}>
             <div style={{fontSize:44}}>🕘</div>
             <div style={{fontFamily:'Space Grotesk', fontSize:22, fontWeight:800, color:'#fff'}}>
-              কাজের সময় শেষ
+              {t.work_time_over}
             </div>
             <div style={{fontSize:14, color:'rgba(255,255,255,.8)', maxWidth:280, lineHeight:1.7}}>
-              Work Screen শুধুমাত্র<br/>
-              <b style={{color:'var(--accent)'}}>সকাল ৯টা থেকে রাত ১০টা</b> পর্যন্ত<br/>
-              ব্যবহার করা যাবে (Bangladesh Time)
+              {t.work_time_msg_line1}<br/>
+              <b style={{color:'var(--accent)'}}>{t.work_time_range}</b><br/>
+              {t.work_time_msg_line2}
             </div>
             <div style={{fontSize:12, color:'rgba(255,255,255,.5)'}}>
-              বর্তমান BDT সময়: {nowBDT.getUTCHours().toString().padStart(2,'0')}:{nowBDT.getUTCMinutes().toString().padStart(2,'0')}
+              {t.work_cur_time_lbl} {nowBDT.getUTCHours().toString().padStart(2,'0')}:{nowBDT.getUTCMinutes().toString().padStart(2,'0')}
             </div>
           </div>
         )}

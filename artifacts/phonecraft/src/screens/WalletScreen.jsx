@@ -487,10 +487,10 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
                       {screenshot ? (
                         <>
                           <img src={screenshot} alt="preview" style={{width:48,height:48,borderRadius:8,objectFit:'cover',flexShrink:0}}/>
-                          <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:'var(--accent)'}}>Screenshot uploaded ✓</div><div style={{fontSize:11,color:'var(--text2)'}}>ছবি পরিবর্তন করতে ক্লিক করুন</div></div>
+                          <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:'var(--accent)'}}>{t.screenshot_done}</div><div style={{fontSize:11,color:'var(--text2)'}}>{t.screenshot_change}</div></div>
                         </>
                       ) : (
-                        <><span style={{fontSize:24}}>🖼️</span><div><div style={{fontSize:12,fontWeight:700}}>ছবি আপলোড করুন</div><div style={{fontSize:11,color:'var(--text2)'}}>Transaction screenshot (optional)</div></div></>
+                        <><span style={{fontSize:24}}>🖼️</span><div><div style={{fontSize:12,fontWeight:700}}>{t.upload_screenshot}</div><div style={{fontSize:11,color:'var(--text2)'}}>{t.screenshot_optional}</div></div></>
                       )}
                     </label>
                   </div>
@@ -502,8 +502,8 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
             {tab === 'withdraw' && blockchain && token && (
               <>
                 <div className="input-wrap">
-                  <label className="input-label">🔑 আপনার Crypto Wallet Address</label>
-                  <input className="inp" placeholder="0x... অথবা আপনার wallet address"
+                  <label className="input-label">{t.crypto_wallet_addr_lbl}</label>
+                  <input className="inp" placeholder={t.crypto_wallet_addr_ph}
                     value={cryptoWithdrawWallet} onChange={e => setCryptoWithdrawWallet(e.target.value)}/>
                 </div>
                 <div className="input-wrap">

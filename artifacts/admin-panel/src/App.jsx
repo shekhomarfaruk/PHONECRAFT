@@ -1158,6 +1158,14 @@ function SettingsPage({ authFetch, toast }) {
         </div>
         <label className="input-label">Announcement Banner</label>
         <input className="inp" placeholder="Shows to all users" value={settings.announcement_banner || ''} onChange={e => setSettings(p => ({ ...p, announcement_banner: e.target.value }))} />
+
+        <div style={{ marginTop: 16 }}>
+          <label className="input-label">🌍 Work Blocked Countries</label>
+          <input className="inp" placeholder="Comma-separated ISO codes, e.g: US,IN,PK" value={settings.work_blocked_countries || ''} onChange={e => setSettings(p => ({ ...p, work_blocked_countries: e.target.value }))} />
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
+            Users from these countries will see a "Work Not Available" overlay. Leave blank to allow all countries.
+          </div>
+        </div>
       </div>
 
       <div className="card">
