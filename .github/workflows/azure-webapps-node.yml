@@ -6,9 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '24.x'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -34,7 +31,7 @@ jobs:
           NODE_ENV: production
 
       - name: Build admin panel
-        run: PORT=3000 BASE_PATH=/admin-panel/ pnpm --filter @workspace/admin-panel run build
+        run: PORT=3000 BASE_PATH=/xpc-ctrl-7f3b/ pnpm --filter @workspace/admin-panel run build
         env:
           NODE_ENV: production
 
@@ -57,7 +54,9 @@ jobs:
               "better-sqlite3": "^12.8.0",
               "dotenv": "^16.4.5",
               "node-fetch": "^3.3.2",
-              "cookie-parser": "^1.4.7"
+              "cookie-parser": "^1.4.7",
+              "web-push": "^3.6.7",
+              "multer": "^1.4.5-lts.2"
             }
           }' > server/package.json
           cd server && npm install --production
@@ -74,6 +73,8 @@ jobs:
           printf 'TELEGRAM_ADMIN_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_ADMIN_CHAT_IDS }}" >> .env
           printf 'MAIN_ADMIN_REFER_CODE=%s\n' "${{ secrets.MAIN_ADMIN_REFER_CODE }}" >> .env
           printf 'WEBHOOK_URL=%s\n' "${{ secrets.WEBHOOK_URL }}" >> .env
+          printf 'VAPID_PUBLIC_KEY=%s\n' "${{ secrets.VAPID_PUBLIC_KEY }}" >> .env
+          printf 'VAPID_PRIVATE_KEY=%s\n' "${{ secrets.VAPID_PRIVATE_KEY }}" >> .env
         env:
           SUPPORT_TOKEN: ${{ secrets.TELEGRAM_SUPPORT_BOT_TOKEN }}
           FINANCE_TOKEN: ${{ secrets.TELEGRAM_FINANCE_BOT_TOKEN }}
@@ -81,7 +82,8 @@ jobs:
       - name: Copy frontend builds
         run: |
           cp -r artifacts/phonecraft/dist/public dist
-          cp -r artifacts/admin-panel/dist/public dist/admin-panel
+          mkdir -p dist/xpc-ctrl-7f3b
+          cp -r artifacts/admin-panel/dist/public/. dist/xpc-ctrl-7f3b/
 
       - name: Inject admin panel SPA routing into server
         run: |
@@ -89,8 +91,6 @@ jobs:
           with open('server/index.js', 'r') as f:
               code = f.read()
 
-          # Replace existing single-app SPA catch-all with two-app version.
-          # Admin panel gets its own index.html; main app gets the other.
           old_catchall = (
               "// ── SPA fallback — serve index.html for non-API routes ───────────────────────\n"
               "app.get('*', (_req, res) => {\n"
@@ -99,9 +99,9 @@ jobs:
           )
           new_catchall = (
               "// ── SPA fallback (admin panel + main app) ──────────────────────────────────────\n"
-              "app.get('/admin-panel', (req, res) => res.redirect('/admin-panel/'));\n"
-              "app.get('/admin-panel/*', (req, res) => {\n"
-              "  res.sendFile(path.join(__dirname, '..', 'dist', 'admin-panel', 'index.html'));\n"
+              "app.get('/xpc-ctrl-7f3b', (req, res) => res.redirect('/xpc-ctrl-7f3b/'));\n"
+              "app.get('/xpc-ctrl-7f3b/*', (req, res) => {\n"
+              "  res.sendFile(path.join(__dirname, '..', 'dist', 'xpc-ctrl-7f3b', 'index.html'));\n"
               "});\n"
               "app.get('*', (_req, res) => {\n"
               "  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));\n"
@@ -112,7 +112,6 @@ jobs:
               code = code.replace(old_catchall, new_catchall, 1)
               print("SPA catch-all replaced successfully.")
           else:
-              # Fallback: inject before app.listen if pattern changed
               code = code.replace('app.listen(', new_catchall + '\n\napp.listen(', 1)
               print("Fallback: injected before app.listen.")
 
@@ -124,7 +123,7 @@ jobs:
         run: zip -r release.zip server dist .env
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v4
         with:
           name: node-app
           path: release.zip
@@ -134,12 +133,12 @@ jobs:
     needs: build
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@v4
         with:
           name: node-app
 
       - name: Deploy to Azure Web App (Zip Deploy)
-        uses: azure/webapps-deploy@v3.0.2
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'phonecraft'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
