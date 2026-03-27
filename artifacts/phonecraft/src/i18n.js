@@ -75,8 +75,8 @@ export const I18N = {
     user_guide:         'User Guide',
     your_plan:          'Your Plan',
     your_plan_label:    'Your Plan',
-    per_task:           '৳/Task',
-    per_day:            '৳/Day',
+    per_task:           'Per Task',
+    per_day:            'Per Day',
     total_earn_col:     'Total Earn',
     plan_col:           'Plan',
     rate_col:           'Rate',
@@ -149,7 +149,7 @@ export const I18N = {
     bank_transfer:      'Bank Transfer',
     account_number:     'Account Number',
     number_placeholder: 'number',
-    amount_label:       'Amount (৳)',
+    amount_label:       'Amount (BDT ৳)',
     enter_amount:       'Enter amount',
     req_withdraw:       'Request Withdraw',
     sub_deposit:        'Submit Deposit',
@@ -163,6 +163,22 @@ export const I18N = {
     pending:            'Pending',
     rejected:           'Rejected',
     no_transactions:    'No transactions yet',
+
+    // ── Wallet Crypto & Extra ─────────────────────────────────────────────────
+    wallet_deposit_send_here:   'Send money to this number',
+    wallet_deposit_then_submit: 'After sending money, fill in your number & amount below and submit.',
+    wallet_blockchain_lbl:      'Blockchain',
+    wallet_token_lbl:           'Token',
+    wallet_deposit_addr_lbl:    'Deposit Wallet Address',
+    wallet_not_configured:      'wallet not configured yet',
+    wallet_txhash_lbl:          '🔗 Transaction Hash (TxnHash)',
+    wallet_txhash_ph:           'Paste your TxnHash here',
+    wallet_screenshot_lbl:      '📸 Screenshot (Transaction Proof)',
+    wallet_crypto_dep_btn:      'Submit Crypto Deposit',
+    wallet_crypto_wd_btn:       'Submit Crypto Withdraw',
+
+    // ── Sidebar ───────────────────────────────────────────────────────────────
+    sidebar_live_rate:          'Live Rate',
 
     // ── Balance ──────────────────────────────────────────────────────────────
     balance_screen:     'Balance',
@@ -712,8 +728,8 @@ export const I18N = {
     user_guide:         'ইউজার গাইড',
     your_plan:          'আপনার প্ল্যান',
     your_plan_label:    'আপনার প্ল্যান',
-    per_task:           '৳/টাস্ক',
-    per_day:            '৳/দিন',
+    per_task:           'প্রতি টাস্ক',
+    per_day:            'প্রতি দিন',
     total_earn_col:     'মোট আয়',
     plan_col:           'প্ল্যান',
     rate_col:           'রেট',
@@ -786,7 +802,7 @@ export const I18N = {
     bank_transfer:      'ব্যাংক ট্রান্সফার',
     account_number:     'অ্যাকাউন্ট নম্বর',
     number_placeholder: 'নম্বর',
-    amount_label:       'পরিমাণ (৳)',
+    amount_label:       'পরিমাণ (৳ BDT)',
     enter_amount:       'পরিমাণ দিন',
     req_withdraw:       'উইথড্র রিকোয়েস্ট',
     sub_deposit:        'জমা দিন',
@@ -800,6 +816,22 @@ export const I18N = {
     pending:            'অপেক্ষমাণ',
     rejected:           'প্রত্যাখ্যাত',
     no_transactions:    'এখনো কোনো লেনদেন নেই',
+
+    // ── Wallet Crypto & Extra ─────────────────────────────────────────────────
+    wallet_deposit_send_here:   'এই নম্বরে টাকা পাঠান',
+    wallet_deposit_then_submit: 'টাকা পাঠানোর পর নিচে আপনার নম্বর ও পরিমাণ দিয়ে সাবমিট করুন।',
+    wallet_blockchain_lbl:      'ব্লকচেইন',
+    wallet_token_lbl:           'টোকেন',
+    wallet_deposit_addr_lbl:    'ডিপোজিট ওয়ালেট ঠিকানা',
+    wallet_not_configured:      'ওয়ালেট এখনো কনফিগার করা হয়নি',
+    wallet_txhash_lbl:          '🔗 ট্রানজেকশন হ্যাশ (TxnHash)',
+    wallet_txhash_ph:           'আপনার TxnHash এখানে পেস্ট করুন',
+    wallet_screenshot_lbl:      '📸 স্ক্রিনশট (লেনদেনের প্রমাণ)',
+    wallet_crypto_dep_btn:      'ক্রিপ্টো ডিপোজিট সাবমিট করুন',
+    wallet_crypto_wd_btn:       'ক্রিপ্টো উইথড্র করুন',
+
+    // ── Sidebar ───────────────────────────────────────────────────────────────
+    sidebar_live_rate:          'লাইভ রেট',
 
     // ── Balance ──────────────────────────────────────────────────────────────
     balance_screen:     'ব্যালেন্স',
@@ -1165,8 +1197,8 @@ export const I18N = {
     home_earning_now:       'ব্যবহারকারীরা এখন আয় করছেন',
     home_earned_today:      'আজকের আয়',
     home_new_reg:           'নতুন রেজিস্ট্রেশন অনুরোধ!',
-    home_accept:            'Accept',
-    home_decline:           'Decline',
+    home_accept:            'গ্রহণ করুন',
+    home_decline:           'প্রত্যাখ্যান করুন',
     home_install_app:       'হোম স্ক্রিনে অ্যাপ ইনস্টল করুন',
     home_install_sub:       'ট্যাপ করে Android/iPhone install guide দেখুন',
     home_daily:             'দৈনিক',

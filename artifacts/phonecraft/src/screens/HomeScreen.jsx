@@ -210,14 +210,14 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
                 className="btn btn-success"
                 style={{ flex: 1, fontSize: 13, padding: '10px 0', fontWeight: 700, borderRadius: 10 }}
               >
-                'Accept'
+                {t.home_accept}
               </button>
               <button
                 onClick={() => setRegModalNotif(notif)}
                 className="btn btn-danger"
                 style={{ flex: 1, fontSize: 13, padding: '10px 0', fontWeight: 700, borderRadius: 10 }}
               >
-                'Decline'
+                {t.home_decline}
               </button>
             </div>
           </div>

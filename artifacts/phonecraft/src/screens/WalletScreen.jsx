@@ -6,7 +6,6 @@ import { convertCurrency } from "../currency.js";
 import { authFetch } from "../session.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
-const USD_RATE = 122.80;
 
 const BLOCKCHAIN_OPTIONS = [
   { value: 'eth',      label: 'Ethereum',  short: 'ETH',  icon: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png' },
@@ -84,7 +83,7 @@ function CopyButton({ text, showToast }) {
   );
 }
 
-function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
+function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRate = 122.80 }) {
   const t = I18N[lang] || I18N.en;
   const isBn = lang === 'bn';
   const cryptoEnabled = appSettings?.crypto_enabled !== 'false';
@@ -109,7 +108,6 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
   const [txnHash,      setTxnHash     ] = useState('');
   const [cryptoAmount, setCryptoAmount] = useState('');
   const [cryptoWithdrawWallet, setCryptoWithdrawWallet] = useState('');
-  const [usdBdtRate,   setUsdBdtRate  ] = useState(null);
 
   useEffect(() => {
     authFetch(`${API_URL}/api/deposit-info`)
@@ -143,14 +141,6 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
     setBlockchain(''); setToken('');
   }, [tab, method]);
 
-  // Fetch realtime USD to BDT rate
-  useEffect(() => {
-    fetch('https://open.er-api.com/v6/latest/USD')
-      .then(r => r.json())
-      .then(d => { if (d.rates?.BDT) setUsdBdtRate(Number(d.rates.BDT).toFixed(2)); })
-      .catch(() => {});
-  }, []);
-
   const visiblePaymentOptions = cryptoEnabled
     ? PAYMENT_OPTIONS
     : PAYMENT_OPTIONS.filter(o => o.value !== 'crypto');
@@ -165,8 +155,8 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
   const selectedToken = TOKEN_OPTIONS.find(tk => tk.value === token);
   const coinLabel     = `${selectedToken?.label} on ${selectedChain?.label}`;
 
-  const amountLabel       = isBn ? 'পরিমাণ (৳ BDT)' : 'Amount ($ USD)';
-  const amountPlaceholder = isBn ? '৳ পরিমাণ লিখুন'  : '$ Enter USD amount';
+  const amountLabel       = isBn ? t.amount_label : 'Amount ($ USD)';
+  const amountPlaceholder = isBn ? t.enter_amount : '$ Enter USD amount';
 
   const handleScreenshotChange = (e) => {
     const file = e.target.files?.[0];
@@ -178,7 +168,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
 
   const submit = async () => {
     if (isCrypto) {
-      const effectiveRate = usdBdtRate ? Number(usdBdtRate) : USD_RATE;
+      const effectiveRate = usdRate;
       if (tab === 'deposit') {
         if (!txnHash.trim() || !cryptoAmount) { showToast(t.fill_all_fields); return; }
         setSubmitted(true);
@@ -294,13 +284,11 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
           <div style={{fontFamily:'Space Grotesk',fontSize:'clamp(20px,5vw,28px)',color:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
             <Icons.Coin size={22}/>{convertCurrency(user.balance, lang)}
           </div>
-          {usdBdtRate && (
-            <div style={{fontSize:11,color:'var(--text2)',marginTop:6,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
-              <span>💱</span>
-              <span>1 USD = <b style={{color:'var(--accent)'}}>৳{usdBdtRate}</b> BDT</span>
-              <span style={{fontSize:9,opacity:.6}}>(Live)</span>
-            </div>
-          )}
+          <div style={{fontSize:11,color:'var(--text2)',marginTop:6,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+            <span>💱</span>
+            <span>1 USD = <b style={{color:'var(--accent)'}}>৳{Number(usdRate).toFixed(2)}</b> BDT</span>
+            <span style={{fontSize:9,opacity:.6}}>(Live)</span>
+          </div>
         </div>
 
         {/* ── Payment Method Grid ── */}
@@ -364,7 +352,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
         {!isCrypto && tab === 'deposit' && depositNumber && (
           <div style={{background:'rgba(0,210,180,.07)',border:'1px solid rgba(0,210,180,.25)',borderRadius:10,padding:'12px 14px',marginBottom:14}}>
             <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',marginBottom:6,textTransform:'uppercase',letterSpacing:.5}}>
-              <Icons.Upload size={13}/> এই নম্বরে টাকা পাঠান
+              <Icons.Upload size={13}/> {t.wallet_deposit_send_here}
             </div>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
               <span style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 14px',fontFamily:'monospace',fontSize:16,fontWeight:700,letterSpacing:1,flex:1,textAlign:'center'}}>
@@ -373,7 +361,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
               <CopyButton text={depositNumber} showToast={showToast}/>
             </div>
             <div style={{fontSize:11,color:'var(--text2)',marginTop:6}}>
-              টাকা পাঠানোর পর নিচে আপনার নম্বর ও পরিমাণ দিয়ে সাবমিট করুন।
+              {t.wallet_deposit_then_submit}
             </div>
           </div>
         )}
@@ -383,7 +371,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
           <div style={{marginBottom:14}}>
             {/* Blockchain selector */}
             <div className="input-wrap">
-              <label className="input-label">Blockchain</label>
+              <label className="input-label">{t.wallet_blockchain_lbl}</label>
               <div style={{display:'flex', gap:8, overflowX:'auto', paddingBottom:4, WebkitOverflowScrolling:'touch'}}>
                 {BLOCKCHAIN_OPTIONS.map(b => {
                   const isActive = blockchain === b.value;
@@ -409,7 +397,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
             {/* Token selector — appears after blockchain selected */}
             {blockchain && (
               <div className="input-wrap">
-                <label className="input-label">Token</label>
+                <label className="input-label">{t.wallet_token_lbl}</label>
                 <div style={{display:'flex', gap:10}}>
                   {TOKEN_OPTIONS.map(tk => {
                     const isActive = token === tk.value;
@@ -451,7 +439,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
                           <ImgIcon src={tk?.icon} alt={tk?.label} size={22} fallback={tk?.label[0]} fallbackBg={tk?.color} fallbackColor="#fff"/>
                           <span style={{fontWeight:700,fontSize:13}}>{tk?.label}</span>
                         </div>
-                        <div style={{fontSize:10,color:'var(--text2)',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Deposit Wallet Address</div>
+                        <div style={{fontSize:10,color:'var(--text2)',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>{t.wallet_deposit_addr_lbl}</div>
                         <div style={{display:'inline-block',background:'#fff',borderRadius:12,padding:12,boxShadow:'0 2px 12px rgba(0,0,0,.1)'}}>
                           <QRCodeSVG value={addr} size={180} level="H"
                             imageSettings={{ src:`${import.meta.env.BASE_URL}logo.png`, height:36, width:36, excavate:true }}/>
@@ -466,7 +454,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
                     ) : (
                       <div style={{background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,padding:'14px 16px',marginBottom:14,textAlign:'center',fontSize:13,color:'#ef4444'}}>
                         <ImgIcon src={tk?.icon} alt={tk?.label} size={18} fallback={tk?.label[0]} fallbackBg={tk?.color} fallbackColor="#fff"/>
-                        {' '}{tk?.label} on {sc?.label} — wallet not configured yet
+                        {' '}{tk?.label} on {sc?.label} — {t.wallet_not_configured}
                       </div>
                     )}
                   </div>
@@ -476,12 +464,12 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
                       value={cryptoAmount} onChange={e => setCryptoAmount(e.target.value)}/>
                   </div>
                   <div className="input-wrap">
-                    <label className="input-label">🔗 Transaction Hash (TxnHash)</label>
-                    <input className="inp" placeholder="Paste your TxnHash here"
+                    <label className="input-label">{t.wallet_txhash_lbl}</label>
+                    <input className="inp" placeholder={t.wallet_txhash_ph}
                       value={txnHash} onChange={e => setTxnHash(e.target.value)}/>
                   </div>
                   <div className="input-wrap">
-                    <label className="input-label">📸 Screenshot (Transaction Proof)</label>
+                    <label className="input-label">{t.wallet_screenshot_lbl}</label>
                     <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',background:'var(--input-bg)',border:`2px dashed ${screenshot ? 'var(--accent)' : 'var(--border)'}`,borderRadius:10,padding:'12px 14px',transition:'all .2s'}}>
                       <input type="file" accept="image/*" style={{display:'none'}} onChange={handleScreenshotChange}/>
                       {screenshot ? (
@@ -546,9 +534,9 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
             {submitted
               ? t.processing_lbl
               : isCrypto && tab === 'deposit'
-                ? <><Icons.Coin size={16}/> {isBn ? 'ক্রিপ্টো ডিপোজিট সাবমিট করুন' : 'Submit Crypto Deposit'}</>
+                ? <><Icons.Coin size={16}/> {t.wallet_crypto_dep_btn}</>
                 : isCrypto && tab === 'withdraw'
-                  ? <><Icons.Transfer size={16}/> {isBn ? 'ক্রিপ্টো উইথড্র করুন' : 'Submit Crypto Withdraw'}</>
+                  ? <><Icons.Transfer size={16}/> {t.wallet_crypto_wd_btn}</>
                   : tab === 'withdraw'
                     ? <><Icons.Transfer size={16}/> {t.req_withdraw}</>
                     : <><Icons.Coin size={16}/> {t.sub_deposit}</>

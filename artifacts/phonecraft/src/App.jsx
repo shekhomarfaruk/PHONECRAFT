@@ -21,7 +21,7 @@ import GuideScreen from "./screens/GuideScreen.jsx";
 import LandingScreen from "./screens/LandingScreen.jsx";
 import SupportWidget from "./SupportWidget.jsx";
 import { I18N } from "./i18n.js";
-import { convertCurrency, convertCurrencyText } from "./currency.js";
+import { convertCurrency, convertCurrencyText, fetchLiveRate, getLiveRate } from "./currency.js";
 import { clearStoredSession, getStoredSession, getAuthToken, authFetch, mapApiUser, saveStoredSession } from "./session.js";
 
 // ── Custom Balance Icon ───────────────────────────────────────────────────────
@@ -105,6 +105,7 @@ export default function App() {
   const [user,          setUser         ] = useState(null);
   const [fontSize,      setFontSize     ] = useState(() => localStorage.getItem('app-font-size') || 'medium');
   const [appSettings,   setAppSettings  ] = useState({ maintenance_mode: 'false', announcement_banner: '' });
+  const [usdRate,       setUsdRate      ] = useState(() => getLiveRate());
 
   // Apply font size as CSS variable on root
   useEffect(() => {
@@ -130,6 +131,17 @@ export default function App() {
     fetchAppSettings();
     const interval = setInterval(fetchAppSettings, 60000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Fetch & cache live USD→BDT rate (every 7 minutes)
+  useEffect(() => {
+    const doFetch = async () => {
+      const rate = await fetchLiveRate();
+      setUsdRate(rate);
+    };
+    doFetch();
+    const iv = setInterval(doFetch, 7 * 60 * 1000);
+    return () => clearInterval(iv);
   }, []);
 
   // Persist user session to localStorage (auto-updates on any user change)
@@ -472,7 +484,7 @@ export default function App() {
   );
 
   const tErr = (e) => translateServerError(e, lang);
-  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings, tErr };
+  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings, tErr, usdRate };
 
   // Dynamic menu: build from i18n, add Admin item only if user is admin
   const t = I18N[lang] || I18N.en;
@@ -501,7 +513,12 @@ export default function App() {
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{user.name}</div>
                 <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{user.identifier}</div>
                 <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)', fontFamily: 'Space Grotesk', fontSize: 12 }}>
-                  <Icons.Coin size={14} />{convertCurrency(user.balance, lang)}
+                  <Icons.Coin size={14} />{convertCurrency(user.balance, lang, usdRate)}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                  <span>💱</span>
+                  <span>{t.sidebar_live_rate}: <b style={{ color: 'var(--accent)' }}>৳{usdRate.toFixed(2)}</b></span>
+                  <span style={{ fontSize: 8, opacity: 0.55 }}>({t.just_now})</span>
                 </div>
               </div>
               <nav className="sidebar-nav">
@@ -539,7 +556,7 @@ export default function App() {
                 </div>
               )}
               <div className="top-right">
-                <div className="top-balance"><Icons.Coin size={14} />{convertCurrency(user.balance, lang)}</div>
+                <div className="top-balance"><Icons.Coin size={14} />{convertCurrency(user.balance, lang, usdRate)}</div>
                 <div className="icon-btn" onClick={() => setIsDark(!isDark)} title="Toggle theme">
                   <span className="theme-icon-enter" key={isDark ? 'dark' : 'light'}>{isDark ? <Icons.Sun /> : <Icons.Moon />}</span>
                 </div>
