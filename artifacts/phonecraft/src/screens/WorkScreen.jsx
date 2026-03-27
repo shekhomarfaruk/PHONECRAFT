@@ -113,7 +113,7 @@ function DeviceImage({ brand, model, animating = false, size = 160 }) {
   );
 }
 
-export default function WorkScreen({ user, setUser, showToast, addNotif, lang }) {
+export default function WorkScreen({ user, setUser, showToast, addNotif, lang, navigate }) {
   const t = I18N[lang] || I18N.en;
   const [phase, setPhase] = useState('config'); // 'config' | 'terminal' | 'success'
 
@@ -309,6 +309,57 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
       .catch(() => setCountryAccess({ loading: false, blocked: false }));
   }, []);
 
+  // ── Restriction overlays (early return — nav stays accessible) ──────────────
+  const restrictionOverlayStyle = {
+    display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+    gap:18, textAlign:'center', padding:32,
+    minHeight:'calc(100dvh - 160px)',
+  };
+  const backBtn = navigate && (
+    <button onClick={() => navigate('home')} style={{
+      marginTop:8, padding:'10px 28px', borderRadius:24,
+      border:'1px solid var(--border)',
+      background:'var(--input-bg)', color:'var(--text)',
+      fontSize:14, fontWeight:600, cursor:'pointer',
+    }}>← {t.nav_home}</button>
+  );
+
+  if (countryAccess.blocked) {
+    return (
+      <>
+        <div className="screen-title"><Icons.Work size={18}/> {t.nav_work}</div>
+        <div style={restrictionOverlayStyle}>
+          <div style={{fontSize:50}}>🌍</div>
+          <div style={{fontFamily:'Space Grotesk',fontSize:22,fontWeight:800}}>{t.work_country_blocked}</div>
+          <div style={{fontSize:14,color:'var(--text2)',maxWidth:280,lineHeight:1.7}}>{t.work_country_msg}</div>
+          <div style={{fontSize:12,color:'var(--text2)',opacity:.7}}>{t.work_country_sub}</div>
+          {backBtn}
+        </div>
+      </>
+    );
+  }
+
+  if (!isWorkHour) {
+    return (
+      <>
+        <div className="screen-title"><Icons.Work size={18}/> {t.nav_work}</div>
+        <div style={restrictionOverlayStyle}>
+          <div style={{fontSize:50}}>🕘</div>
+          <div style={{fontFamily:'Space Grotesk',fontSize:22,fontWeight:800}}>{t.work_time_over}</div>
+          <div style={{fontSize:14,color:'var(--text2)',maxWidth:280,lineHeight:1.7}}>
+            {t.work_time_msg_line1}<br/>
+            <b style={{color:'var(--accent)'}}>{t.work_time_range}</b><br/>
+            {t.work_time_msg_line2}
+          </div>
+          <div style={{fontSize:12,color:'var(--text2)',opacity:.6}}>
+            {t.work_cur_time_lbl} {nowBDT.getUTCHours().toString().padStart(2,'0')}:{nowBDT.getUTCMinutes().toString().padStart(2,'0')}
+          </div>
+          {backBtn}
+        </div>
+      </>
+    );
+  }
+
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER: CONFIG PHASE
   // ════════════════════════════════════════════════════════════════════════════
@@ -316,40 +367,6 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
     return (
       <>
         <div className="screen-title"><Icons.Work size={18}/> {t.nav_work}</div>
-
-        {/* Country blocked overlay */}
-        {countryAccess.blocked && (
-          <div style={{position:'fixed',inset:0,zIndex:1000,backdropFilter:'blur(18px)',WebkitBackdropFilter:'blur(18px)',background:'rgba(0,0,0,.72)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16,textAlign:'center',padding:24}}>
-            <div style={{fontSize:44}}>🌍</div>
-            <div style={{fontFamily:'Space Grotesk',fontSize:22,fontWeight:800,color:'#fff'}}>{t.work_country_blocked}</div>
-            <div style={{fontSize:14,color:'rgba(255,255,255,.8)',maxWidth:280,lineHeight:1.7}}>{t.work_country_msg}</div>
-            <div style={{fontSize:12,color:'rgba(255,255,255,.5)'}}>{t.work_country_sub}</div>
-          </div>
-        )}
-
-        {/* Time restriction blur overlay */}
-        {!isWorkHour && !countryAccess.blocked && (
-          <div style={{
-            position:'fixed', inset:0, zIndex:999,
-            backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)',
-            background:'rgba(0,0,0,.65)',
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-            gap:16, textAlign:'center', padding:24,
-          }}>
-            <div style={{fontSize:44}}>🕘</div>
-            <div style={{fontFamily:'Space Grotesk', fontSize:22, fontWeight:800, color:'#fff'}}>
-              {t.work_time_over}
-            </div>
-            <div style={{fontSize:14, color:'rgba(255,255,255,.8)', maxWidth:280, lineHeight:1.7}}>
-              {t.work_time_msg_line1}<br/>
-              <b style={{color:'var(--accent)'}}>{t.work_time_range}</b><br/>
-              {t.work_time_msg_line2}
-            </div>
-            <div style={{fontSize:12, color:'rgba(255,255,255,.5)'}}>
-              {t.work_cur_time_lbl} {nowBDT.getUTCHours().toString().padStart(2,'0')}:{nowBDT.getUTCMinutes().toString().padStart(2,'0')}
-            </div>
-          </div>
-        )}
 
         {/* Daily Progress */}
         <div className="card">
