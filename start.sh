@@ -4,6 +4,10 @@ set -e
 echo "[PhoneCraft] Starting server..."
 echo "[PhoneCraft] Node: $(node -v) | npm: $(npm -v)"
 
+# Kill any previous node process that might still hold the port
+pkill -f "node index.js" 2>/dev/null || true
+sleep 1
+
 cd /home/site/wwwroot/server
 
 BINARY="node_modules/better-sqlite3/build/Release/better_sqlite3.node"
