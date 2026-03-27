@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import Icons from "../Icons.jsx";
 import { I18N } from "../i18n.js";
@@ -265,6 +265,14 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
       .catch(() => {});
   }, []);
 
+  const fetchTransactions = useCallback(() => {
+    if (!user?.id) return;
+    authFetch(`${API_URL}/api/user/${user.id}/transactions`)
+      .then(r => r.json())
+      .then(data => { if (data.transactions) setTransactions(data.transactions); })
+      .catch(() => {});
+  }, [user?.id]);
+
   useEffect(() => {
     if (!user?.id) return;
     setTxLoading(true);
@@ -274,6 +282,14 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
       .catch(() => {})
       .finally(() => setTxLoading(false));
   }, [user?.id]);
+
+  // Auto-refresh transactions every 15s when there are pending ones
+  useEffect(() => {
+    const hasPending = transactions.some(tx => tx.status === 'pending');
+    if (!hasPending) return;
+    const timer = setInterval(fetchTransactions, 15_000);
+    return () => clearInterval(timer);
+  }, [transactions, fetchTransactions]);
 
   useEffect(() => {
     if (!cryptoEnabled && method === 'crypto') setMethod('bkash');
