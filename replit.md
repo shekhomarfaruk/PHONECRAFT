@@ -102,10 +102,10 @@ The admin panel (`AdminScreen.jsx`) is a comprehensive control center with 6 tab
 - **Users** — full-featured user management with search/filter (All/Active/Banned/Admin), bulk select for ban/unban, CSV export, broadcast messaging. User profile modal with 5 sub-tabs: Info (balance stats, edit balance/plan/admin toggle, force password reset), Transactions (full history), Referrals (L1/L2/L3 tree), Manufacturing (job history), Logins (IP/device/location)
 - **Finance** — transaction queue with status filter (Pending/Approved/Rejected/All) and type filter (Deposit/Withdraw/All). Inline approve/reject with admin notes. CSV export
 - **Support** — session list with unanswered filter, chat thread view with real-time polling, canned responses management (create/delete/quick-insert), session status management (resolve), admin assignment
-- **Admins** (main admin only) — admin list with role badges, granular permission editor (10 permissions: view_users, edit_users, ban_users, approve_deposits, approve_withdrawals, change_settings, manage_admins, view_reports, export_data, access_support), admin activity audit log
+- **Admins** (main admin only) — admin list with role badges, granular permission editor (15 permissions in 4 grouped categories: User Management, Finance, Settings, Reports & Support), admin activity audit log. Permissions include: `edit_user_balance`, `view_sensitive_data`, `require_proof`, `modify_payment_numbers`, `modify_wallet_addresses`
 - **Settings** (main admin only) — app control (maintenance mode toggle, announcement banner, work blocked countries), payment accounts (bKash/Nagad/Rocket/Bank), crypto wallet addresses (5 chains × USDT/USDC), financial limits (min/max deposit/withdraw, daily withdrawal limit, auto-hold threshold), security & transfer rules (transfer daily limit, min balance after transfer, withdraw cooldown hours, require daily tasks toggle, require withdraw proof toggle), plan management (edit price, per-task earnings, daily tasks, task time, referral percentages)
 - **Flagged** (main admin only) — flagged transactions list with unflag action, stealth override controls (Hold / Silent Reject toggles)
-- **IP Tracking** (main admin only) — users grouped by shared IP address, expandable cards showing all users on each IP, suspicious badge for 3+ users
+- **IP Tracking** (main admin only) — users grouped by shared IP address, expandable cards showing device names, last seen time, country; suspicious badge for 3+ users
 
 ### Admin Role System
 

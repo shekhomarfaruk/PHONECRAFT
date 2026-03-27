@@ -37,11 +37,46 @@ function formatDate(str, lang) {
   });
 }
 
+function EarningGraph({ earnings, lang }) {
+  if (!earnings || earnings.length === 0) return null;
+  const maxVal = Math.max(...earnings.map(e => e.earned), 1);
+  const W = 320, H = 80, ML = 0, MT = 8, MB = 20, MR = 0;
+  const plotW = W - ML - MR;
+  const plotH = H - MT - MB;
+  const n = earnings.length;
+  const xPos = i => ML + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yPos = v => MT + plotH - Math.max(0, (v / maxVal) * plotH);
+  const pts = earnings.map((e, i) => `${xPos(i)},${yPos(e.earned)}`).join(' ');
+  const area = `${xPos(0)},${MT + plotH} ${pts} ${xPos(n - 1)},${MT + plotH}`;
+  const dayLabel = d => {
+    try { const dt = new Date(d + 'T12:00:00Z'); return dt.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'short' }); } catch { return d.slice(5); }
+  };
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 80, overflow: 'visible' }}>
+      <defs>
+        <linearGradient id="eg-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(35,175,145,0.35)" />
+          <stop offset="100%" stopColor="rgba(35,175,145,0)" />
+        </linearGradient>
+      </defs>
+      <polygon points={area} fill="url(#eg-grad)" />
+      <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {earnings.map((e, i) => (
+        <g key={i}>
+          <circle cx={xPos(i)} cy={yPos(e.earned)} r="3.5" fill="var(--accent)" />
+          <text x={xPos(i)} y={H - 3} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.35)">{dayLabel(e.day)}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
   const t = I18N[lang] || I18N.en;
   const [log, setLog] = useState([]);
   const [summary, setSummary] = useState({ daily_earned: 0, referral_earned: 0, team_earned: 0 });
   const [loading, setLoading] = useState(true);
+  const [earnings, setEarnings] = useState([]);
   const [toIdentifier, setToIdentifier] = useState('');
   const [transferAmt, setTransferAmt] = useState('');
   const [transferring, setTransferring] = useState(false);
@@ -99,17 +134,17 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
   useEffect(() => {
     if (!user?.id) return;
     setLoading(true);
-    authFetch(`${API_URL}/api/user/${user.id}/balance-log`)
-      .then(r => r.json())
-      .then(data => {
-        setLog(data.log || []);
-        setSummary(data.summary || { daily_earned: 0, referral_earned: 0, team_earned: 0 });
-        if (typeof data.balance === 'number') {
-          setUser(p => p ? { ...p, balance: data.balance } : p);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      authFetch(`${API_URL}/api/user/${user.id}/balance-log`).then(r => r.json()),
+      authFetch(`${API_URL}/api/user/${user.id}/analytics`).then(r => r.json()).catch(() => ({ earnings: [] })),
+    ]).then(([balData, analyticsData]) => {
+      setLog(balData.log || []);
+      setSummary(balData.summary || { daily_earned: 0, referral_earned: 0, team_earned: 0 });
+      if (typeof balData.balance === 'number') {
+        setUser(p => p ? { ...p, balance: balData.balance } : p);
+      }
+      setEarnings(analyticsData.earnings || []);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [user?.id]);
 
   const mfgEarnings  = summary.daily_earned   || 0;
@@ -153,6 +188,24 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
           </div>
         ))}
       </div>
+
+      {/* Earning Graph — last 7 days */}
+      {earnings.length > 0 && (
+        <div className="card">
+          <div className="card-title"><Icons.TrendUp size={14} /> {lang === 'bn' ? 'গত ৭ দিনের আয় (গ্রাফ)' : 'Last 7 Days Earnings'}</div>
+          <div style={{ marginTop: 4 }}>
+            <EarningGraph earnings={earnings} lang={lang} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--text2)' }}>
+              {lang === 'bn' ? 'মোট আয়:' : 'Total:'} <span style={{ color: 'var(--green)', fontWeight: 700 }}>+{convertCurrency(earnings.reduce((s, e) => s + e.earned, 0), lang)}</span>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text2)' }}>
+              {lang === 'bn' ? 'সর্বোচ্চ:' : 'Peak:'} <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{convertCurrency(Math.max(...earnings.map(e => e.earned)), lang)}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Plan Info */}
       <div className="card">

@@ -167,6 +167,95 @@ function LoginScreen({ onLogin }) {
   );
 }
 
+function AnalyticsChart({ authFetch }) {
+  const [period, setPeriod] = useState('daily');
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadAnalytics = useCallback(async (p) => {
+    setLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/analytics?period=${p}`);
+      const d = await r.json();
+      if (r.ok) setData(d.data || []);
+    } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { loadAnalytics(period); }, [period, loadAnalytics]);
+
+  const maxVal = Math.max(...data.map(d => Math.max(d.deposits || 0, d.withdrawals || 0, Math.abs(d.netProfit || 0))), 1);
+  const W = 500, H = 170, ML = 52, MT = 10, MB = 26, MR = 8;
+  const plotW = W - ML - MR;
+  const plotH = H - MT - MB;
+  const n = data.length;
+  const xPos = i => ML + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yPos = v => MT + plotH - Math.max(0, (Math.max(0, v) / maxVal) * plotH);
+
+  const polyline = (key, color) => {
+    if (!data.length) return null;
+    const pts = data.map((d, i) => `${xPos(i)},${yPos(d[key])}`).join(' ');
+    return <polyline key={key} points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />;
+  };
+
+  const periodLabel = p => {
+    if (!p) return '';
+    if (p.includes('-W')) return `W${p.split('-W')[1]}`;
+    if (p.length === 7) return p.slice(5);
+    return p.slice(5);
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="card-title" style={{ margin: 0 }}><Activity size={16} /> Financial Analytics</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {['daily', 'weekly', 'monthly'].map(p => (
+            <button key={p} className={`btn btn-sm ${period === p ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setPeriod(p)} style={{ textTransform: 'capitalize', fontSize: 11 }}>{p}</button>
+          ))}
+        </div>
+      </div>
+      {loading ? (
+        <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)' }}>Loading chart...</div>
+      ) : data.length === 0 ? (
+        <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)' }}>No transaction data yet</div>
+      ) : (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+          {[0, 0.25, 0.5, 0.75, 1].map(t => {
+            const y = MT + plotH * (1 - t);
+            return (
+              <g key={t}>
+                <line x1={ML} y1={y} x2={W - MR} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+                <text x={ML - 4} y={y + 4} textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.3)">{formatMoney(Math.round(maxVal * t))}</text>
+              </g>
+            );
+          })}
+          {data.map((d, i) => {
+            if (n > 18 && i % Math.ceil(n / 10) !== 0) return null;
+            return <text key={i} x={xPos(i)} y={H - 7} textAnchor="middle" fontSize="8.5" fill="rgba(255,255,255,0.35)">{periodLabel(d.period)}</text>;
+          })}
+          {polyline('deposits', 'var(--success)')}
+          {polyline('withdrawals', 'var(--danger)')}
+          {polyline('netProfit', '#60a5fa')}
+          {data.map((d, i) => (
+            <g key={i}>
+              <circle cx={xPos(i)} cy={yPos(d.deposits)} r="3" fill="var(--success)" />
+              <circle cx={xPos(i)} cy={yPos(d.withdrawals)} r="3" fill="var(--danger)" />
+              <circle cx={xPos(i)} cy={yPos(Math.max(0, d.netProfit))} r="3" fill="#60a5fa" />
+            </g>
+          ))}
+        </svg>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 20, fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
+        {[['var(--success)', 'Deposits'], ['var(--danger)', 'Withdrawals'], ['#60a5fa', 'Net Profit']].map(([c, lbl]) => (
+          <span key={lbl}><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: c, marginRight: 4, verticalAlign: 'middle' }} />{lbl}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DashboardPage({ authFetch, toast }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -251,23 +340,7 @@ function DashboardPage({ authFetch, toast }) {
         )}
       </div>
 
-      {chartData.length > 0 && (
-        <div className="card">
-          <div className="card-title"><BarChart2 size={16} /> Revenue Chart (14 days)</div>
-          <div className="chart-bar-row">
-            {chartData.map((d, i) => (
-              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, height: '100%', justifyContent: 'flex-end' }}>
-                <div className="chart-bar" style={{ height: `${Math.max(3, (d.deposits / chartMax) * 100)}%`, background: 'var(--success)' }} title={`Dep: ৳${d.deposits}`} />
-                <div className="chart-bar" style={{ height: `${Math.max(3, (d.withdrawals / chartMax) * 100)}%`, background: 'var(--danger)' }} title={`Wd: ৳${d.withdrawals}`} />
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 20, fontSize: 11, color: 'var(--text2)', marginTop: 6 }}>
-            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: 'var(--success)', marginRight: 4, verticalAlign: 'middle' }} />Deposits</span>
-            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: 'var(--danger)', marginRight: 4, verticalAlign: 'middle' }} />Withdrawals</span>
-          </div>
-        </div>
-      )}
+      <AnalyticsChart authFetch={authFetch} />
 
       <div className="grid-2">
         {stats.planDistribution?.length > 0 && (
@@ -1031,12 +1104,47 @@ function AdminsPage({ authFetch, toast }) {
     } catch { toast('Failed', 'error'); }
   };
 
-  const PERM_LABELS = {
-    view_users: 'View Users', edit_users: 'Edit Users', ban_users: 'Ban Users',
-    approve_deposits: 'Approve Deposits', approve_withdrawals: 'Approve Withdrawals',
-    change_settings: 'Change Settings', manage_admins: 'Manage Admins',
-    view_reports: 'View Reports', export_data: 'Export Data', access_support: 'Access Support',
-  };
+  const PERM_GROUPS = [
+    {
+      label: '👥 User Management',
+      color: 'rgba(59,130,246,0.12)',
+      perms: [
+        { key: 'view_users',        label: 'View Users' },
+        { key: 'edit_users',        label: 'Edit User Info' },
+        { key: 'ban_users',         label: 'Ban / Unban Users' },
+        { key: 'edit_user_balance', label: 'Edit User Balance & Plan' },
+        { key: 'view_sensitive_data', label: 'View Sensitive Data (IDs, Logs)' },
+      ],
+    },
+    {
+      label: '💰 Finance',
+      color: 'rgba(14,203,129,0.1)',
+      perms: [
+        { key: 'approve_deposits',    label: 'Approve Deposits' },
+        { key: 'approve_withdrawals', label: 'Approve Withdrawals' },
+        { key: 'require_proof',       label: 'Require Withdrawal Proof' },
+      ],
+    },
+    {
+      label: '⚙️ Settings',
+      color: 'rgba(252,213,53,0.08)',
+      perms: [
+        { key: 'modify_payment_numbers',  label: 'Modify Payment Numbers (bKash, Nagad…)' },
+        { key: 'modify_wallet_addresses', label: 'Modify Crypto Wallet Addresses' },
+        { key: 'change_settings',         label: 'Change General Settings' },
+        { key: 'manage_admins',           label: 'Manage Admin Accounts' },
+      ],
+    },
+    {
+      label: '📊 Reports & Support',
+      color: 'rgba(99,102,241,0.08)',
+      perms: [
+        { key: 'view_reports',  label: 'View Reports & Stats' },
+        { key: 'export_data',   label: 'Export Data' },
+        { key: 'access_support', label: 'Access Support Chat' },
+      ],
+    },
+  ];
 
   return (
     <>
@@ -1063,18 +1171,23 @@ function AdminsPage({ authFetch, toast }) {
       {editPerms && (
         <div className="card" style={{ borderColor: 'rgba(99,102,241,0.3)' }}>
           <div className="modal-header">
-            <h2 style={{ fontSize: 16 }}>Set Permissions</h2>
+            <h2 style={{ fontSize: 16 }}>Set Permissions — {users.find(u => u.id === editPerms)?.name || 'Admin'}</h2>
             <button className="btn btn-outline btn-sm" onClick={() => setEditPerms(null)}><X size={14} /></button>
           </div>
-          <div className="grid-2">
-            {Object.entries(PERM_LABELS).map(([key, label]) => (
-              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={!!perms[key]} onChange={() => setPerms(p => ({ ...p, [key]: !p[key] }))} />
-                <span style={{ fontSize: 12 }}>{label}</span>
-              </label>
-            ))}
-          </div>
-          <button className="btn btn-primary btn-full" style={{ marginTop: 16 }} onClick={savePerms}>Save Permissions</button>
+          {PERM_GROUPS.map(group => (
+            <div key={group.label} style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>{group.label}</div>
+              <div className="grid-2">
+                {group.perms.map(({ key, label }) => (
+                  <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8, background: perms[key] ? group.color : 'var(--bg2)', border: `1px solid ${perms[key] ? 'rgba(14,203,129,0.25)' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.15s' }}>
+                    <input type="checkbox" checked={!!perms[key]} onChange={() => setPerms(p => ({ ...p, [key]: !p[key] }))} />
+                    <span style={{ fontSize: 12, fontWeight: perms[key] ? 600 : 400 }}>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button className="btn btn-primary btn-full" style={{ marginTop: 8 }} onClick={savePerms}>Save Permissions</button>
         </div>
       )}
 
@@ -1494,6 +1607,16 @@ function IpTrackingPage({ authFetch, toast }) {
                 </div>
                 {isExp && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                    {g.last_seen && (
+                      <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>
+                        Last seen: {fmtDate(g.last_seen)}{g.country ? ` · ${g.country}` : ''}
+                      </div>
+                    )}
+                    {g.device_names && (
+                      <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 10, background: 'var(--bg2)', borderRadius: 8, padding: '6px 10px' }}>
+                        📱 Devices detected: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{g.device_names}</span>
+                      </div>
+                    )}
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>Users on this IP:</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {userNames.map((name, j) => (

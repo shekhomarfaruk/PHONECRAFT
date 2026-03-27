@@ -98,6 +98,7 @@ try { db.exec('ALTER TABLE transactions ADD COLUMN flagged INTEGER DEFAULT 0'); 
 try { db.exec('ALTER TABLE transactions ADD COLUMN flag_reason TEXT DEFAULT ""'); } catch (_) {}
 try { db.exec('ALTER TABLE transactions ADD COLUMN stealth_status TEXT DEFAULT NULL'); } catch (_) {}
 try { db.exec('ALTER TABLE login_logs ADD COLUMN device_id TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE login_logs ADD COLUMN device_name TEXT DEFAULT ""'); } catch (_) {}
 // Index for duplicate TxID prevention (non-unique to allow empty strings)
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_txn_hash ON transactions(txn_hash) WHERE txn_hash != ""'); } catch (_) {}
 
@@ -662,11 +663,14 @@ const stmts = {
   // Security: stealth approval
   updateStealthStatus: db.prepare(`UPDATE transactions SET stealth_status = ? WHERE id = ?`),
 
-  // Admin: users grouped by IP
+  // Admin: users grouped by IP (with device names)
   getUsersByIpGroup: db.prepare(`
     SELECT ll.ip, COUNT(DISTINCT ll.user_id) as user_count,
       GROUP_CONCAT(DISTINCT u.name) as user_names,
-      GROUP_CONCAT(DISTINCT ll.user_id) as user_ids
+      GROUP_CONCAT(DISTINCT ll.user_id) as user_ids,
+      GROUP_CONCAT(DISTINCT CASE WHEN ll.device_name != '' THEN ll.device_name ELSE NULL END) as device_names,
+      MAX(ll.logged_at) as last_seen,
+      MAX(ll.country) as country
     FROM login_logs ll
     LEFT JOIN users u ON u.id = ll.user_id
     WHERE ll.ip != '' AND ll.ip != 'unknown'
@@ -676,8 +680,72 @@ const stmts = {
     LIMIT 100
   `),
 
-  // Login log with device_id
-  insertLoginLogFull: db.prepare('INSERT INTO login_logs (user_id, ip, user_agent, city, country, device_id) VALUES (@user_id, @ip, @user_agent, @city, @country, @device_id)'),
+  // Login logs for a specific user with device info
+  getUserLoginLogsDetailed: db.prepare(`
+    SELECT id, ip, user_agent, device_name, city, country, logged_at
+    FROM login_logs WHERE user_id = ?
+    ORDER BY id DESC LIMIT 20
+  `),
+
+  // Login log with device_id + device_name
+  insertLoginLogFull: db.prepare('INSERT INTO login_logs (user_id, ip, user_agent, city, country, device_id, device_name) VALUES (@user_id, @ip, @user_agent, @city, @country, @device_id, @device_name)'),
+
+  // User daily earnings analytics (last 7 days)
+  getUserDailyEarnings: db.prepare(`
+    SELECT
+      date(created_at, '+6 hours') as day,
+      COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as earned
+    FROM balance_log
+    WHERE user_id = ?
+      AND created_at > datetime('now', '-7 days')
+      AND type IN ('daily_earn', 'referral_bonus', 'team_bonus', 'marketplace_sell')
+    GROUP BY day
+    ORDER BY day ASC
+  `),
+
+  // Admin analytics — daily (last 30 days)
+  getAdminDailyAnalytics: db.prepare(`
+    SELECT
+      date(created_at, '+6 hours') as period,
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as deposits,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as withdrawals
+    FROM transactions
+    WHERE created_at > datetime('now', '-30 days')
+    GROUP BY period ORDER BY period ASC
+  `),
+
+  // Admin analytics — weekly (last 12 weeks)
+  getAdminWeeklyAnalytics: db.prepare(`
+    SELECT
+      strftime('%Y-W%W', date(created_at, '+6 hours')) as period,
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as deposits,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as withdrawals
+    FROM transactions
+    WHERE created_at > datetime('now', '-84 days')
+    GROUP BY period ORDER BY period ASC
+  `),
+
+  // Admin analytics — monthly (last 12 months)
+  getAdminMonthlyAnalytics: db.prepare(`
+    SELECT
+      strftime('%Y-%m', date(created_at, '+6 hours')) as period,
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as deposits,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as withdrawals
+    FROM transactions
+    WHERE created_at > datetime('now', '-365 days')
+    GROUP BY period ORDER BY period ASC
+  `),
+
+  // Wallet audit: running balance per user from balance_log
+  getWalletAuditLog: db.prepare(`
+    SELECT
+      bl.*,
+      SUM(bl.amount) OVER (PARTITION BY bl.user_id ORDER BY bl.id ASC) as running_balance
+    FROM balance_log bl
+    WHERE bl.user_id = ?
+    ORDER BY bl.id DESC
+    LIMIT 200
+  `),
 };
 
 // ── Helper: strip password from user object ─────────────────────────────────────

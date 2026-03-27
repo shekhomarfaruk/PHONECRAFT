@@ -32,6 +32,46 @@ const AUTH_SECRET = process.env.AUTH_SECRET
   || process.env.TELEGRAM_BOT_TOKEN
   || (IS_PRODUCTION ? crypto.randomBytes(32).toString('hex') : 'local-dev-auth-secret');
 
+function parseDeviceName(ua) {
+  if (!ua || ua === 'unknown') return 'Unknown Device';
+  let m;
+  if (/iPhone/i.test(ua)) {
+    const iosVer = ua.match(/iPhone\s+OS\s+([\d_]+)/i)?.[1]?.replace(/_/g, '.') || '';
+    return iosVer ? `iPhone (iOS ${iosVer})` : 'iPhone';
+  }
+  if (/iPad/i.test(ua)) {
+    const ver = ua.match(/CPU\s+OS\s+([\d_]+)/i)?.[1]?.replace(/_/g, '.') || '';
+    return ver ? `iPad (iPadOS ${ver})` : 'iPad';
+  }
+  m = ua.match(/SM-([A-Z0-9]+)/i);
+  if (m) return `Samsung SM-${m[1]}`;
+  m = ua.match(/\b(Redmi\s+Note\s+\d+\w*|Redmi\s+\d+\w*|POCO\s+\w+|Mi\s+\d+\w*)/i);
+  if (m) return `Xiaomi ${m[1].trim()}`;
+  m = ua.match(/\b(HUAWEI\s+[A-Z0-9\-]+)/i);
+  if (m) return `Huawei ${m[1].trim()}`;
+  m = ua.match(/\b(OnePlus[\w]+)/i);
+  if (m) return `OnePlus ${m[1].replace('OnePlus', '').trim()}`;
+  m = ua.match(/\b(CPH\d+|OPPO\s+[A-Z0-9]+)/i);
+  if (m) return `Oppo ${m[1].trim()}`;
+  m = ua.match(/\b(RMX\d+)\b/i);
+  if (m) return `Realme ${m[1]}`;
+  m = ua.match(/\bVivo\s+([A-Z0-9\-]+)/i);
+  if (m) return `Vivo ${m[1].trim()}`;
+  m = ua.match(/Android\s+([\d.]+)[^;)]*;\s*([^;)\n]+?)\s*(?:Build|MIUI|\))/i);
+  if (m) {
+    const model = m[2].trim();
+    if (model && model.length > 1 && !/^Linux|wv$/i.test(model)) {
+      return `${model} (Android ${m[1]})`;
+    }
+    return `Android ${m[1]}`;
+  }
+  if (/Windows NT/i.test(ua)) return 'Windows PC';
+  if (/Macintosh|Mac OS X/i.test(ua)) return 'Mac';
+  if (/CrOS/i.test(ua)) return 'Chromebook';
+  if (/Linux/i.test(ua)) return 'Linux PC';
+  return 'Unknown Device';
+}
+
 function parseChatIds(...values) {
   const ids = [];
   for (const v of values) {
@@ -331,6 +371,13 @@ function isMainAdminUser(user) {
   return !!(user && user.is_admin && user.refer_code === MAIN_ADMIN_REFER_CODE);
 }
 
+function getSubAdminPerms(adminId) {
+  const rows = stmts.getAdminPermissions.all(Number(adminId));
+  const map = {};
+  rows.forEach(r => { if (r.granted) map[r.permission] = true; });
+  return map;
+}
+
 function toClientUser(user) {
   const safe = sanitizeUser(user);
   if (!safe) return safe;
@@ -564,8 +611,9 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     const userAgent = req.headers['user-agent'] || 'unknown';
     const deviceId = req.headers['x-device-id'] || req.body.deviceId || '';
 
+    const parsedDevice = parseDeviceName(userAgent);
     const logResult = stmts.insertLoginLogFull.run({
-      user_id: user.id, ip, user_agent: userAgent, city: '', country: '', device_id: String(deviceId),
+      user_id: user.id, ip, user_agent: userAgent, city: '', country: '', device_id: String(deviceId), device_name: parsedDevice,
     });
     const logId = logResult.lastInsertRowid;
 
@@ -1600,7 +1648,10 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       }
       if ((req.body.balance !== undefined && Number(req.body.balance) !== Number(user.balance)) ||
           (req.body.plan_id !== undefined && req.body.plan_id !== user.plan_id)) {
-        return res.status(403).json({ error: 'You cannot modify user balance or plan' });
+        const subPerms = getSubAdminPerms(req.auth.userId);
+        if (!subPerms.edit_user_balance) {
+          return res.status(403).json({ error: 'You do not have permission to modify user balance or plan' });
+        }
       }
       if (id === adminId && req.body.banned !== undefined && req.body.banned) {
         return res.status(400).json({ error: 'Cannot ban yourself' });
@@ -1701,6 +1752,18 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const txId = Number(req.params.id);
+    if (!req.auth.isMainAdmin) {
+      const txCheck = db.prepare('SELECT type FROM transactions WHERE id = ?').get(txId);
+      if (txCheck) {
+        const subPerms = getSubAdminPerms(req.auth.userId);
+        if (txCheck.type === 'deposit' && !subPerms.approve_deposits) {
+          return res.status(403).json({ error: 'You do not have permission to approve deposits' });
+        }
+        if (txCheck.type === 'withdraw' && !subPerms.approve_withdrawals) {
+          return res.status(403).json({ error: 'You do not have permission to approve withdrawals' });
+        }
+      }
+    }
     const { status, admin_note } = req.body || {};
 
     const result = processTransactionAction({
@@ -1847,6 +1910,79 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
   }
 });
 
+// ── GET /api/admin/analytics — period-based financial analytics ──────────────
+app.get('/api/admin/analytics', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const period = (req.query.period || 'daily').toLowerCase();
+    let rows;
+    if (period === 'weekly') {
+      rows = stmts.getAdminWeeklyAnalytics.all();
+    } else if (period === 'monthly') {
+      rows = stmts.getAdminMonthlyAnalytics.all();
+    } else {
+      rows = stmts.getAdminDailyAnalytics.all();
+    }
+    const data = rows.map(r => ({
+      period: r.period,
+      deposits: Number(r.deposits) || 0,
+      withdrawals: Number(r.withdrawals) || 0,
+      netProfit: (Number(r.deposits) || 0) - (Number(r.withdrawals) || 0),
+    }));
+    res.json({ data, period });
+  } catch (err) {
+    console.error('Admin analytics error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
+// ── GET /api/user/:id/analytics — user earning analytics (last 7 days) ──────
+app.get('/api/user/:id/analytics', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const dbRows = stmts.getUserDailyEarnings.all(userId);
+    const result = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayStr = d.toISOString().split('T')[0];
+      const found = dbRows.find(e => e.day === dayStr);
+      result.push({ day: dayStr, earned: found ? Number(found.earned) : 0 });
+    }
+    res.json({ earnings: result });
+  } catch (err) {
+    console.error('User analytics error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
+// ── GET /api/admin/user/:id/login-logs — detailed login logs with device info ─
+app.get('/api/admin/user/:id/login-logs', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const userId = Number(req.params.id);
+    const logs = stmts.getUserLoginLogsDetailed.all(userId);
+    res.json({ logs });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed' });
+  }
+});
+
+// ── GET /api/user/:id/wallet-audit — balance log with running balance ────────
+app.get('/api/user/:id/wallet-audit', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const user = stmts.getUserById.get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const log = stmts.getWalletAuditLog.all(userId);
+    res.json({ log, currentBalance: user.balance });
+  } catch (err) {
+    console.error('Wallet audit error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch wallet audit' });
+  }
+});
+
 // ── POST /api/admin/messages — send message to one user or all users ───────
 app.post('/api/admin/messages', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
@@ -1978,6 +2114,11 @@ const ALL_PERMISSIONS = [
   'change_settings', 'manage_admins',
   'view_reports', 'export_data',
   'access_support',
+  'require_proof',
+  'modify_payment_numbers',
+  'modify_wallet_addresses',
+  'edit_user_balance',
+  'view_sensitive_data',
 ];
 
 app.get('/api/admin/permissions/:adminId', authRequired, (req, res) => {
