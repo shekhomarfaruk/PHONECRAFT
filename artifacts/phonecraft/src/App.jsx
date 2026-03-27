@@ -313,7 +313,25 @@ export default function App() {
     finally { setAuthLoading(false); }
   };
 
-  const navigate = (s) => { setScreen(s); setMenuOpen(false); };
+  const navigate = (s) => {
+    setScreen(s);
+    setMenuOpen(false);
+    window.history.pushState({ screen: s }, '');
+  };
+
+  // Handle browser back button / backspace
+  useEffect(() => {
+    // Set initial history state so the very first back press lands on home
+    window.history.replaceState({ screen: 'home' }, '');
+
+    const onPop = (e) => {
+      const s = e.state?.screen || 'home';
+      setScreen(s);
+      setMenuOpen(false);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   const doLogout = useCallback(() => {
     setAuth(null);
