@@ -485,6 +485,33 @@ export default function App() {
     </>
   );
 
+  // ── Maintenance mode gate (blocks landing, login, and app for non-main-admin) ──
+  if (appSettings.maintenance_mode === 'true' && !user?.is_main_admin) return (
+    <>
+      <GlobalStyles isDark={isDark} fontSize={fontSize} />
+      <PhoneCraftBackground isDark={isDark} />
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: 32, textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 64, marginBottom: 20 }}>🔧</div>
+        <div style={{ fontFamily: 'Space Grotesk', fontSize: 24, fontWeight: 800, color: 'var(--accent)', marginBottom: 12 }}>
+          Under Maintenance
+        </div>
+        <div style={{ fontSize: 15, color: 'var(--text2)', maxWidth: 320, lineHeight: 1.6 }}>
+          {lang === 'bn'
+            ? 'PhoneCraft এখন রক্ষণাবেক্ষণে আছে। অল্প কিছুক্ষণ পর আবার চেষ্টা করুন।'
+            : 'PhoneCraft is currently under maintenance. Please check back soon.'}
+        </div>
+        <div style={{ marginTop: 24, fontSize: 12, color: 'var(--text2)', opacity: .6 }}>
+          {lang === 'bn' ? 'আমরা দ্রুত ফিরে আসছি ⏳' : 'We\'ll be back shortly ⏳'}
+        </div>
+      </div>
+    </>
+  );
+
   // ── Landing screen (pre-auth) ─────────────────────────────────────────────
   if (!auth && showLanding) return (
     <>
