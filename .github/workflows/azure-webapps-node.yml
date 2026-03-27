@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
+          node-version: '20.x'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -56,7 +56,7 @@ jobs:
               "node-fetch": "^3.3.2",
               "cookie-parser": "^1.4.7",
               "web-push": "^3.6.7",
-              "multer": "^1.4.5-lts.2"
+              "multer": "^2.1.1"
             }
           }' > server/package.json
           cd server && npm install --production
@@ -120,7 +120,7 @@ jobs:
           PYEOF
 
       - name: Archive production artifacts
-        run: zip -r release.zip server dist .env
+        run: zip -r release.zip server dist .env start.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -137,9 +137,21 @@ jobs:
         with:
           name: node-app
 
-      - name: Deploy to Azure Web App (Zip Deploy)
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'phonecraft'
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: release.zip
+      - name: Deploy to Azure via Kudu ZipDeploy
+        run: |
+          echo "Deploying to Azure..."
+          HTTP_CODE=$(curl -s -o /tmp/deploy_response.txt -w "%{http_code}" \
+            -X POST \
+            "https://phonecraft-heddcdhuf0ajcyev.scm.eastus-01.azurewebsites.net/api/zipdeploy?isAsync=false" \
+            --user "${{ secrets.KUDU_DEPLOY_USER }}:${{ secrets.KUDU_DEPLOY_PASS }}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @release.zip \
+            --max-time 300)
+          echo "HTTP Response: $HTTP_CODE"
+          cat /tmp/deploy_response.txt || true
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
