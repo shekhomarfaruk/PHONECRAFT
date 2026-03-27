@@ -783,6 +783,22 @@ app.get('/api/user/:id/marketplace', authRequired, requireSelfOrAdmin('id'), (re
   }
 });
 
+// ── All marketplace items (public listing) ────────────────────────────────────
+app.get('/api/marketplace/all', authRequired, (req, res) => {
+  try {
+    const items = db.prepare(`
+      SELECT m.*, u.name as seller_name
+      FROM marketplace_items m
+      LEFT JOIN users u ON u.id = m.user_id
+      ORDER BY m.id DESC LIMIT 200
+    `).all();
+    res.json({ items });
+  } catch (err) {
+    console.error('All marketplace fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch marketplace items' });
+  }
+});
+
 // ── User's notifications ─────────────────────────────────────────────────────
 app.get('/api/user/:id/notifications', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
@@ -863,6 +879,25 @@ app.get('/api/user/:id/referral-activity', authRequired, requireSelfOrAdmin('id'
   } catch (err) {
     console.error('Referral activity error:', err.message);
     res.status(500).json({ error: 'Failed to fetch referral activity' });
+  }
+});
+
+// ── Team members (referred users) list ───────────────────────────────────────
+app.get('/api/user/:id/team-members', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId  = Number(req.params.id);
+    const userRow = stmts.getUserById.get(userId);
+    if (!userRow) return res.status(404).json({ error: 'User not found' });
+    const tree = stmts.getReferralTreeMembers.all(userRow.refer_code);
+    const members = tree.map(m => ({
+      id: m.id, name: m.name, identifier: m.identifier || m.username,
+      plan: m.plan, avatar: m.avatar, avatar_img: m.avatar_img,
+      earnings: m.earnings, referrals: [],
+    }));
+    res.json({ members });
+  } catch (err) {
+    console.error('Team members error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch team members' });
   }
 });
 
@@ -2069,6 +2104,18 @@ setInterval(() => {
     console.error('[AutoSell] Error:', err.message);
   }
 }, 60_000);
+
+// ── Support chat auto-delete (24 hours) ──────────────────────────────────────
+setInterval(() => {
+  try {
+    const deleted = db.prepare(
+      "DELETE FROM support_chats WHERE created_at < datetime('now', '-24 hours')"
+    ).run();
+    if (deleted.changes > 0) console.log(`[SupportClean] Deleted ${deleted.changes} old message(s)`);
+  } catch (err) {
+    console.error('[SupportClean] Error:', err.message);
+  }
+}, 10 * 60_000); // every 10 minutes
 
 // ── SPA fallback — serve index.html for non-API routes ───────────────────────
 app.get('*', (_req, res) => {

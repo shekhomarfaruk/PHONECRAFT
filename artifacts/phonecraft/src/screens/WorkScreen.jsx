@@ -295,6 +295,11 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
   const plan = PLANS.find(p => p.id === user.plan);
   const brandModels = brand ? (BRAND_MODELS[brand] || []) : [];
 
+  // ── Time gate: 9 AM – 10 PM Bangladesh time (UTC+6) ─────────────────────────
+  const nowBDT  = new Date(new Date().getTime() + 6 * 60 * 60 * 1000);
+  const bdtHour = nowBDT.getUTCHours();
+  const isWorkHour = bdtHour >= 9 && bdtHour < 22;
+
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER: CONFIG PHASE
   // ════════════════════════════════════════════════════════════════════════════
@@ -302,6 +307,30 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang })
     return (
       <>
         <div className="screen-title"><Icons.Work size={18}/> {t.nav_work}</div>
+
+        {/* Time restriction blur overlay */}
+        {!isWorkHour && (
+          <div style={{
+            position:'fixed', inset:0, zIndex:999,
+            backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)',
+            background:'rgba(0,0,0,.65)',
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+            gap:16, textAlign:'center', padding:24,
+          }}>
+            <div style={{fontSize:44}}>🕘</div>
+            <div style={{fontFamily:'Space Grotesk', fontSize:22, fontWeight:800, color:'#fff'}}>
+              কাজের সময় শেষ
+            </div>
+            <div style={{fontSize:14, color:'rgba(255,255,255,.8)', maxWidth:280, lineHeight:1.7}}>
+              Work Screen শুধুমাত্র<br/>
+              <b style={{color:'var(--accent)'}}>সকাল ৯টা থেকে রাত ১০টা</b> পর্যন্ত<br/>
+              ব্যবহার করা যাবে (Bangladesh Time)
+            </div>
+            <div style={{fontSize:12, color:'rgba(255,255,255,.5)'}}>
+              বর্তমান BDT সময়: {nowBDT.getUTCHours().toString().padStart(2,'0')}:{nowBDT.getUTCMinutes().toString().padStart(2,'0')}
+            </div>
+          </div>
+        )}
 
         {/* Daily Progress */}
         <div className="card">

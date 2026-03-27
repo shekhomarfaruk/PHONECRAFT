@@ -104,10 +104,12 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
   const [transactions, setTransactions] = useState([]);
   const [txLoading,    setTxLoading   ] = useState(false);
 
-  const [blockchain,   setBlockchain  ] = useState('eth');
-  const [token,        setToken       ] = useState('usdt');
+  const [blockchain,   setBlockchain  ] = useState('');
+  const [token,        setToken       ] = useState('');
   const [txnHash,      setTxnHash     ] = useState('');
   const [cryptoAmount, setCryptoAmount] = useState('');
+  const [cryptoWithdrawWallet, setCryptoWithdrawWallet] = useState('');
+  const [usdBdtRate,   setUsdBdtRate  ] = useState(null);
 
   useEffect(() => {
     authFetch(`${API_URL}/api/deposit-info`)
@@ -136,6 +138,19 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
     if (comingSoonSet.has(method)) setMethod('crypto');
   }, [tab]);
 
+  // Reset blockchain/token when switching tabs or methods
+  useEffect(() => {
+    setBlockchain(''); setToken('');
+  }, [tab, method]);
+
+  // Fetch realtime USD to BDT rate
+  useEffect(() => {
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then(r => r.json())
+      .then(d => { if (d.rates?.BDT) setUsdBdtRate(Number(d.rates.BDT).toFixed(2)); })
+      .catch(() => {});
+  }, []);
+
   const visiblePaymentOptions = cryptoEnabled
     ? PAYMENT_OPTIONS
     : PAYMENT_OPTIONS.filter(o => o.value !== 'crypto');
@@ -163,36 +178,70 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
 
   const submit = async () => {
     if (isCrypto) {
-      if (!txnHash.trim() || !cryptoAmount) { showToast(t.fill_all_fields); return; }
+      const effectiveRate = usdBdtRate ? Number(usdBdtRate) : USD_RATE;
+      if (tab === 'deposit') {
+        if (!txnHash.trim() || !cryptoAmount) { showToast(t.fill_all_fields); return; }
+        setSubmitted(true);
+        const amountInBDT = isBn
+          ? Number(cryptoAmount)
+          : Math.round(Number(cryptoAmount) * effectiveRate);
+        const coinLabel2 = `${token.toUpperCase()} on ${BLOCKCHAIN_OPTIONS.find(b=>b.value===blockchain)?.label || blockchain}`;
+        try {
+          const res = await authFetch(`${API_URL}/api/withdraw`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.id, user: user.name, identifier: user.identifier,
+              amount: amountInBDT, method: 'crypto',
+              account: txnHash.trim(), type: 'deposit', coinType: coinLabel2,
+              blockchain, token, txnHash: txnHash.trim(),
+              screenshot: screenshot || null,
+            }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showToast(`${t.deposit} ${t.request_sent}`);
+            if (data.newBalance !== undefined)
+              setUser(prev => ({ ...prev, balance: data.newBalance }));
+            authFetch(`${API_URL}/api/user/${user.id}/transactions`)
+              .then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
+          } else {
+            showToast(data.error || t.toast_request_failed);
+          }
+        } catch (_) { showToast(t.toast_connection_error); }
+        setTimeout(() => setSubmitted(false), 3000);
+        setTxnHash(''); setCryptoAmount(''); setScreenshot(null);
+        return;
+      }
+      // crypto withdraw
+      if (!cryptoWithdrawWallet.trim() || !cryptoAmount) { showToast(t.fill_all_fields); return; }
+      if (parseInt(isBn ? cryptoAmount : Math.round(Number(cryptoAmount) * (usdBdtRate ? Number(usdBdtRate) : USD_RATE))) > user.balance) {
+        showToast(t.insufficient_balance); return;
+      }
       setSubmitted(true);
-      const amountInBDT = isBn
-        ? Number(cryptoAmount)
-        : Math.round(Number(cryptoAmount) * USD_RATE);
+      const wAmt = isBn ? Number(cryptoAmount) : Math.round(Number(cryptoAmount) * (usdBdtRate ? Number(usdBdtRate) : USD_RATE));
       try {
         const res = await authFetch(`${API_URL}/api/withdraw`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: user.id, user: user.name, identifier: user.identifier,
-            amount: amountInBDT, method: 'crypto',
-            account: txnHash.trim(), type: 'deposit', coinType: coinLabel,
-            blockchain, token, txnHash: txnHash.trim(),
-            screenshot: screenshot || null,
+            amount: wAmt, method: 'crypto',
+            account: cryptoWithdrawWallet.trim(), type: 'withdraw',
+            blockchain, token, txnHash: '',
           }),
         });
         const data = await res.json();
         if (res.ok) {
-          showToast(`${t.deposit} ${t.request_sent}`);
+          showToast(`${t.withdraw} ${t.request_sent}`);
           if (data.newBalance !== undefined)
             setUser(prev => ({ ...prev, balance: data.newBalance }));
           authFetch(`${API_URL}/api/user/${user.id}/transactions`)
             .then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
-        } else {
-          showToast(data.error || t.toast_request_failed);
-        }
+        } else { showToast(data.error || t.toast_request_failed); }
       } catch (_) { showToast(t.toast_connection_error); }
       setTimeout(() => setSubmitted(false), 3000);
-      setTxnHash(''); setCryptoAmount(''); setScreenshot(null);
+      setCryptoAmount(''); setCryptoWithdrawWallet('');
       return;
     }
 
@@ -245,6 +294,13 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
           <div style={{fontFamily:'Space Grotesk',fontSize:'clamp(20px,5vw,28px)',color:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
             <Icons.Coin size={22}/>{convertCurrency(user.balance, lang)}
           </div>
+          {usdBdtRate && (
+            <div style={{fontSize:11,color:'var(--text2)',marginTop:6,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+              <span>💱</span>
+              <span>1 USD = <b style={{color:'var(--accent)'}}>৳{usdBdtRate}</b> BDT</span>
+              <span style={{fontSize:9,opacity:.6}}>(Live)</span>
+            </div>
+          )}
         </div>
 
         {/* ── Payment Method Grid ── */}
@@ -322,35 +378,26 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
           </div>
         )}
 
-        {/* ── Crypto deposit section ── */}
-        {isCrypto && tab === 'deposit' && (
+        {/* ── Crypto section (both deposit & withdraw) ── */}
+        {isCrypto && (
           <div style={{marginBottom:14}}>
-
-            {/* Blockchain selector — horizontal scroll cards */}
+            {/* Blockchain selector */}
             <div className="input-wrap">
-              <label className="input-label">⛓ Blockchain</label>
+              <label className="input-label">Blockchain</label>
               <div style={{display:'flex', gap:8, overflowX:'auto', paddingBottom:4, WebkitOverflowScrolling:'touch'}}>
                 {BLOCKCHAIN_OPTIONS.map(b => {
                   const isActive = blockchain === b.value;
                   return (
-                    <button
-                      type="button"
-                      key={b.value}
-                      onClick={() => setBlockchain(b.value)}
+                    <button type="button" key={b.value} onClick={() => { setBlockchain(b.value); setToken(''); }}
                       style={{
                         display:'flex', flexDirection:'column', alignItems:'center', gap:5,
                         padding:'10px 12px', borderRadius:12, flexShrink:0,
                         border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
                         background: isActive ? 'rgba(0,210,180,.1)' : 'var(--input-bg)',
                         cursor:'pointer', transition:'all .2s', minWidth:70,
-                      }}
-                    >
-                      <ImgIcon src={b.icon} alt={b.label} size={30} fallback={b.short[0]} />
-                      <span style={{
-                        fontSize:10, fontWeight:700, letterSpacing:.3,
-                        color: isActive ? 'var(--accent)' : 'var(--text2)',
-                        whiteSpace:'nowrap',
                       }}>
+                      <ImgIcon src={b.icon} alt={b.label} size={30} fallback={b.short[0]} />
+                      <span style={{fontSize:10, fontWeight:700, letterSpacing:.3, color: isActive ? 'var(--accent)' : 'var(--text2)', whiteSpace:'nowrap'}}>
                         {b.label}
                       </span>
                     </button>
@@ -359,131 +406,113 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
               </div>
             </div>
 
-            {/* Token selector — two big cards with icons */}
-            <div className="input-wrap">
-              <label className="input-label">💎 Which Token?</label>
-              <div style={{display:'flex', gap:10}}>
-                {TOKEN_OPTIONS.map(tk => {
-                  const isActive = token === tk.value;
-                  return (
-                    <button
-                      type="button"
-                      key={tk.value}
-                      onClick={() => setToken(tk.value)}
-                      style={{
-                        flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-                        gap:8, padding:'12px 0', borderRadius:12,
-                        border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
-                        background: isActive ? 'rgba(0,210,180,.12)' : 'var(--input-bg)',
-                        cursor:'pointer', transition:'all .2s',
-                      }}
-                    >
-                      <ImgIcon src={tk.icon} alt={tk.label} size={24}
-                        fallback={tk.label[0]} fallbackBg={tk.color} fallbackColor="#fff" />
-                      <span style={{
-                        fontWeight:700, fontSize:15,
-                        color: isActive ? 'var(--accent)' : 'var(--text2)',
-                      }}>
-                        {tk.label}
-                      </span>
-                    </button>
-                  );
-                })}
+            {/* Token selector — appears after blockchain selected */}
+            {blockchain && (
+              <div className="input-wrap">
+                <label className="input-label">Token</label>
+                <div style={{display:'flex', gap:10}}>
+                  {TOKEN_OPTIONS.map(tk => {
+                    const isActive = token === tk.value;
+                    return (
+                      <button type="button" key={tk.value} onClick={() => setToken(tk.value)}
+                        style={{
+                          flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                          gap:8, padding:'12px 0', borderRadius:12,
+                          border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                          background: isActive ? 'rgba(0,210,180,.12)' : 'var(--input-bg)',
+                          cursor:'pointer', transition:'all .2s',
+                        }}>
+                        <ImgIcon src={tk.icon} alt={tk.label} size={24} fallback={tk.label[0]} fallbackBg={tk.color} fallbackColor="#fff" />
+                        <span style={{fontWeight:700, fontSize:15, color: isActive ? 'var(--accent)' : 'var(--text2)'}}>
+                          {tk.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* QR + address — key forces full re-mount on change */}
-            <div key={cryptoKey}>
-              {cryptoAddr ? (
-                <div style={{background:'rgba(0,210,180,.07)',border:'1px solid rgba(0,210,180,.25)',borderRadius:10,padding:'16px 14px',marginBottom:14,textAlign:'center'}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:12}}>
-                    <ImgIcon src={selectedChain?.icon} alt={selectedChain?.label} size={22} fallback={selectedChain?.short[0]}/>
-                    <span style={{fontWeight:700,fontSize:13,color:'var(--text)'}}>
-                      {selectedChain?.label}
-                    </span>
-                    <span style={{color:'var(--text2)',fontSize:12}}>·</span>
-                    <ImgIcon src={selectedToken?.icon} alt={selectedToken?.label} size={22} fallback={selectedToken?.label[0]} fallbackBg={selectedToken?.color} fallbackColor="#fff"/>
-                    <span style={{fontWeight:700,fontSize:13,color:'var(--text)'}}>
-                      {selectedToken?.label}
-                    </span>
+            {/* DEPOSIT: QR + TxnHash + Screenshot — only when token selected */}
+            {tab === 'deposit' && blockchain && token && (() => {
+              const ck   = `crypto_${blockchain}_${token}`;
+              const addr = depositInfo[ck] || '';
+              const sc   = BLOCKCHAIN_OPTIONS.find(b => b.value === blockchain);
+              const tk   = TOKEN_OPTIONS.find(t => t.value === token);
+              return (
+                <>
+                  <div key={ck}>
+                    {addr ? (
+                      <div style={{background:'rgba(0,210,180,.07)',border:'1px solid rgba(0,210,180,.25)',borderRadius:10,padding:'16px 14px',marginBottom:14,textAlign:'center'}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:12}}>
+                          <ImgIcon src={sc?.icon} alt={sc?.label} size={22} fallback={sc?.short[0]}/>
+                          <span style={{fontWeight:700,fontSize:13}}>{sc?.label}</span>
+                          <span style={{color:'var(--text2)'}}>·</span>
+                          <ImgIcon src={tk?.icon} alt={tk?.label} size={22} fallback={tk?.label[0]} fallbackBg={tk?.color} fallbackColor="#fff"/>
+                          <span style={{fontWeight:700,fontSize:13}}>{tk?.label}</span>
+                        </div>
+                        <div style={{fontSize:10,color:'var(--text2)',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Deposit Wallet Address</div>
+                        <div style={{display:'inline-block',background:'#fff',borderRadius:12,padding:12,boxShadow:'0 2px 12px rgba(0,0,0,.1)'}}>
+                          <QRCodeSVG value={addr} size={180} level="H"
+                            imageSettings={{ src:`${import.meta.env.BASE_URL}logo.png`, height:36, width:36, excavate:true }}/>
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginTop:12,justifyContent:'center'}}>
+                          <span style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontFamily:'monospace',fontSize:12,fontWeight:600,letterSpacing:.5,wordBreak:'break-all',flex:1,textAlign:'center'}}>
+                            {addr}
+                          </span>
+                          <CopyButton text={addr} showToast={showToast}/>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,padding:'14px 16px',marginBottom:14,textAlign:'center',fontSize:13,color:'#ef4444'}}>
+                        <ImgIcon src={tk?.icon} alt={tk?.label} size={18} fallback={tk?.label[0]} fallbackBg={tk?.color} fallbackColor="#fff"/>
+                        {' '}{tk?.label} on {sc?.label} — wallet not configured yet
+                      </div>
+                    )}
                   </div>
-                  <div style={{fontSize:10,color:'var(--text2)',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Deposit Wallet Address</div>
-                  <div style={{display:'inline-block',background:'#fff',borderRadius:12,padding:12,boxShadow:'0 2px 12px rgba(0,0,0,.1)'}}>
-                    <QRCodeSVG value={cryptoAddr} size={180} level="H"
-                      imageSettings={{ src:`${import.meta.env.BASE_URL}logo.png`, height:36, width:36, excavate:true }}/>
+                  <div className="input-wrap">
+                    <label className="input-label">{amountLabel}</label>
+                    <input className="inp" type="number" placeholder={amountPlaceholder}
+                      value={cryptoAmount} onChange={e => setCryptoAmount(e.target.value)}/>
                   </div>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:12,justifyContent:'center'}}>
-                    <span style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontFamily:'monospace',fontSize:12,fontWeight:600,letterSpacing:.5,wordBreak:'break-all',flex:1,textAlign:'center'}}>
-                      {cryptoAddr}
-                    </span>
-                    <CopyButton text={cryptoAddr} showToast={showToast}/>
+                  <div className="input-wrap">
+                    <label className="input-label">🔗 Transaction Hash (TxnHash)</label>
+                    <input className="inp" placeholder="Paste your TxnHash here"
+                      value={txnHash} onChange={e => setTxnHash(e.target.value)}/>
                   </div>
+                  <div className="input-wrap">
+                    <label className="input-label">📸 Screenshot (Transaction Proof)</label>
+                    <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',background:'var(--input-bg)',border:`2px dashed ${screenshot ? 'var(--accent)' : 'var(--border)'}`,borderRadius:10,padding:'12px 14px',transition:'all .2s'}}>
+                      <input type="file" accept="image/*" style={{display:'none'}} onChange={handleScreenshotChange}/>
+                      {screenshot ? (
+                        <>
+                          <img src={screenshot} alt="preview" style={{width:48,height:48,borderRadius:8,objectFit:'cover',flexShrink:0}}/>
+                          <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:'var(--accent)'}}>Screenshot uploaded ✓</div><div style={{fontSize:11,color:'var(--text2)'}}>ছবি পরিবর্তন করতে ক্লিক করুন</div></div>
+                        </>
+                      ) : (
+                        <><span style={{fontSize:24}}>🖼️</span><div><div style={{fontSize:12,fontWeight:700}}>ছবি আপলোড করুন</div><div style={{fontSize:11,color:'var(--text2)'}}>Transaction screenshot (optional)</div></div></>
+                      )}
+                    </label>
+                  </div>
+                </>
+              );
+            })()}
+
+            {/* WITHDRAW: wallet address + amount — only when token selected */}
+            {tab === 'withdraw' && blockchain && token && (
+              <>
+                <div className="input-wrap">
+                  <label className="input-label">🔑 আপনার Crypto Wallet Address</label>
+                  <input className="inp" placeholder="0x... অথবা আপনার wallet address"
+                    value={cryptoWithdrawWallet} onChange={e => setCryptoWithdrawWallet(e.target.value)}/>
                 </div>
-              ) : (
-                <div style={{background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.3)',borderRadius:10,padding:'14px 16px',marginBottom:14,textAlign:'center',fontSize:13,color:'#ef4444'}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginBottom:4}}>
-                    <ImgIcon src={selectedToken?.icon} alt={selectedToken?.label} size={18} fallback={selectedToken?.label[0]} fallbackBg={selectedToken?.color} fallbackColor="#fff"/>
-                    <span>{selectedToken?.label}</span>
-                    <span>on</span>
-                    <ImgIcon src={selectedChain?.icon} alt={selectedChain?.label} size={18} fallback={selectedChain?.short[0]}/>
-                    <span>{selectedChain?.label}</span>
-                  </div>
-                  <span style={{fontSize:12}}>— wallet not configured yet</span>
+                <div className="input-wrap">
+                  <label className="input-label">{amountLabel}</label>
+                  <input className="inp" type="number" placeholder={amountPlaceholder}
+                    value={cryptoAmount} onChange={e => setCryptoAmount(e.target.value)}/>
                 </div>
-              )}
-            </div>
-
-            {/* Amount */}
-            <div className="input-wrap">
-              <label className="input-label">{amountLabel}</label>
-              <input className="inp" type="number" placeholder={amountPlaceholder}
-                value={cryptoAmount} onChange={e => setCryptoAmount(e.target.value)}/>
-            </div>
-
-            {/* TxnHash */}
-            <div className="input-wrap">
-              <label className="input-label">🔗 Transaction Hash (TxnHash)</label>
-              <input className="inp" placeholder="Paste your TxnHash here"
-                value={txnHash} onChange={e => setTxnHash(e.target.value)}/>
-            </div>
-
-            {/* Screenshot Upload */}
-            <div className="input-wrap">
-              <label className="input-label">📸 Screenshot (Transaction Proof)</label>
-              <label style={{
-                display:'flex', alignItems:'center', gap:10, cursor:'pointer',
-                background:'var(--input-bg)', border:`2px dashed ${screenshot ? 'var(--accent)' : 'var(--border)'}`,
-                borderRadius:10, padding:'12px 14px', transition:'all .2s',
-              }}>
-                <input type="file" accept="image/*" style={{display:'none'}} onChange={handleScreenshotChange}/>
-                {screenshot ? (
-                  <>
-                    <img src={screenshot} alt="preview" style={{width:48,height:48,borderRadius:8,objectFit:'cover',flexShrink:0}}/>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:12,fontWeight:700,color:'var(--accent)'}}>Screenshot uploaded ✓</div>
-                      <div style={{fontSize:11,color:'var(--text2)'}}>ছবি পরিবর্তন করতে এখানে ক্লিক করুন</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span style={{fontSize:24}}>🖼️</span>
-                    <div>
-                      <div style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>ছবি আপলোড করুন</div>
-                      <div style={{fontSize:11,color:'var(--text2)'}}>Transaction-এর screenshot দিন (optional)</div>
-                    </div>
-                  </>
-                )}
-              </label>
-            </div>
-          </div>
-        )}
-
-        {/* Crypto withdraw notice */}
-        {isCrypto && tab === 'withdraw' && (
-          <div style={{background:'rgba(217,119,6,.08)',border:'1px solid rgba(217,119,6,.2)',borderRadius:10,padding:'14px 16px',margin:'4px 0 14px',textAlign:'center',fontSize:13,color:'var(--yellow)'}}>
-            {isBn
-              ? 'ক্রিপ্টো উইথড্র সম্ভব নয়। bKash / Nagad ব্যবহার করুন।'
-              : 'Crypto withdrawal is not available. Please use bKash / Nagad.'}
+              </>
+            )}
           </div>
         )}
 
@@ -512,16 +541,17 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
         )}
 
         {/* Submit */}
-        {(!isCrypto || (isCrypto && tab === 'deposit')) && !(isCrypto && tab === 'withdraw') && (
-          <button className="btn btn-primary btn-full" onClick={submit}
-            disabled={submitted || (isCrypto && !cryptoAddr)}>
+        {(!isCrypto || (blockchain && token)) && (
+          <button className="btn btn-primary btn-full" onClick={submit} disabled={submitted}>
             {submitted
               ? t.processing_lbl
-              : isCrypto
+              : isCrypto && tab === 'deposit'
                 ? <><Icons.Coin size={16}/> {isBn ? 'ক্রিপ্টো ডিপোজিট সাবমিট করুন' : 'Submit Crypto Deposit'}</>
-                : tab === 'withdraw'
-                  ? <><Icons.Transfer size={16}/> {t.req_withdraw}</>
-                  : <><Icons.Coin size={16}/> {t.sub_deposit}</>
+                : isCrypto && tab === 'withdraw'
+                  ? <><Icons.Transfer size={16}/> {isBn ? 'ক্রিপ্টো উইথড্র করুন' : 'Submit Crypto Withdraw'}</>
+                  : tab === 'withdraw'
+                    ? <><Icons.Transfer size={16}/> {t.req_withdraw}</>
+                    : <><Icons.Coin size={16}/> {t.sub_deposit}</>
             }
           </button>
         )}
