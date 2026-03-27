@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '18.x'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -59,7 +59,7 @@ jobs:
               "multer": "^2.1.1"
             }
           }' > server/package.json
-          cd server && npm install --production
+          cd server && npm install --production && npm rebuild better-sqlite3 --build-from-source
 
       - name: Create .env at root level
         run: |
