@@ -16,7 +16,6 @@ import MarketplaceScreen from "./screens/MarketplaceScreen.jsx";
 import SupportScreen from "./screens/SupportScreen.jsx";
 import SettingsScreen from "./screens/SettingsScreen.jsx";
 import WorkScreen from "./screens/WorkScreen.jsx";
-import AdminScreen from "./screens/AdminScreen.jsx";
 import GuideScreen from "./screens/GuideScreen.jsx";
 import LandingScreen from "./screens/LandingScreen.jsx";
 import SupportWidget from "./SupportWidget.jsx";
@@ -506,12 +505,8 @@ export default function App() {
   const tErr = (e) => translateServerError(e, lang);
   const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings, tErr, usdRate, teamChatUnread, setTeamChatUnread };
 
-  // Dynamic menu: build from i18n, add Admin item only if user is admin
   const t = I18N[lang] || I18N.en;
-  const baseMenu = getMenuItems(lang);
-  const menuItems = user?.isAdmin
-    ? [...baseMenu, { Icon: Icons.Shield, label: t.nav_admin, screen: 'admin', color: '#FBBF24' }]
-    : baseMenu;
+  const menuItems = getMenuItems(lang);
 
   return (
     <>
@@ -653,7 +648,6 @@ export default function App() {
               {screen === 'support'       && <SupportScreen      user={user} showToast={showToast} lang={lang} />}
               {screen === 'guide'         && <GuideScreen        navigate={navigate} lang={lang} />}
               {screen === 'settings'      && <SettingsScreen     user={user} setUser={setUser} showToast={showToast} lang={lang} setLang={setLang} doLogout={doLogout} fontSize={fontSize} setFontSize={setFontSize} />}
-              {screen === 'admin' && user?.isAdmin && <AdminScreen user={user} showToast={showToast} lang={lang} />}
             </main>
 
             {/* BOTTOM NAV */}

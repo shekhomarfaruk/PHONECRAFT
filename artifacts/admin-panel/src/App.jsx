@@ -5,7 +5,7 @@ import {
   Download, Send, Lock, RefreshCw, Eye, CheckCircle, Ban, UserCheck,
   Menu, Search, Filter, FileText, Star, AlertTriangle, Reply, Trash2,
   ChevronRight, Edit, ArrowUpRight, ArrowDownRight, Activity,
-  Flag, Globe,
+  Flag, Globe, Bell, BellOff, BellRing,
 } from 'lucide-react';
 
 const BASE = import.meta.env.BASE_URL || '/admin-panel/';
@@ -34,6 +34,39 @@ function Avatar({ src, name, size = 36, style = {} }) {
   );
 }
 
+// ── Admin Push Subscription ───────────────────────────────────────────────────
+async function initAdminPush(token) {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const reg = await navigator.serviceWorker.register(
+      (import.meta.env.BASE_URL || '/xpc-ctrl-7f3b/') + 'sw.js',
+      { scope: import.meta.env.BASE_URL || '/xpc-ctrl-7f3b/' }
+    );
+    const vapidRes = await fetch(`${window.location.origin}/api/push/vapid-public-key`);
+    if (!vapidRes.ok) return;
+    const { publicKey } = await vapidRes.json();
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    const { endpoint, keys } = sub.toJSON();
+    await fetch(`${window.location.origin}/api/push/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ endpoint, p256dh: keys.p256dh, auth: keys.auth }),
+    });
+  } catch (_) {}
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+}
+
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('admin_token') || '');
   const [adminUser, setAdminUser] = useState(null);
@@ -59,6 +92,7 @@ export default function App() {
     authFetch(`${API}/api/me`).then(r => r.json()).then(d => {
       if (d.user && d.user.is_admin) {
         setAdminUser(d.user);
+        initAdminPush(token);
       } else {
         localStorage.removeItem('admin_token');
         setToken('');
@@ -68,7 +102,7 @@ export default function App() {
 
   const logout = () => { localStorage.removeItem('admin_token'); setToken(''); setAdminUser(null); };
 
-  if (!token || !adminUser) return <LoginScreen onLogin={(t, u) => { setToken(t); setAdminUser(u); localStorage.setItem('admin_token', t); }} />;
+  if (!token || !adminUser) return <LoginScreen onLogin={(t, u) => { setToken(t); setAdminUser(u); localStorage.setItem('admin_token', t); initAdminPush(t); }} />;
 
   const isMain = !!adminUser.is_main_admin;
   const navItems = [
@@ -79,6 +113,7 @@ export default function App() {
     ...(isMain ? [{ id: 'ip-tracking', label: 'IP Tracking', icon: Globe }] : []),
     { id: 'support', label: 'Support', icon: MessageSquare },
     ...(isMain ? [{ id: 'admins', label: 'Admin & Roles', icon: Shield }] : []),
+    { id: 'notifications', label: 'Notifications', icon: Bell },
     ...(isMain ? [{ id: 'settings', label: 'Settings', icon: Settings }] : []),
   ];
 
@@ -117,6 +152,7 @@ export default function App() {
         {page === 'ip-tracking' && <IpTrackingPage authFetch={authFetch} toast={toast} />}
         {page === 'support' && <SupportPage authFetch={authFetch} toast={toast} />}
         {page === 'admins' && <AdminsPage authFetch={authFetch} toast={toast} />}
+        {page === 'notifications' && <NotificationsPage authFetch={authFetch} toast={toast} token={token} />}
         {page === 'settings' && <SettingsPage authFetch={authFetch} toast={toast} />}
       </main>
     </div>
@@ -1549,6 +1585,115 @@ function FlaggedPage({ authFetch, toast }) {
           </table>
         </div>
       )}
+    </>
+  );
+}
+
+// ── Notifications Page ────────────────────────────────────────────────────────
+function NotificationsPage({ toast, token }) {
+  const [status, setStatus] = useState('checking');
+  const [supported, setSupported] = useState(false);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setStatus('unsupported'); setSupported(false); return;
+    }
+    setSupported(true);
+    const perm = Notification.permission;
+    if (perm === 'granted') setStatus('granted');
+    else if (perm === 'denied') setStatus('denied');
+    else setStatus('default');
+  }, []);
+
+  const subscribe = async () => {
+    try {
+      await initAdminPush(token);
+      setStatus('granted');
+      toast('Push notification চালু হয়েছে! ✅');
+    } catch (e) {
+      toast('Push চালু করতে পারেনি: ' + e.message, 'error');
+    }
+  };
+
+  const unsubscribe = async () => {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          await fetch(`${API}/api/push/unsubscribe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ endpoint: sub.endpoint }),
+          });
+          await sub.unsubscribe();
+        }
+      }
+      setStatus('default');
+      toast('Push notification বন্ধ করা হয়েছে।', 'info');
+    } catch (e) {
+      toast('বন্ধ করতে পারেনি: ' + e.message, 'error');
+    }
+  };
+
+  const notifTypes = [
+    { icon: '👤', label: 'নতুন Registration Request', desc: 'কেউ নতুন একাউন্ট খুলতে চাইলে' },
+    { icon: '💸', label: 'Withdraw / Deposit Request', desc: 'টাকা তোলা বা জমার আবেদন' },
+    { icon: '💬', label: 'Support Message', desc: 'ইউজার সাপোর্টে মেসেজ পাঠালে' },
+    { icon: '📋', label: 'Transaction Approved / Rejected', desc: 'Tx অনুমোদন বা বাতিল হলে' },
+    { icon: '🔔', label: 'Admin Broadcast Message', desc: 'Admin broadcast পাঠালে' },
+    { icon: '💬', label: 'Team Chat', desc: 'দলের নতুন বার্তা আসলে' },
+  ];
+
+  return (
+    <>
+      <div className="page-header"><h1>🔔 Notification Settings</h1></div>
+      <div style={{ maxWidth: 600 }}>
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Push Notification Status</div>
+          {!supported ? (
+            <div style={{ color: '#F6465D', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BellOff size={18} /> এই ব্রাউজার Push Notification সাপোর্ট করে না
+            </div>
+          ) : status === 'granted' ? (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0ECB81', fontWeight: 600, marginBottom: 12 }}>
+                <BellRing size={18} /> Notification চালু আছে ✅
+              </div>
+              <button className="btn btn-outline btn-sm" style={{ color: '#F6465D', borderColor: '#F6465D44' }} onClick={unsubscribe}>
+                <BellOff size={14} /> বন্ধ করুন
+              </button>
+            </div>
+          ) : status === 'denied' ? (
+            <div style={{ color: '#F6465D', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BellOff size={18} /> Permission denied — ব্রাউজার settings থেকে allow করুন
+            </div>
+          ) : (
+            <div>
+              <div style={{ color: 'var(--text2)', marginBottom: 12, fontSize: 14 }}>Admin activity-র push notification চালু করুন</div>
+              <button className="btn btn-primary btn-sm" onClick={subscribe}>
+                <Bell size={14} /> চালু করুন
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>যে ঘটনায় Notification আসবে</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {notifTypes.map((n, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--bg2)' }}>
+                <span style={{ fontSize: 20, flexShrink: 0 }}>{n.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{n.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{n.desc}</div>
+                </div>
+                {status === 'granted' && <span style={{ color: '#0ECB81', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>✓ Active</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </>
   );
 }

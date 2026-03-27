@@ -1,5 +1,5 @@
 kind = "web"
-previewPath = "/admin-panel/"
+previewPath = "/xpc-ctrl-7f3b/"
 title = "Admin Panel"
 version = "1.0.0"
 id = "artifacts/admin-panel"
@@ -11,7 +11,7 @@ version = "1.0.0"
 
 [[services]]
 name = "web"
-paths = [ "/admin-panel/" ]
+paths = [ "/xpc-ctrl-7f3b/" ]
 localPort = 24480
 
 [services.development]
@@ -28,4 +28,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "24480"
-BASE_PATH = "/admin-panel/"
+BASE_PATH = "/xpc-ctrl-7f3b/"

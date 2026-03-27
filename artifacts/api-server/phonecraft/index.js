@@ -36,6 +36,28 @@ async function sendPush(userId, payload) {
   } catch (_) {}
 }
 
+// Send push to all admin users (main admin + subadmins)
+async function notifyAdmins(payload) {
+  try {
+    const adminIds = stmts.getAdminUsers.all().map(r => r.id);
+    for (const adminId of adminIds) {
+      const subs = stmts.getPushSubscriptions.all(adminId);
+      for (const sub of subs) {
+        try {
+          await webPush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify(payload)
+          );
+        } catch (e) {
+          if (e.statusCode === 410 || e.statusCode === 404) {
+            stmts.deletePushSubscription.run(adminId, sub.endpoint);
+          }
+        }
+      }
+    }
+  } catch (_) {}
+}
+
 // Broadcast push to all subscribed users
 async function broadcastPush(payload, excludeUserId) {
   try {
@@ -536,6 +558,13 @@ app.post('/api/register', registerLimiter, (req, res) => {
       `━━━━━━━━━━━━━━━━━━━`,
       `✅ রেফারারের নোটিফিকেশনে Approve/Decline অপশন আছে।`,
     ].join('\n')).catch(() => {});
+
+    // Push notification to all admins
+    notifyAdmins({
+      title: '👤 নতুন Registration Request',
+      body: `${name.trim()} — ${planRow.name} (৳${planRow.rate.toLocaleString()})`,
+      icon: '/logo.png', tag: 'admin-reg', url: '/xpc-ctrl-7f3b/',
+    });
 
     res.status(202).json({ pending: true, pending_id: pendingId });
   } catch (err) {
@@ -1367,9 +1396,19 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       telegramService.sendDepositNotification(payload).catch((err) => {
         console.error('Finance Telegram error:', err.message);
       });
+      notifyAdmins({
+        title: '💰 নতুন Deposit Request',
+        body: `${userRow.name} — ৳${numAmount.toLocaleString()} (${String(method).toUpperCase()})`,
+        icon: '/logo.png', tag: 'admin-deposit', url: '/xpc-ctrl-7f3b/',
+      });
     } else {
       telegramService.sendWithdrawNotification(payload).catch((err) => {
         console.error('Finance Telegram error:', err.message);
+      });
+      notifyAdmins({
+        title: '💸 নতুন Withdraw Request',
+        body: `${userRow.name} — ৳${numAmount.toLocaleString()} (${String(method).toUpperCase()})`,
+        icon: '/logo.png', tag: 'admin-withdraw', url: '/xpc-ctrl-7f3b/',
       });
     }
 
@@ -1468,6 +1507,13 @@ app.post('/api/support/message', supportLimiter, async (req, res) => {
       senderName,
     }).catch((err) => {
       console.error('Support Telegram error:', err.message);
+    });
+
+    // Push notification to all admins
+    notifyAdmins({
+      title: `💬 নতুন Support Message`,
+      body: `${senderName || 'User'}: ${String(message).trim().slice(0, 80)}`,
+      icon: '/logo.png', tag: 'admin-support', url: '/xpc-ctrl-7f3b/',
     });
 
     res.json({ ok: true });
