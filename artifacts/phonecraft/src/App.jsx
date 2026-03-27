@@ -104,7 +104,10 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [user,          setUser         ] = useState(null);
   const [fontSize,      setFontSize     ] = useState(() => localStorage.getItem('app-font-size') || 'medium');
-  const [appSettings,   setAppSettings  ] = useState({ maintenance_mode: 'false', announcement_banner: '' });
+  const [appSettings,   setAppSettings  ] = useState(() => {
+    try { const c = localStorage.getItem('app-settings'); return c ? JSON.parse(c) : { maintenance_mode: 'false', announcement_banner: '' }; } catch { return { maintenance_mode: 'false', announcement_banner: '' }; }
+  });
+  const [settingsLoaded, setSettingsLoaded] = useState(() => !!localStorage.getItem('app-settings'));
   const [usdRate,       setUsdRate      ] = useState(() => getLiveRate());
   const [teamChatUnread, setTeamChatUnread] = useState(0);
 
@@ -126,8 +129,12 @@ export default function App() {
     const fetchAppSettings = () => {
       fetch(`${API_URL}/api/app-settings`)
         .then(r => r.json())
-        .then(data => setAppSettings(data))
-        .catch(() => {});
+        .then(data => {
+          setAppSettings(data);
+          setSettingsLoaded(true);
+          try { localStorage.setItem('app-settings', JSON.stringify(data)); } catch {}
+        })
+        .catch(() => { setSettingsLoaded(true); });
     };
     fetchAppSettings();
     const interval = setInterval(fetchAppSettings, 30000);
@@ -482,6 +489,14 @@ export default function App() {
           </button>
         </div>
       </div>
+    </>
+  );
+
+  // ── Wait for settings before rendering anything (prevents flash) ────────────
+  if (!settingsLoaded) return (
+    <>
+      <GlobalStyles isDark={isDark} fontSize={fontSize} />
+      <PhoneCraftBackground isDark={isDark} />
     </>
   );
 
