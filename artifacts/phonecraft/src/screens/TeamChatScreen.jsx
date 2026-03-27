@@ -67,7 +67,7 @@ function MemberCard({ member, depth = 0 }) {
   );
 }
 
-function ChatMessage({ msg, isOwn }) {
+function ChatMessage({ msg, isOwn, t }) {
   const avatarSrc = msg.avatar_img || (msg.avatar?.startsWith('/') ? msg.avatar : null);
   return (
     <div style={{
@@ -102,7 +102,7 @@ function ChatMessage({ msg, isOwn }) {
             <a href={`${API_URL}${msg.media_url}`} target="_blank" rel="noreferrer"
               style={{ display: 'flex', alignItems: 'center', gap: 6, color: isOwn ? '#fff' : 'var(--accent)', textDecoration: 'none', marginBottom: msg.message ? 6 : 0 }}>
               <span style={{ fontSize: 18 }}>📎</span>
-              <span style={{ fontSize: 12 }}>ফাইল ডাউনলোড</span>
+              <span style={{ fontSize: 12 }}>{t?.chat_file_download || 'File Download'}</span>
             </a>
           )}
           {msg.message && <div style={{ fontSize: 13 }}>{msg.message}</div>}
@@ -116,7 +116,7 @@ function ChatMessage({ msg, isOwn }) {
 }
 
 function TeamChatScreen({ user, lang, showToast, teamChatUnread, setTeamChatUnread }) {
-  const t = I18N[lang] || I18N.en;
+  const t = { ...I18N.en, ...(I18N[lang] || {}) };
   const [tab, setTab] = useState('chat');
 
   // Members tab
@@ -195,10 +195,10 @@ function TeamChatScreen({ user, lang, showToast, teamChatUnread, setTeamChatUnre
         await fetchMessages();
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
       } else {
-        showToast && showToast('⚠️ বার্তা পাঠানো যায়নি', 'error');
+        showToast && showToast(t.chat_send_fail, 'error');
       }
     } catch (_) {
-      showToast && showToast('⚠️ সংযোগ ত্রুটি', 'error');
+      showToast && showToast(t.chat_conn_error, 'error');
     }
     setSending(false);
   };
@@ -206,7 +206,7 @@ function TeamChatScreen({ user, lang, showToast, teamChatUnread, setTeamChatUnre
   const handleFileUpload = async (file) => {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
-      showToast && showToast('⚠️ ফাইল সর্বোচ্চ ১০ MB', 'warning');
+      showToast && showToast(t.chat_file_size, 'warning');
       return;
     }
     setUploading(true);
@@ -224,10 +224,10 @@ function TeamChatScreen({ user, lang, showToast, teamChatUnread, setTeamChatUnre
         await fetchMessages();
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
       } else {
-        showToast && showToast('⚠️ আপলোড ব্যর্থ', 'error');
+        showToast && showToast(t.chat_upload_fail, 'error');
       }
     } catch (_) {
-      showToast && showToast('⚠️ আপলোড ত্রুটি', 'error');
+      showToast && showToast(t.chat_upload_error, 'error');
     }
     setUploading(false);
   };
@@ -241,8 +241,8 @@ function TeamChatScreen({ user, lang, showToast, teamChatUnread, setTeamChatUnre
       {/* Tab switcher */}
       <div style={{ display:'flex', gap:8, marginBottom:12 }}>
         {[
-          { id: 'chat', label: '💬 চ্যাট', badge: teamChatUnread },
-          { id: 'members', label: '👥 সদস্য' },
+          { id: 'chat', label: t.chat_tab, badge: teamChatUnread },
+          { id: 'members', label: t.members_tab },
         ].map(tb => (
           <button key={tb.id} onClick={() => setTab(tb.id)} style={{
             flex: 1, padding: '8px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
@@ -268,15 +268,15 @@ function TeamChatScreen({ user, lang, showToast, teamChatUnread, setTeamChatUnre
           {/* Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 0' }}>
             {chatLoading ? (
-              <div style={{ textAlign: 'center', padding: 30, color: 'var(--text2)', fontSize: 13 }}>লোড হচ্ছে...</div>
+              <div style={{ textAlign: 'center', padding: 30, color: 'var(--text2)', fontSize: 13 }}>{t.loading}</div>
             ) : messages.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 30, color: 'var(--text2)' }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
-                <div style={{ fontSize: 13 }}>কোনো বার্তা নেই। প্রথম বার্তাটি পাঠান!</div>
+                <div style={{ fontSize: 13 }}>{t.team_empty_msg}</div>
               </div>
             ) : (
               messages.map(msg => (
-                <ChatMessage key={msg.id} msg={msg} isOwn={msg.user_id === user?.id} />
+                <ChatMessage key={msg.id} msg={msg} isOwn={msg.user_id === user?.id} t={t} />
               ))
             )}
             <div ref={bottomRef} />
@@ -297,7 +297,7 @@ function TeamChatScreen({ user, lang, showToast, teamChatUnread, setTeamChatUnre
                 alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 opacity: uploading ? 0.5 : 1,
               }}
-              title="ছবি / ফাইল পাঠান"
+              title={t.chat_attach_tip}
             >
               {uploading ? '⏳' : '📎'}
             </button>
@@ -314,7 +314,7 @@ function TeamChatScreen({ user, lang, showToast, teamChatUnread, setTeamChatUnre
               value={text}
               onChange={e => setText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="বার্তা লিখুন..."
+              placeholder={t.team_msg_ph}
               rows={1}
               style={{
                 flex: 1, padding: '8px 12px', borderRadius: 10,

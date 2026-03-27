@@ -358,8 +358,8 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
             <div style={{ fontWeight: 700, fontSize: 13 }}>{t.nav_chat || 'Team Chat'}</div>
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
               {teamChatUnread > 0
-                ? `${teamChatUnread} টি নতুন বার্তা`
-                : 'দলের সাথে যোগাযোগ করুন'}
+                ? (typeof t.chat_new_msgs === 'function' ? t.chat_new_msgs(teamChatUnread) : `${teamChatUnread} new messages`)
+                : (t.chat_connect || 'Connect with your team')}
             </div>
           </div>
           <div style={{ color: 'var(--accent)', fontWeight: 900, fontSize: 18 }}>›</div>

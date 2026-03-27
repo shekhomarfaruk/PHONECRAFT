@@ -79,7 +79,7 @@ function PaymentPage({ page, onBack, onConfirm, showToast, lang, user }) {
 
   const handleConfirm = async () => {
     if (page.tab === 'deposit' && page.method === 'crypto' && !txId.trim()) {
-      showToast('Transaction ID/Hash দিন'); return;
+      showToast(lang === 'bn' ? 'Transaction ID/Hash দিন' : 'Enter Transaction ID/Hash'); return;
     }
     setConfirming(true);
     await onConfirm({ ...page, txId });
