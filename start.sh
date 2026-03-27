@@ -7,18 +7,19 @@ echo "[PhoneCraft] Working dir: $(pwd)"
 
 cd /home/site/wwwroot/server
 
-echo "[PhoneCraft] Rebuilding better-sqlite3 for Node $(node -v)..."
+BINARY="node_modules/better-sqlite3/build/Release/better_sqlite3.node"
 
-# Try prebuilt binary first (fast), then compile from source (reliable)
-if npm rebuild better-sqlite3 2>&1; then
-  echo "[PhoneCraft] Rebuild succeeded."
+if [ -f "$BINARY" ]; then
+  echo "[PhoneCraft] Binary found at $BINARY"
 else
-  echo "[PhoneCraft] Prebuilt binary failed. Compiling from source..."
-  npm install --build-from-source better-sqlite3 2>&1 || {
-    echo "[PhoneCraft] Source build failed. Running full npm install..."
+  echo "[PhoneCraft] Binary missing — compiling better-sqlite3 from source..."
+  if npm rebuild better-sqlite3 --build-from-source; then
+    echo "[PhoneCraft] Rebuild succeeded."
+  else
+    echo "[PhoneCraft] Rebuild failed, fresh install..."
     rm -rf node_modules/better-sqlite3
-    npm install better-sqlite3 --save 2>&1 || true
-  }
+    npm install better-sqlite3 --ignore-scripts=false
+  fi
 fi
 
 echo "[PhoneCraft] Launching app..."
