@@ -1,11 +1,36 @@
 #!/bin/bash
-set -e
 
 echo "[PhoneCraft] Starting server..."
-echo "[PhoneCraft] Node: $(node -v) | npm: $(npm -v)"
+echo "[PhoneCraft] Node: $(node -v 2>/dev/null || echo unknown) | npm: $(npm -v 2>/dev/null || echo unknown)"
 
-# Kill any previous node process that might still hold the port
-pkill -f "node index.js" 2>/dev/null || true
+# Free the port if anything is holding it
+python3 -c "
+import os, glob, signal
+port = int(os.environ.get('PORT', '8080'))
+hex_port = format(port, '04X')
+for netfile in ['/proc/net/tcp6', '/proc/net/tcp']:
+    try:
+        with open(netfile) as f:
+            for line in f.readlines()[1:]:
+                parts = line.split()
+                if len(parts) > 9:
+                    local = parts[1]
+                    hp = local.split(':')[-1].upper()
+                    if hp == hex_port:
+                        inode = parts[9]
+                        for fd in glob.glob('/proc/*/fd/*'):
+                            try:
+                                if os.readlink(fd) == 'socket:[' + inode + ']':
+                                    pid = int(fd.split('/')[2])
+                                    if pid != os.getpid():
+                                        os.kill(pid, signal.SIGKILL)
+                                        print('[PhoneCraft] Killed PID ' + str(pid) + ' on port ' + str(port))
+                            except:
+                                pass
+    except:
+        pass
+" 2>/dev/null || true
+
 sleep 1
 
 cd /home/site/wwwroot/server
@@ -13,7 +38,6 @@ cd /home/site/wwwroot/server
 BINARY="node_modules/better-sqlite3/build/Release/better_sqlite3.node"
 
 if [ -f "$BINARY" ]; then
-  # Quick test: can it actually load?
   if node -e "require('better-sqlite3')" 2>/dev/null; then
     echo "[PhoneCraft] better-sqlite3 OK, launching..."
   else
