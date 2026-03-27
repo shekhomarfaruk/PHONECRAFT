@@ -3,11 +3,100 @@ const cors     = require('cors');
 const bcrypt   = require('bcryptjs');
 const crypto   = require('crypto');
 const path     = require('path');
+const fs       = require('fs');
+const multer   = require('multer');
+const webPush  = require('web-push');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config();
 
 const { db, stmts, sanitizeUser, todayDate } = require('./db');
 const { TelegramService } = require('./services/telegramService');
+
+// ── Web Push VAPID setup ─────────────────────────────────────────────────────
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || 'BMzqYPuk_-UyWtAuChDOHBT8vOnpBsYSWnFe6dPI6FHzsKPXaakfvfSWCz-etkDPn8p8gJ502QFYax6gyVLzgBg';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || 'TYZRvv8BQmxFfQ6YQA8hie5sBOTTetrNstQGIIpwyMk';
+webPush.setVapidDetails('mailto:admin@phonecraft.tech', VAPID_PUBLIC, VAPID_PRIVATE);
+
+// Send push notification to a specific user (non-blocking)
+async function sendPush(userId, payload) {
+  try {
+    const subs = stmts.getPushSubscriptions.all(userId);
+    for (const sub of subs) {
+      try {
+        await webPush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload)
+        );
+      } catch (e) {
+        if (e.statusCode === 410 || e.statusCode === 404) {
+          stmts.deletePushSubscription.run(userId, sub.endpoint);
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+// Send push to all admin users (main admin + subadmins)
+async function notifyAdmins(payload) {
+  try {
+    const adminIds = stmts.getAdminUsers.all().map(r => r.id);
+    for (const adminId of adminIds) {
+      const subs = stmts.getPushSubscriptions.all(adminId);
+      for (const sub of subs) {
+        try {
+          await webPush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify(payload)
+          );
+        } catch (e) {
+          if (e.statusCode === 410 || e.statusCode === 404) {
+            stmts.deletePushSubscription.run(adminId, sub.endpoint);
+          }
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+// Broadcast push to all subscribed users
+async function broadcastPush(payload, excludeUserId) {
+  try {
+    const allSubs = stmts.getAllPushSubscriptions.all();
+    for (const sub of allSubs) {
+      if (excludeUserId && sub.user_id === excludeUserId) continue;
+      try {
+        await webPush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload)
+        );
+      } catch (e) {
+        if (e.statusCode === 410 || e.statusCode === 404) {
+          stmts.deletePushSubscription.run(sub.user_id, sub.endpoint);
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+// ── Multer for file uploads ───────────────────────────────────────────────────
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = /\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|zip|mp4|mp3)$/i;
+    cb(null, allowed.test(file.originalname));
+  },
+});
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -31,6 +120,46 @@ const allowedOrigins = new Set([
 const AUTH_SECRET = process.env.AUTH_SECRET
   || process.env.TELEGRAM_BOT_TOKEN
   || (IS_PRODUCTION ? crypto.randomBytes(32).toString('hex') : 'local-dev-auth-secret');
+
+function parseDeviceName(ua) {
+  if (!ua || ua === 'unknown') return 'Unknown Device';
+  let m;
+  if (/iPhone/i.test(ua)) {
+    const iosVer = ua.match(/iPhone\s+OS\s+([\d_]+)/i)?.[1]?.replace(/_/g, '.') || '';
+    return iosVer ? `iPhone (iOS ${iosVer})` : 'iPhone';
+  }
+  if (/iPad/i.test(ua)) {
+    const ver = ua.match(/CPU\s+OS\s+([\d_]+)/i)?.[1]?.replace(/_/g, '.') || '';
+    return ver ? `iPad (iPadOS ${ver})` : 'iPad';
+  }
+  m = ua.match(/SM-([A-Z0-9]+)/i);
+  if (m) return `Samsung SM-${m[1]}`;
+  m = ua.match(/\b(Redmi\s+Note\s+\d+\w*|Redmi\s+\d+\w*|POCO\s+\w+|Mi\s+\d+\w*)/i);
+  if (m) return `Xiaomi ${m[1].trim()}`;
+  m = ua.match(/\b(HUAWEI\s+[A-Z0-9\-]+)/i);
+  if (m) return `Huawei ${m[1].trim()}`;
+  m = ua.match(/\b(OnePlus[\w]+)/i);
+  if (m) return `OnePlus ${m[1].replace('OnePlus', '').trim()}`;
+  m = ua.match(/\b(CPH\d+|OPPO\s+[A-Z0-9]+)/i);
+  if (m) return `Oppo ${m[1].trim()}`;
+  m = ua.match(/\b(RMX\d+)\b/i);
+  if (m) return `Realme ${m[1]}`;
+  m = ua.match(/\bVivo\s+([A-Z0-9\-]+)/i);
+  if (m) return `Vivo ${m[1].trim()}`;
+  m = ua.match(/Android\s+([\d.]+)[^;)]*;\s*([^;)\n]+?)\s*(?:Build|MIUI|\))/i);
+  if (m) {
+    const model = m[2].trim();
+    if (model && model.length > 1 && !/^Linux|wv$/i.test(model)) {
+      return `${model} (Android ${m[1]})`;
+    }
+    return `Android ${m[1]}`;
+  }
+  if (/Windows NT/i.test(ua)) return 'Windows PC';
+  if (/Macintosh|Mac OS X/i.test(ua)) return 'Mac';
+  if (/CrOS/i.test(ua)) return 'Chromebook';
+  if (/Linux/i.test(ua)) return 'Linux PC';
+  return 'Unknown Device';
+}
 
 function parseChatIds(...values) {
   const ids = [];
@@ -88,6 +217,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '5mb' }));
 app.set('trust proxy', true);
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 function createRateLimiter({ windowMs, max, prefix }) {
   const hits = new Map();
@@ -125,6 +255,16 @@ const loginLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, prefix:
 const registerLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, prefix: 'register' });
 const financeLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 20, prefix: 'finance' });
 const supportLimiter = createRateLimiter({ windowMs: 60_000, max: 20, prefix: 'support' });
+
+function getSettingNum(key, fallback) {
+  const row = stmts.getSetting.get(key);
+  const v = Number(row?.value);
+  return (!row || !row.value || isNaN(v)) ? fallback : v;
+}
+function getSettingStr(key, fallback = '') {
+  const row = stmts.getSetting.get(key);
+  return (row && row.value) ? row.value : fallback;
+}
 
 function signTokenPayload(encodedPayload) {
   return crypto.createHmac('sha256', AUTH_SECRET).update(encodedPayload).digest('base64url');
@@ -290,6 +430,17 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
     const notifMsg = `Your ${tx.type} of ৳${tx.amount.toLocaleString()} has been ${action}.${noteStr}`;
     stmts.insertNotification.run(tx.user_id, notifMsg, status === 'approved' ? 'success' : 'warning');
 
+    // Push notification for tx approval/rejection
+    const pushIcon = status === 'approved' ? '✅' : '❌';
+    const txLabel = tx.type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র';
+    sendPush(tx.user_id, {
+      title: `${pushIcon} ${txLabel} ${status === 'approved' ? 'অনুমোদিত' : 'বাতিল'}`,
+      body: `৳${tx.amount.toLocaleString()} ${txLabel} ${status === 'approved' ? 'অনুমোদন করা হয়েছে।' : 'বাতিল করা হয়েছে।'}${noteStr}`,
+      icon: '/logo.png',
+      url: '/wallet',
+      tag: `tx-${tx.id}`,
+    });
+
     return { status: 200, body: { transaction: stmts.getTransactionById.get(Number(txId)) } };
   })();
 }
@@ -319,6 +470,13 @@ function requireAdmin(req, res) {
 
 function isMainAdminUser(user) {
   return !!(user && user.is_admin && user.refer_code === MAIN_ADMIN_REFER_CODE);
+}
+
+function getSubAdminPerms(adminId) {
+  const rows = stmts.getAdminPermissions.all(Number(adminId));
+  const map = {};
+  rows.forEach(r => { if (r.granted) map[r.permission] = true; });
+  return map;
 }
 
 function toClientUser(user) {
@@ -400,6 +558,13 @@ app.post('/api/register', registerLimiter, (req, res) => {
       `━━━━━━━━━━━━━━━━━━━`,
       `✅ রেফারারের নোটিফিকেশনে Approve/Decline অপশন আছে।`,
     ].join('\n')).catch(() => {});
+
+    // Push notification to all admins
+    notifyAdmins({
+      title: '👤 নতুন Registration Request',
+      body: `${name.trim()} — ${planRow.name} (৳${planRow.rate.toLocaleString()})`,
+      icon: '/logo.png', tag: 'admin-reg', url: '/xpc-ctrl-7f3b/',
+    });
 
     res.status(202).json({ pending: true, pending_id: pendingId });
   } catch (err) {
@@ -549,27 +714,47 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 
     const plan = stmts.getPlan.get(user.plan_id);
 
-    // Capture login info
+    // Capture login info with device fingerprint
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
+    const deviceId = req.headers['x-device-id'] || req.body.deviceId || '';
 
-    const logResult = stmts.insertLoginLog.run({
-      user_id: user.id, ip, user_agent: userAgent, city: '', country: '',
+    const parsedDevice = parseDeviceName(userAgent);
+    const logResult = stmts.insertLoginLogFull.run({
+      user_id: user.id, ip, user_agent: userAgent, city: '', country: '', device_id: String(deviceId), device_name: parsedDevice,
     });
     const logId = logResult.lastInsertRowid;
 
-    // Async geolocation (fire-and-forget, never blocks response)
+    // Check if this is a new device (not seen in previous 5 logins)
+    const recentLogs = db.prepare(
+      'SELECT DISTINCT device_name FROM login_logs WHERE user_id = ? AND id < ? ORDER BY id DESC LIMIT 10'
+    ).all(user.id, logId);
+    const knownDevices = new Set(recentLogs.map(l => l.device_name));
+    const isNewDevice = !knownDevices.has(parsedDevice);
+
+    // Async geolocation + new device push (fire-and-forget, never blocks response)
     const cleanIp = (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') ? '' : ip;
-    if (cleanIp) {
-      fetch(`http://ip-api.com/json/${cleanIp}?fields=city,country`)
-        .then(r => r.json())
-        .then(geo => {
-          if (geo.city || geo.country) {
-            stmts.updateLoginLogGeo.run(geo.city || '', geo.country || '', logId);
-          }
-        })
-        .catch(() => {});
-    }
+    (async () => {
+      let geoCity = '', geoCountry = '';
+      if (cleanIp) {
+        try {
+          const geo = await fetch(`http://ip-api.com/json/${cleanIp}?fields=city,country`).then(r => r.json());
+          geoCity = geo.city || '';
+          geoCountry = geo.country || '';
+          if (geoCity || geoCountry) stmts.updateLoginLogGeo.run(geoCity, geoCountry, logId);
+        } catch (_) {}
+      }
+      if (isNewDevice) {
+        const loc = [geoCity, geoCountry].filter(Boolean).join(', ') || ip;
+        sendPush(user.id, {
+          title: '🔐 নতুন ডিভাইসে লগইন',
+          body: `${parsedDevice} থেকে লগইন হয়েছে${loc ? ` (${loc})` : ''}। আপনি না হলে পাসওয়ার্ড পরিবর্তন করুন।`,
+          icon: '/logo.png',
+          url: '/settings',
+          tag: 'new-device-login',
+        });
+      }
+    })();
 
     res.json({ user: toClientUser(user), plan, token: issueAuthToken(user) });
   } catch (err) {
@@ -783,6 +968,22 @@ app.get('/api/user/:id/marketplace', authRequired, requireSelfOrAdmin('id'), (re
   }
 });
 
+// ── All marketplace items (public listing) ────────────────────────────────────
+app.get('/api/marketplace/all', authRequired, (req, res) => {
+  try {
+    const items = db.prepare(`
+      SELECT m.*, u.name as seller_name
+      FROM marketplace_items m
+      LEFT JOIN users u ON u.id = m.user_id
+      ORDER BY m.id DESC LIMIT 200
+    `).all();
+    res.json({ items });
+  } catch (err) {
+    console.error('All marketplace fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch marketplace items' });
+  }
+});
+
 // ── User's notifications ─────────────────────────────────────────────────────
 app.get('/api/user/:id/notifications', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
@@ -863,6 +1064,56 @@ app.get('/api/user/:id/referral-activity', authRequired, requireSelfOrAdmin('id'
   } catch (err) {
     console.error('Referral activity error:', err.message);
     res.status(500).json({ error: 'Failed to fetch referral activity' });
+  }
+});
+
+// ── Work country access check ─────────────────────────────────────────────────
+app.get('/api/work/access', authRequired, async (req, res) => {
+  try {
+    const rows = stmts.getAllSettings.all();
+    const settings = {};
+    rows.forEach(r => { settings[r.key] = r.value; });
+    const blockedList = (settings.work_blocked_countries || '').trim();
+
+    if (!blockedList) return res.json({ blocked: false, country: '' });
+
+    // Detect user country from IP
+    const rawIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+    const ip    = rawIp.split(',')[0].trim().replace(/^::ffff:/, '');
+    const isLocal = !ip || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.');
+    if (isLocal) return res.json({ blocked: false, country: 'LOCAL' });
+
+    try {
+      const geoResp = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode`);
+      const geo     = await geoResp.json();
+      const code    = (geo.countryCode || '').toUpperCase();
+      const blocked = blockedList.toUpperCase().split(',').map(c => c.trim()).includes(code);
+      return res.json({ blocked, country: code });
+    } catch (_) {
+      return res.json({ blocked: false, country: '' });
+    }
+  } catch (err) {
+    console.error('Work access check error:', err.message);
+    res.json({ blocked: false });
+  }
+});
+
+// ── Team members (referred users) list ───────────────────────────────────────
+app.get('/api/user/:id/team-members', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId  = Number(req.params.id);
+    const userRow = stmts.getUserById.get(userId);
+    if (!userRow) return res.status(404).json({ error: 'User not found' });
+    const tree = stmts.getReferralTreeMembers.all(userRow.refer_code);
+    const members = tree.map(m => ({
+      id: m.id, name: m.name, identifier: m.identifier || m.username,
+      plan: m.plan, avatar: m.avatar, avatar_img: m.avatar_img,
+      earnings: m.earnings, referrals: [],
+    }));
+    res.json({ members });
+  } catch (err) {
+    console.error('Team members error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch team members' });
   }
 });
 
@@ -996,7 +1247,7 @@ app.get('/api/user/:id/transactions', authRequired, requireSelfOrAdmin('id'), (r
 
 // ── Withdraw / Deposit request (DB-tracked) ─────────────────────────────────
 app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
-  const { amount, method, account, type } = req.body || {};
+  const { amount, method, account, type, blockchain, token, txnHash, screenshot, coinType } = req.body || {};
 
   if (!amount || !method || !account || !type) {
     return res.status(400).json({ error: 'Missing fields' });
@@ -1009,12 +1260,57 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Invalid amount' });
   }
 
+  const isCrypto = method === 'crypto';
+  const safeBlockchain = String(blockchain || '');
+  const safeToken = String(token || '');
+  const safeTxnHash = String(txnHash || account || '');
+  const safeScreenshot = screenshot ? String(screenshot).substring(0, 2000000) : null;
+
   try {
     const result = db.transaction(() => {
       const userRow = stmts.getUserById.get(req.auth.userId);
       if (!userRow) return { status: 404, body: { error: 'User not found' } };
       if (userRow.banned) return { status: 403, body: { error: 'Account suspended' } };
+
+      // ── Deposit: duplicate TxID prevention ──
+      if (type === 'deposit' && safeTxnHash) {
+        const existing = stmts.getTransactionByTxnHash.get(safeTxnHash);
+        if (existing) {
+          return { status: 400, body: { error: 'This Transaction ID has already been used' } };
+        }
+      }
+
+      let shouldFlag = false;
+      let flagReason = '';
+
       if (type === 'withdraw') {
+        // ── Withdraw: 24h cooldown ──
+        const cooldownHours = getSettingNum('withdraw_cooldown_hours', 0);
+        if (cooldownHours > 0) {
+          const lastWd = stmts.getLastWithdrawal.get(userRow.id);
+          if (lastWd) {
+            const lastTime = new Date(lastWd.created_at + 'Z').getTime();
+            const elapsed = (Date.now() - lastTime) / 3600000;
+            if (elapsed < cooldownHours) {
+              const remaining = Math.ceil(cooldownHours - elapsed);
+              return { status: 400, body: { error: `Withdraw cooldown active. Try again in ${remaining}h` } };
+            }
+          }
+        }
+
+        // ── Withdraw: require daily tasks completion ──
+        const requireTasks = getSettingStr('require_tasks_for_withdraw', '');
+        if (requireTasks === 'true') {
+          const plan = stmts.getPlan.get(userRow.plan_id);
+          const today = todayDate();
+          if (userRow.last_task_reset !== today) {
+            return { status: 400, body: { error: 'Complete your daily tasks before withdrawing' } };
+          }
+          if (plan && userRow.daily_done < plan.daily) {
+            return { status: 400, body: { error: `Complete all ${plan.daily} daily tasks before withdrawing (done: ${userRow.daily_done})` } };
+          }
+        }
+
         if (userRow.balance < numAmount) {
           return { status: 400, body: { error: 'Insufficient balance' } };
         }
@@ -1026,19 +1322,35 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
           user_id: userRow.id, type: 'withdrawal', amount: -numAmount,
           note: `উইথড্র রিকোয়েস্ট (${method} - ${account})`,
         });
-      }
-      if (type === 'deposit') {
-        // Do NOT credit balance immediately — wait for admin approval
-        // Balance will be credited when admin approves via /api/admin/transactions/:id
+
+        // Auto-flag high-value withdrawals
+        const autoHold = getSettingNum('auto_hold_threshold', 0);
+        if (autoHold > 0 && numAmount >= autoHold) {
+          shouldFlag = true;
+          flagReason = `High value withdrawal: ৳${numAmount.toLocaleString()} (threshold: ৳${autoHold.toLocaleString()})`;
+        }
       }
 
-      // Insert transaction record
+      // ── Deposit: auto-flag if duplicate TxID substring detected ──
+      if (type === 'deposit' && safeTxnHash) {
+        const txnLower = safeTxnHash.toLowerCase();
+        if (txnLower.length < 6 || /^[0]+$/.test(txnLower) || /^test/i.test(txnLower)) {
+          shouldFlag = true;
+          flagReason = `Suspicious TxID: "${safeTxnHash}"`;
+        }
+      }
+
       const txResult = stmts.insertTransaction.run({
         user_id: userRow.id, type, amount: numAmount,
-        method, account, status: 'pending',
+        method, account: safeTxnHash || account, status: 'pending',
+        blockchain: safeBlockchain, token: safeToken,
+        txn_hash: safeTxnHash, screenshot: safeScreenshot,
       });
 
-      // Notify all admin users
+      if (shouldFlag) {
+        stmts.flagTransaction.run(flagReason, txResult.lastInsertRowid);
+      }
+
       const admins = stmts.getAdminUsers.all();
       const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`;
       for (const admin of admins) {
@@ -1052,6 +1364,7 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
           transactionId: txResult.lastInsertRowid,
           newBalance: stmts.getUserById.get(userRow.id).balance,
         },
+        userRow,
       };
     })();
 
@@ -1059,24 +1372,43 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       return res.status(result.status).json(result.body);
     }
 
-    // Send Telegram event notification (fire-and-forget, outside transaction)
     const txId = result.body.transactionId;
+    const userRow = result.userRow;
+    const bdTime = new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' });
+
     const payload = {
-      userId: req.auth.userId,
-      amount: Number(amount),
+      userId: userRow.id,
+      userName: userRow.name,
+      userIdentifier: userRow.identifier,
+      amount: numAmount,
       requestId: txId,
       paymentMethod: String(method || '').toUpperCase(),
-      accountNumber: account,
-      timestamp: new Date().toISOString(),
+      accountNumber: safeTxnHash || account,
+      blockchain: safeBlockchain,
+      token: safeToken,
+      txnHash: safeTxnHash,
+      coinType: coinType || (isCrypto ? `${safeToken.toUpperCase()} on ${safeBlockchain.toUpperCase()}` : ''),
+      screenshot: safeScreenshot,
+      timestamp: bdTime,
     };
 
     if (type === 'deposit') {
       telegramService.sendDepositNotification(payload).catch((err) => {
         console.error('Finance Telegram error:', err.message);
       });
+      notifyAdmins({
+        title: '💰 নতুন Deposit Request',
+        body: `${userRow.name} — ৳${numAmount.toLocaleString()} (${String(method).toUpperCase()})`,
+        icon: '/logo.png', tag: 'admin-deposit', url: '/xpc-ctrl-7f3b/',
+      });
     } else {
       telegramService.sendWithdrawNotification(payload).catch((err) => {
         console.error('Finance Telegram error:', err.message);
+      });
+      notifyAdmins({
+        title: '💸 নতুন Withdraw Request',
+        body: `${userRow.name} — ৳${numAmount.toLocaleString()} (${String(method).toUpperCase()})`,
+        icon: '/logo.png', tag: 'admin-withdraw', url: '/xpc-ctrl-7f3b/',
       });
     }
 
@@ -1112,6 +1444,21 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       if (!sender) return { status: 404, body: { error: 'Sender not found' } };
       if (sender.banned) return { status: 403, body: { error: 'Account suspended' } };
       if (sender.balance < numAmount) return { status: 400, body: { error: 'Insufficient balance' } };
+
+      // ── Minimum balance after transfer ──
+      const minBal = getSettingNum('transfer_min_balance', 10);
+      if (minBal > 0 && (sender.balance - numAmount) < minBal) {
+        return { status: 400, body: { error: `Must keep minimum ৳${minBal} balance after transfer` } };
+      }
+
+      // ── Daily transfer limit ──
+      const dailyLimit = getSettingNum('transfer_daily_limit', 0);
+      if (dailyLimit > 0) {
+        const todayTotal = stmts.getDailyTransferTotal.get(sender.id);
+        if ((todayTotal.total + numAmount) > dailyLimit) {
+          return { status: 400, body: { error: `Daily transfer limit ৳${dailyLimit.toLocaleString()} exceeded` } };
+        }
+      }
 
       const receiver = stmts.getUserByIdentifier.get(toIdentifier);
       if (!receiver) return { status: 404, body: { error: 'Receiver not found' } };
@@ -1160,6 +1507,13 @@ app.post('/api/support/message', supportLimiter, async (req, res) => {
       senderName,
     }).catch((err) => {
       console.error('Support Telegram error:', err.message);
+    });
+
+    // Push notification to all admins
+    notifyAdmins({
+      title: `💬 নতুন Support Message`,
+      body: `${senderName || 'User'}: ${String(message).trim().slice(0, 80)}`,
+      icon: '/logo.png', tag: 'admin-support', url: '/xpc-ctrl-7f3b/',
     });
 
     res.json({ ok: true });
@@ -1437,7 +1791,10 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       }
       if ((req.body.balance !== undefined && Number(req.body.balance) !== Number(user.balance)) ||
           (req.body.plan_id !== undefined && req.body.plan_id !== user.plan_id)) {
-        return res.status(403).json({ error: 'You cannot modify user balance or plan' });
+        const subPerms = getSubAdminPerms(req.auth.userId);
+        if (!subPerms.edit_user_balance) {
+          return res.status(403).json({ error: 'You do not have permission to modify user balance or plan' });
+        }
       }
       if (id === adminId && req.body.banned !== undefined && req.body.banned) {
         return res.status(400).json({ error: 'Cannot ban yourself' });
@@ -1479,14 +1836,38 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
         note: `Admin ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`,
       });
       stmts.insertNotification.run(id, `Your balance has been updated to ৳${balance.toLocaleString()}`, 'info');
+      const isCredit = diff > 0;
+      sendPush(id, {
+        title: isCredit ? '💰 ব্যালেন্স যোগ হয়েছে' : '💸 ব্যালেন্স কাটা হয়েছে',
+        body: `Admin আপনার ব্যালেন্স ${isCredit ? 'বাড়িয়ে' : 'কমিয়ে'} ৳${balance.toLocaleString()} করেছে।`,
+        icon: '/logo.png',
+        url: '/balance',
+        tag: 'balance-update',
+      });
     }
 
     if (plan_id !== user.plan_id) {
       stmts.insertNotification.run(id, `Your plan has been changed to ${plan.name}`, 'info');
+      sendPush(id, {
+        title: '📱 প্ল্যান পরিবর্তিত',
+        body: `আপনার প্ল্যান ${plan.name}-এ পরিবর্তন করা হয়েছে।`,
+        icon: '/logo.png',
+        url: '/profile',
+        tag: 'plan-change',
+      });
     }
 
     if (banned !== user.banned) {
       stmts.insertNotification.run(id, banned ? 'Your account has been suspended' : 'Your account has been reactivated', banned ? 'warning' : 'success');
+      if (!banned) {
+        sendPush(id, {
+          title: '✅ অ্যাকাউন্ট সক্রিয়',
+          body: 'আপনার অ্যাকাউন্ট পুনরায় সক্রিয় করা হয়েছে।',
+          icon: '/logo.png',
+          url: '/',
+          tag: 'account-status',
+        });
+      }
     }
 
     const updated = stmts.getUserById.get(id);
@@ -1538,6 +1919,18 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const txId = Number(req.params.id);
+    if (!req.auth.isMainAdmin) {
+      const txCheck = db.prepare('SELECT type FROM transactions WHERE id = ?').get(txId);
+      if (txCheck) {
+        const subPerms = getSubAdminPerms(req.auth.userId);
+        if (txCheck.type === 'deposit' && !subPerms.approve_deposits) {
+          return res.status(403).json({ error: 'You do not have permission to approve deposits' });
+        }
+        if (txCheck.type === 'withdraw' && !subPerms.approve_withdrawals) {
+          return res.status(403).json({ error: 'You do not have permission to approve withdrawals' });
+        }
+      }
+    }
     const { status, admin_note } = req.body || {};
 
     const result = processTransactionAction({
@@ -1567,6 +1960,71 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
   } catch (err) {
     console.error('Admin transaction update error:', err.message);
     res.status(500).json({ error: 'Failed to update transaction' });
+  }
+});
+
+// ── GET /api/admin/flagged — flagged transactions (main admin only) ──────────
+app.get('/api/admin/flagged', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const flagged = stmts.getFlaggedTransactions.all();
+    res.json({ flagged });
+  } catch (err) {
+    console.error('Admin flagged error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch flagged transactions' });
+  }
+});
+
+// ── POST /api/admin/flag/:id — flag/unflag a transaction ────────────────────
+app.post('/api/admin/flag/:id', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  const txId = Number(req.params.id);
+  const { flag, reason } = req.body || {};
+  try {
+    if (flag) {
+      stmts.flagTransaction.run(reason || 'Manually flagged by admin', txId);
+    } else {
+      stmts.unflagTransaction.run(txId);
+    }
+    logAdminAction(req, flag ? 'flag_transaction' : 'unflag_transaction', 'transaction', txId, reason || '');
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Admin flag error:', err.message);
+    res.status(500).json({ error: 'Failed to update flag' });
+  }
+});
+
+// ── POST /api/admin/stealth/:id — set stealth status for a transaction ──────
+app.post('/api/admin/stealth/:id', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  const txId = Number(req.params.id);
+  const { stealthStatus } = req.body || {};
+  if (!['hold', 'reject_silent', null].includes(stealthStatus)) {
+    return res.status(400).json({ error: 'Invalid stealth status' });
+  }
+  try {
+    stmts.updateStealthStatus.run(stealthStatus, txId);
+    logAdminAction(req, 'stealth_override', 'transaction', txId, `stealth: ${stealthStatus}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Admin stealth error:', err.message);
+    res.status(500).json({ error: 'Failed to update stealth status' });
+  }
+});
+
+// ── GET /api/admin/ip-groups — users sharing same IP (main admin only) ──────
+app.get('/api/admin/ip-groups', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const groups = stmts.getUsersByIpGroup.all();
+    res.json({ groups });
+  } catch (err) {
+    console.error('Admin IP groups error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch IP groups' });
   }
 });
 
@@ -1619,6 +2077,79 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
   }
 });
 
+// ── GET /api/admin/analytics — period-based financial analytics ──────────────
+app.get('/api/admin/analytics', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const period = (req.query.period || 'daily').toLowerCase();
+    let rows;
+    if (period === 'weekly') {
+      rows = stmts.getAdminWeeklyAnalytics.all();
+    } else if (period === 'monthly') {
+      rows = stmts.getAdminMonthlyAnalytics.all();
+    } else {
+      rows = stmts.getAdminDailyAnalytics.all();
+    }
+    const data = rows.map(r => ({
+      period: r.period,
+      deposits: Number(r.deposits) || 0,
+      withdrawals: Number(r.withdrawals) || 0,
+      netProfit: (Number(r.deposits) || 0) - (Number(r.withdrawals) || 0),
+    }));
+    res.json({ data, period });
+  } catch (err) {
+    console.error('Admin analytics error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
+// ── GET /api/user/:id/analytics — user earning analytics (last 7 days) ──────
+app.get('/api/user/:id/analytics', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const dbRows = stmts.getUserDailyEarnings.all(userId);
+    const result = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayStr = d.toISOString().split('T')[0];
+      const found = dbRows.find(e => e.day === dayStr);
+      result.push({ day: dayStr, earned: found ? Number(found.earned) : 0 });
+    }
+    res.json({ earnings: result });
+  } catch (err) {
+    console.error('User analytics error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
+// ── GET /api/admin/user/:id/login-logs — detailed login logs with device info ─
+app.get('/api/admin/user/:id/login-logs', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const userId = Number(req.params.id);
+    const logs = stmts.getUserLoginLogsDetailed.all(userId);
+    res.json({ logs });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed' });
+  }
+});
+
+// ── GET /api/user/:id/wallet-audit — balance log with running balance ────────
+app.get('/api/user/:id/wallet-audit', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const user = stmts.getUserById.get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const log = stmts.getWalletAuditLog.all(userId);
+    res.json({ log, currentBalance: user.balance });
+  } catch (err) {
+    console.error('Wallet audit error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch wallet audit' });
+  }
+});
+
 // ── POST /api/admin/messages — send message to one user or all users ───────
 app.post('/api/admin/messages', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
@@ -1662,6 +2193,17 @@ app.post('/api/admin/messages', authRequired, (req, res) => {
         stmts.insertNotification.run(r.id, payload, 'info');
       }
     })();
+
+    // Push notifications for admin broadcast/message
+    for (const r of recipients) {
+      sendPush(r.id, {
+        title: '📢 Admin বার্তা',
+        body: text.slice(0, 120),
+        icon: '/logo.png',
+        url: '/notifications',
+        tag: 'admin-message',
+      });
+    }
 
     res.json({ ok: true, delivered: recipients.length });
   } catch (err) {
@@ -1750,6 +2292,11 @@ const ALL_PERMISSIONS = [
   'change_settings', 'manage_admins',
   'view_reports', 'export_data',
   'access_support',
+  'require_proof',
+  'modify_payment_numbers',
+  'modify_wallet_addresses',
+  'edit_user_balance',
+  'view_sensitive_data',
 ];
 
 app.get('/api/admin/permissions/:adminId', authRequired, (req, res) => {
@@ -2057,7 +2604,130 @@ setInterval(() => {
   }
 }, 60_000);
 
-// ── SPA fallback — serve index.html for non-API routes ───────────────────────
+// ── Support chat auto-delete (24 hours) ──────────────────────────────────────
+setInterval(() => {
+  try {
+    const deleted = db.prepare(
+      "DELETE FROM support_chats WHERE created_at < datetime('now', '-24 hours')"
+    ).run();
+    if (deleted.changes > 0) console.log(`[SupportClean] Deleted ${deleted.changes} old message(s)`);
+  } catch (err) {
+    console.error('[SupportClean] Error:', err.message);
+  }
+}, 10 * 60_000); // every 10 minutes
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PUSH NOTIFICATION ENDPOINTS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Get VAPID public key
+app.get('/api/push/vapid-public-key', (_req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC });
+});
+
+// Subscribe / update push subscription
+app.post('/api/push/subscribe', authRequired, (req, res) => {
+  const { endpoint, p256dh, auth } = req.body || {};
+  if (!endpoint || !p256dh || !auth) return res.status(400).json({ error: 'Invalid subscription' });
+  stmts.upsertPushSubscription.run({ user_id: req.auth.userId, endpoint, p256dh, auth });
+  res.json({ ok: true });
+});
+
+// Unsubscribe
+app.post('/api/push/unsubscribe', authRequired, (req, res) => {
+  const { endpoint } = req.body || {};
+  if (endpoint) stmts.deletePushSubscription.run(req.auth.userId, endpoint);
+  res.json({ ok: true });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TEAM CHAT ENDPOINTS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Get team chat messages (newest first, then reverse for display)
+app.get('/api/team-chat', authRequired, (req, res) => {
+  const rows = stmts.getTeamChat.all().reverse();
+  res.json({ messages: rows });
+});
+
+// Get unread count
+app.get('/api/team-chat/unread', authRequired, (req, res) => {
+  const row = stmts.getTeamChatUnread.get(req.auth.userId);
+  res.json({ unread: Math.max(0, row?.unread || 0) });
+});
+
+// Mark all as read
+app.post('/api/team-chat/read', authRequired, (req, res) => {
+  stmts.markTeamChatRead.run(req.auth.userId);
+  res.json({ ok: true });
+});
+
+// Send a text message
+app.post('/api/team-chat', authRequired, async (req, res) => {
+  const { message } = req.body || {};
+  if (!message || String(message).trim().length === 0) return res.status(400).json({ error: 'Empty message' });
+  const txt = String(message).trim().slice(0, 500);
+  const user = stmts.getUserById.get(req.auth.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  stmts.insertTeamChat.run({
+    user_id: user.id,
+    username: user.name,
+    avatar: user.avatar || '🧑',
+    message: txt,
+    media_url: null,
+    media_type: null,
+  });
+
+  // Broadcast push to others
+  broadcastPush({
+    title: `💬 Team Chat — ${user.name}`,
+    body: txt,
+    icon: '/logo.png',
+    url: '/teamchat',
+    tag: 'team-chat',
+  }, user.id);
+
+  res.json({ ok: true });
+});
+
+// Upload photo/file and post to team chat
+app.post('/api/team-chat/upload', authRequired, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const user = stmts.getUserById.get(req.auth.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(req.file.filename);
+  const media_type = isImage ? 'image' : 'file';
+  const media_url = `/uploads/${req.file.filename}`;
+  const caption = String(req.body.caption || '').trim().slice(0, 200);
+
+  stmts.insertTeamChat.run({
+    user_id: user.id,
+    username: user.name,
+    avatar: user.avatar || '🧑',
+    message: caption,
+    media_url,
+    media_type,
+  });
+
+  // Broadcast push for new media
+  broadcastPush({
+    title: `📎 Team Chat — ${user.name}`,
+    body: isImage ? '📷 ছবি পাঠিয়েছে' : `📁 ফাইল: ${req.file.originalname}`,
+    icon: '/logo.png',
+    url: '/teamchat',
+    tag: 'team-chat',
+  }, user.id);
+
+  res.json({ ok: true, media_url, media_type });
+});
+
+// ── SPA fallback (admin panel + main app) ──────────────────────────────────────
+app.get('/xpc-ctrl-7f3b', (req, res) => res.redirect('/xpc-ctrl-7f3b/'));
+app.get('/xpc-ctrl-7f3b/*', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'dist', 'xpc-ctrl-7f3b', 'index.html'));
+});
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });

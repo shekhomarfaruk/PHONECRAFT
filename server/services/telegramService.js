@@ -35,8 +35,9 @@ class TelegramService {
     console.log(`${prefix} ${action}${safeDetails ? ` :: ${safeDetails}` : ''}`);
   }
 
-  async sendMessage(text, { botToken, chatIds, replyToMessageId } = {}) {
+  async sendMessage(text, { botToken, chatIds, replyToMessageId, reply_markup } = {}) {
     if (!botToken || !Array.isArray(chatIds) || chatIds.length === 0) {
+      this.logAction('sendMessage', false, `bot=${!!botToken} chatIds=${JSON.stringify(chatIds)}`);
       throw new Error('Telegram bot token or chat ids are not configured');
     }
 
@@ -55,6 +56,10 @@ class TelegramService {
         if (replyToMessageId) {
           payload.reply_to_message_id = replyToMessageId;
           payload.allow_sending_without_reply = true;
+        }
+
+        if (reply_markup) {
+          payload.reply_markup = reply_markup;
         }
 
         const response = await fetch(url, {
@@ -81,38 +86,99 @@ class TelegramService {
     return deliveries;
   }
 
-  async sendDepositNotification({ userId, amount, requestId, timestamp }) {
-    const text = [
-      '📥 New Deposit Request',
-      `User ID: ${userId}`,
-      `Amount: ${amount}`,
-      `Request ID: ${requestId}`,
-      `Time: ${timestamp}`,
-    ].join('\n');
+  async sendPhotoToChats(base64Data, caption, { botToken, chatIds } = {}) {
+    if (!botToken || !Array.isArray(chatIds) || chatIds.length === 0) return [];
+    const url = `https://api.telegram.org/bot${botToken}/sendPhoto`;
+    const deliveries = [];
+    for (const chatId of chatIds) {
+      try {
+        const imgBuffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        const blob = new Blob([imgBuffer], { type: 'image/png' });
+        const form = new FormData();
+        form.append('chat_id', chatId);
+        form.append('caption', caption || '📸 Screenshot');
+        form.append('parse_mode', 'HTML');
+        form.append('photo', blob, 'screenshot.png');
+        const response = await fetch(url, { method: 'POST', body: form });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.ok) deliveries.push(chatId);
+      } catch (_) {}
+    }
+    return deliveries;
+  }
+
+  async sendDepositNotification({ userId, userName, userIdentifier, amount, requestId, paymentMethod, accountNumber, blockchain, token, txnHash, coinType, screenshot, timestamp }) {
+    const isCrypto = String(paymentMethod || '').toUpperCase() === 'CRYPTO';
+    const lines = [
+      '📥 <b>নতুন Deposit Request</b>',
+      '━━━━━━━━━━━━━━━━━━━',
+      `👤 <b>User ID:</b> ${userId}`,
+      `🙍 <b>নাম:</b> ${userName || ''}`,
+      `📱 <b>Identifier:</b> <code>${userIdentifier || ''}</code>`,
+      `💳 <b>Payment Method:</b> ${paymentMethod || ''}`,
+      `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()}`,
+    ];
+    if (isCrypto) {
+      lines.push(`⛓ <b>Blockchain:</b> ${blockchain || ''}`);
+      lines.push(`💎 <b>Token:</b> ${token ? token.toUpperCase() : ''}`);
+      lines.push(`🔗 <b>TxnHash:</b> <code>${txnHash || accountNumber || ''}</code>`);
+    } else {
+      lines.push(`🔢 <b>TrxID / Account:</b> <code>${accountNumber || ''}</code>`);
+    }
+    lines.push(
+      `🆔 <b>Request ID:</b> #${requestId}`,
+      `🕐 <b>সময়:</b> ${timestamp}`,
+      '━━━━━━━━━━━━━━━━━━━',
+      `<code>/approve ${requestId}</code>`,
+    );
+    const text = lines.join('\n');
 
     const deliveries = await this.sendMessage(text, {
       botToken: this.financeBotToken,
       chatIds: this.financeChatIds,
     });
+
+    if (screenshot) {
+      const screenshotCaption = `📸 Screenshot — Deposit #${requestId} | User: ${userName || userId}`;
+      this.sendPhotoToChats(screenshot, screenshotCaption, {
+        botToken: this.financeBotToken,
+        chatIds: this.financeChatIds,
+      }).catch(() => {});
+    }
 
     this.logAction('sendDepositNotification', true, `requestId=${requestId} deliveries=${deliveries.length}`);
     return deliveries;
   }
 
-  async sendWithdrawNotification({ userId, amount, paymentMethod, accountNumber, requestId }) {
-    const text = [
-      '📤 Withdraw Request',
-      `User ID: ${userId}`,
-      `Amount: ${amount}`,
-      `Method: ${paymentMethod}`,
-      `Account: ${accountNumber}`,
-      `Request ID: ${requestId}`,
-    ].join('\n');
+  async sendWithdrawNotification({ userId, userName, userIdentifier, amount, paymentMethod, accountNumber, requestId, screenshot, timestamp }) {
+    const lines = [
+      '📤 <b>Withdraw Request</b>',
+      '━━━━━━━━━━━━━━━━━━━',
+      `👤 <b>User ID:</b> ${userId}`,
+      `🙍 <b>নাম:</b> ${userName || ''}`,
+      `📱 <b>Identifier:</b> <code>${userIdentifier || ''}</code>`,
+      `💳 <b>Payment Method:</b> ${paymentMethod || ''}`,
+      `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()}`,
+      `🔢 <b>Account:</b> <code>${accountNumber || ''}</code>`,
+      `🆔 <b>Request ID:</b> #${requestId}`,
+      `🕐 <b>সময়:</b> ${timestamp}`,
+      '━━━━━━━━━━━━━━━━━━━',
+      `<code>/pay ${requestId}</code>`,
+    ];
+    const text = lines.join('\n');
 
     const deliveries = await this.sendMessage(text, {
       botToken: this.financeBotToken,
       chatIds: this.financeChatIds,
     });
+
+    if (screenshot) {
+      const screenshotCaption = `📸 Screenshot — Withdraw #${requestId} | User: ${userName || userId}`;
+      this.sendPhotoToChats(screenshot, screenshotCaption, {
+        botToken: this.financeBotToken,
+        chatIds: this.financeChatIds,
+      }).catch(() => {});
+    }
 
     this.logAction('sendWithdrawNotification', true, `requestId=${requestId} deliveries=${deliveries.length}`);
     return deliveries;
@@ -314,9 +380,11 @@ class TelegramService {
       chatIds: this.supportChatIds,
     });
 
-    const primaryDelivery = deliveries[0];
-    if (primaryDelivery?.result?.message_id) {
-      this.stmts.insertTgMsgMap.run(primaryDelivery.result.message_id, `session:${sessionId}`);
+    for (const delivery of deliveries) {
+      if (delivery?.result?.message_id) {
+        const deliveryChatId = delivery.result.chat?.id ?? 0;
+        this.stmts.insertTgMsgMap.run(deliveryChatId, delivery.result.message_id, `session:${sessionId}`);
+      }
     }
 
     this.logAction('forwardSupportMessage', true, `session=${sessionId} deliveries=${deliveries.length}`);
@@ -344,12 +412,16 @@ class TelegramService {
     const isAdmin = this.isAdminChatId(chatId) || this.isAdminChatId(senderId);
 
     if (isAdmin && msg.reply_to_message?.message_id) {
-      const mapped = this.stmts.getSessionByTgMsg.get(msg.reply_to_message.message_id);
+      const replyToId = msg.reply_to_message.message_id;
+      const mapped = this.stmts.getSessionByTgMsg.get(chatId, replyToId);
       if (!mapped) {
+        this.logAction('handleSupportUpdate', false, `admin-reply: no tg_msg_map entry for chat_id=${chatId} msg_id=${replyToId}`);
         return { handled: false, reason: 'no-mapping' };
       }
 
       const sessionKey = String(mapped.session_id || '');
+      this.logAction('handleSupportUpdate', true, `admin-reply: mapped msg_id=${replyToId} → ${sessionKey}`);
+
       if (sessionKey.startsWith('tguser:')) {
         const userChatId = sessionKey.slice('tguser:'.length);
         await this.replyToUser({ targetChatId: userChatId, text });
@@ -360,11 +432,14 @@ class TelegramService {
         const sessionId = sessionKey.slice('session:'.length);
         if (this.onSupportSessionReply) {
           this.onSupportSessionReply({ sessionId, text });
-          this.logAction('supportSessionReply', true, `session=${sessionId}`);
+          this.logAction('supportSessionReply', true, `session=${sessionId} text="${text.slice(0, 80)}"`);
+        } else {
+          this.logAction('supportSessionReply', false, `no onSupportSessionReply handler registered`);
         }
         return { handled: true, mode: 'session-reply' };
       }
 
+      this.logAction('handleSupportUpdate', false, `admin-reply: unrecognized session key format: ${sessionKey}`);
       return { handled: false, reason: 'invalid-mapping' };
     }
 
@@ -393,9 +468,11 @@ class TelegramService {
       chatIds: [...this.adminChatIds],
     });
 
-    const primaryDelivery = deliveries[0];
-    if (primaryDelivery?.result?.message_id) {
-      this.stmts.insertTgMsgMap.run(primaryDelivery.result.message_id, `tguser:${chatId}`);
+    for (const delivery of deliveries) {
+      if (delivery?.result?.message_id) {
+        const deliveryChatId = delivery.result.chat?.id ?? 0;
+        this.stmts.insertTgMsgMap.run(deliveryChatId, delivery.result.message_id, `tguser:${chatId}`);
+      }
     }
 
     this.logAction('handleSupportUpdate', true, `from=${chatId} deliveries=${deliveries.length}`);

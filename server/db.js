@@ -88,6 +88,19 @@ try { db.exec('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0'); } catch 
 try { db.exec('ALTER TABLE notifications ADD COLUMN meta TEXT DEFAULT NULL'); } catch (_) {}
 // Add avatar_img column for user profile photo
 try { db.exec('ALTER TABLE users ADD COLUMN avatar_img TEXT DEFAULT NULL'); } catch (_) {}
+// Add crypto/screenshot columns to transactions
+try { db.exec('ALTER TABLE transactions ADD COLUMN blockchain TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN token TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN txn_hash TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN screenshot TEXT DEFAULT NULL'); } catch (_) {}
+// Security upgrade columns
+try { db.exec('ALTER TABLE transactions ADD COLUMN flagged INTEGER DEFAULT 0'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN flag_reason TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN stealth_status TEXT DEFAULT NULL'); } catch (_) {}
+try { db.exec('ALTER TABLE login_logs ADD COLUMN device_id TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE login_logs ADD COLUMN device_name TEXT DEFAULT ""'); } catch (_) {}
+// Index for duplicate TxID prevention (non-unique to allow empty strings)
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_txn_hash ON transactions(txn_hash) WHERE txn_hash != ""'); } catch (_) {}
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`
@@ -238,9 +251,47 @@ db.exec(`
 const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposit_bank',
   'maintenance_mode', 'announcement_banner', 'min_withdraw', 'max_withdraw',
   'min_deposit', 'max_deposit', 'daily_withdraw_limit', 'auto_hold_threshold',
-  'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3'];
+  'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3',
+  'transfer_daily_limit', 'transfer_min_balance', 'withdraw_cooldown_hours',
+  'require_tasks_for_withdraw', 'require_withdraw_proof', 'work_blocked_countries'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
+
+// Team chat messages (real community chat)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_chat (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    username    TEXT NOT NULL,
+    avatar      TEXT DEFAULT '',
+    message     TEXT NOT NULL DEFAULT '',
+    media_url   TEXT DEFAULT NULL,
+    media_type  TEXT DEFAULT NULL,
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Track last read message per user for unread count
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_chat_reads (
+    user_id     INTEGER PRIMARY KEY REFERENCES users(id),
+    last_read_id INTEGER DEFAULT 0,
+    updated_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Web Push subscriptions
+db.exec(`
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id),
+    endpoint     TEXT NOT NULL,
+    p256dh       TEXT NOT NULL,
+    auth         TEXT NOT NULL,
+    created_at   TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, endpoint)
+  );
+`);
 
 // Pending registrations table (awaiting referrer approval)
 db.exec(`
@@ -461,8 +512,8 @@ const stmts = {
 
   // Transactions
   insertTransaction:   db.prepare(`
-    INSERT INTO transactions (user_id, type, amount, method, account, status)
-    VALUES (@user_id, @type, @amount, @method, @account, @status)
+    INSERT INTO transactions (user_id, type, amount, method, account, status, blockchain, token, txn_hash, screenshot)
+    VALUES (@user_id, @type, @amount, @method, @account, @status, @blockchain, @token, @txn_hash, @screenshot)
   `),
   getTransactionById:  db.prepare('SELECT * FROM transactions WHERE id = ?'),
   getUserTransactions: db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 50'),
@@ -615,6 +666,160 @@ const stmts = {
 
   // All plans (for admin editing)
   getAllPlans: db.prepare('SELECT * FROM plans ORDER BY rate ASC'),
+
+  // Security: duplicate TxID check
+  getTransactionByTxnHash: db.prepare(`SELECT id FROM transactions WHERE txn_hash = ? AND txn_hash != '' LIMIT 1`),
+
+  // Security: 24h withdrawal cooldown
+  getLastWithdrawal: db.prepare(`
+    SELECT created_at FROM transactions
+    WHERE user_id = ? AND type = 'withdraw' AND status != 'rejected'
+    ORDER BY id DESC LIMIT 1
+  `),
+
+  // Security: daily transfer total
+  getDailyTransferTotal: db.prepare(`
+    SELECT COALESCE(SUM(ABS(amount)), 0) as total
+    FROM balance_log
+    WHERE user_id = ? AND type = 'transfer_sent'
+      AND date(created_at, '+6 hours') = date('now', '+6 hours')
+  `),
+
+  // Security: flag transactions
+  flagTransaction: db.prepare(`UPDATE transactions SET flagged = 1, flag_reason = ? WHERE id = ?`),
+  unflagTransaction: db.prepare(`UPDATE transactions SET flagged = 0, flag_reason = '' WHERE id = ?`),
+  getFlaggedTransactions: db.prepare(`
+    SELECT t.*, u.name as user_name, u.identifier as user_identifier
+    FROM transactions t
+    LEFT JOIN users u ON u.id = t.user_id
+    WHERE t.flagged = 1
+    ORDER BY t.id DESC
+  `),
+
+  // Security: stealth approval
+  updateStealthStatus: db.prepare(`UPDATE transactions SET stealth_status = ? WHERE id = ?`),
+
+  // Admin: users grouped by IP (with device names)
+  getUsersByIpGroup: db.prepare(`
+    SELECT ll.ip, COUNT(DISTINCT ll.user_id) as user_count,
+      GROUP_CONCAT(DISTINCT u.name) as user_names,
+      GROUP_CONCAT(DISTINCT ll.user_id) as user_ids,
+      GROUP_CONCAT(DISTINCT CASE WHEN ll.device_name != '' THEN ll.device_name ELSE NULL END) as device_names,
+      MAX(ll.logged_at) as last_seen,
+      MAX(ll.country) as country
+    FROM login_logs ll
+    LEFT JOIN users u ON u.id = ll.user_id
+    WHERE ll.ip != '' AND ll.ip != 'unknown'
+    GROUP BY ll.ip
+    HAVING COUNT(DISTINCT ll.user_id) > 1
+    ORDER BY user_count DESC
+    LIMIT 100
+  `),
+
+  // Login logs for a specific user with device info
+  getUserLoginLogsDetailed: db.prepare(`
+    SELECT id, ip, user_agent, device_name, city, country, logged_at
+    FROM login_logs WHERE user_id = ?
+    ORDER BY id DESC LIMIT 20
+  `),
+
+  // Login log with device_id + device_name
+  insertLoginLogFull: db.prepare('INSERT INTO login_logs (user_id, ip, user_agent, city, country, device_id, device_name) VALUES (@user_id, @ip, @user_agent, @city, @country, @device_id, @device_name)'),
+
+  // User daily earnings analytics (last 7 days)
+  getUserDailyEarnings: db.prepare(`
+    SELECT
+      date(created_at, '+6 hours') as day,
+      COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as earned
+    FROM balance_log
+    WHERE user_id = ?
+      AND created_at > datetime('now', '-7 days')
+      AND type IN ('daily_earn', 'referral_bonus', 'team_bonus', 'marketplace_sell')
+    GROUP BY day
+    ORDER BY day ASC
+  `),
+
+  // Admin analytics — daily (last 30 days)
+  getAdminDailyAnalytics: db.prepare(`
+    SELECT
+      date(created_at, '+6 hours') as period,
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as deposits,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as withdrawals
+    FROM transactions
+    WHERE created_at > datetime('now', '-30 days')
+    GROUP BY period ORDER BY period ASC
+  `),
+
+  // Admin analytics — weekly (last 12 weeks)
+  getAdminWeeklyAnalytics: db.prepare(`
+    SELECT
+      strftime('%Y-W%W', date(created_at, '+6 hours')) as period,
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as deposits,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as withdrawals
+    FROM transactions
+    WHERE created_at > datetime('now', '-84 days')
+    GROUP BY period ORDER BY period ASC
+  `),
+
+  // Admin analytics — monthly (last 12 months)
+  getAdminMonthlyAnalytics: db.prepare(`
+    SELECT
+      strftime('%Y-%m', date(created_at, '+6 hours')) as period,
+      COALESCE(SUM(CASE WHEN type='deposit' AND status='approved' THEN amount ELSE 0 END), 0) as deposits,
+      COALESCE(SUM(CASE WHEN type='withdraw' AND status='approved' THEN amount ELSE 0 END), 0) as withdrawals
+    FROM transactions
+    WHERE created_at > datetime('now', '-365 days')
+    GROUP BY period ORDER BY period ASC
+  `),
+
+  // Wallet audit: running balance per user from balance_log
+  getWalletAuditLog: db.prepare(`
+    SELECT
+      bl.*,
+      SUM(bl.amount) OVER (PARTITION BY bl.user_id ORDER BY bl.id ASC) as running_balance
+    FROM balance_log bl
+    WHERE bl.user_id = ?
+    ORDER BY bl.id DESC
+    LIMIT 200
+  `),
+
+  // Team chat
+  getTeamChat: db.prepare(`
+    SELECT tc.id, tc.user_id, tc.username, tc.avatar, tc.message, tc.media_url, tc.media_type, tc.created_at,
+           u.avatar_img
+    FROM team_chat tc
+    LEFT JOIN users u ON u.id = tc.user_id
+    ORDER BY tc.id DESC LIMIT 60
+  `),
+  insertTeamChat: db.prepare(`
+    INSERT INTO team_chat (user_id, username, avatar, message, media_url, media_type)
+    VALUES (@user_id, @username, @avatar, @message, @media_url, @media_type)
+  `),
+  getLatestTeamChatId: db.prepare(`SELECT COALESCE(MAX(id), 0) as max_id FROM team_chat`),
+  getTeamChatUnread: db.prepare(`
+    SELECT
+      (SELECT COALESCE(MAX(id), 0) FROM team_chat) -
+      COALESCE((SELECT last_read_id FROM team_chat_reads WHERE user_id = ?), 0) as unread
+  `),
+  markTeamChatRead: db.prepare(`
+    INSERT OR REPLACE INTO team_chat_reads (user_id, last_read_id, updated_at)
+    VALUES (?, (SELECT COALESCE(MAX(id), 0) FROM team_chat), datetime('now'))
+  `),
+
+  // Push subscriptions
+  upsertPushSubscription: db.prepare(`
+    INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+    VALUES (@user_id, @endpoint, @p256dh, @auth)
+  `),
+  deletePushSubscription: db.prepare(`
+    DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?
+  `),
+  getPushSubscriptions: db.prepare(`
+    SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?
+  `),
+  getAllPushSubscriptions: db.prepare(`
+    SELECT user_id, endpoint, p256dh, auth FROM push_subscriptions
+  `),
 };
 
 // ── Helper: strip password from user object ─────────────────────────────────────
