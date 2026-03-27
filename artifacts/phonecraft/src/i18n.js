@@ -344,6 +344,12 @@ export const I18N = {
     err_user_not_found:        'User not found',
     err_account_suspended:     'Your account has been suspended',
     err_all_fields_ref:        'All fields required including referral code',
+    err_insufficient_balance:  'Insufficient balance',
+    err_duplicate_txid:        'This Transaction ID has already been used',
+    err_withdraw_cooldown:     'Withdraw cooldown active',
+    err_tasks_incomplete:      'Complete your daily tasks before withdrawing',
+    err_daily_limit:           'Daily transfer limit exceeded',
+    err_min_balance:           'Must keep minimum balance after transfer',
 
     // ── Auth toast extras ───────────────────────────────────────────────────
     auth_fill_all:          'Fill all fields',
@@ -975,6 +981,12 @@ export const I18N = {
     err_user_not_found:        'ব্যবহারকারী পাওয়া যায়নি',
     err_account_suspended:     'আপনার অ্যাকাউন্ট স্থগিত করা হয়েছে',
     err_all_fields_ref:        'রেফারেল কোডসহ সব ঘর পূরণ করুন',
+    err_insufficient_balance:  'অপর্যাপ্ত ব্যালেন্স',
+    err_duplicate_txid:        'এই Transaction ID ইতিমধ্যে ব্যবহৃত হয়েছে',
+    err_withdraw_cooldown:     'উইথড্র কুলডাউন চলছে',
+    err_tasks_incomplete:      'উইথড্র করতে দৈনিক টাস্ক সম্পন্ন করুন',
+    err_daily_limit:           'দৈনিক ট্রান্সফার সীমা অতিক্রম করেছে',
+    err_min_balance:           'ট্রান্সফারের পর সর্বনিম্ন ব্যালেন্স রাখতে হবে',
 
     // ── Auth toast extras ───────────────────────────────────────────────────
     auth_fill_all:          'সব ঘর পূরণ করুন',

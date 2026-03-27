@@ -293,7 +293,13 @@ export default function App() {
       'User not found':                        t.err_user_not_found,
       'Your account has been suspended':       t.err_account_suspended,
       'All fields are required including referral code': t.err_all_fields_ref,
+      'Insufficient balance':                  t.err_insufficient_balance,
+      'This Transaction ID has already been used': t.err_duplicate_txid,
     };
+    if (errStr.startsWith('Withdraw cooldown')) return t.err_withdraw_cooldown;
+    if (errStr.startsWith('Complete') && errStr.includes('daily tasks')) return t.err_tasks_incomplete;
+    if (errStr.startsWith('Daily transfer limit')) return t.err_daily_limit;
+    if (errStr.startsWith('Must keep minimum')) return t.err_min_balance;
     return map[errStr] || errStr;
   };
 
@@ -465,7 +471,8 @@ export default function App() {
     </>
   );
 
-  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings };
+  const tErr = (e) => translateServerError(e, lang);
+  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings, tErr };
 
   // Dynamic menu: build from i18n, add Admin item only if user is admin
   const t = I18N[lang] || I18N.en;

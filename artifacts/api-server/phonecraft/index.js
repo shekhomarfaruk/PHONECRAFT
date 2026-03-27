@@ -126,6 +126,16 @@ const registerLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, pref
 const financeLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 20, prefix: 'finance' });
 const supportLimiter = createRateLimiter({ windowMs: 60_000, max: 20, prefix: 'support' });
 
+function getSettingNum(key, fallback) {
+  const row = stmts.getSetting.get(key);
+  const v = Number(row?.value);
+  return (!row || !row.value || isNaN(v)) ? fallback : v;
+}
+function getSettingStr(key, fallback = '') {
+  const row = stmts.getSetting.get(key);
+  return (row && row.value) ? row.value : fallback;
+}
+
 function signTokenPayload(encodedPayload) {
   return crypto.createHmac('sha256', AUTH_SECRET).update(encodedPayload).digest('base64url');
 }
@@ -549,12 +559,13 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 
     const plan = stmts.getPlan.get(user.plan_id);
 
-    // Capture login info
+    // Capture login info with device fingerprint
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
+    const deviceId = req.headers['x-device-id'] || req.body.deviceId || '';
 
-    const logResult = stmts.insertLoginLog.run({
-      user_id: user.id, ip, user_agent: userAgent, city: '', country: '',
+    const logResult = stmts.insertLoginLogFull.run({
+      user_id: user.id, ip, user_agent: userAgent, city: '', country: '', device_id: String(deviceId),
     });
     const logId = logResult.lastInsertRowid;
 
@@ -1086,7 +1097,46 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       const userRow = stmts.getUserById.get(req.auth.userId);
       if (!userRow) return { status: 404, body: { error: 'User not found' } };
       if (userRow.banned) return { status: 403, body: { error: 'Account suspended' } };
+
+      // ── Deposit: duplicate TxID prevention ──
+      if (type === 'deposit' && safeTxnHash) {
+        const existing = stmts.getTransactionByTxnHash.get(safeTxnHash);
+        if (existing) {
+          return { status: 400, body: { error: 'This Transaction ID has already been used' } };
+        }
+      }
+
+      let shouldFlag = false;
+      let flagReason = '';
+
       if (type === 'withdraw') {
+        // ── Withdraw: 24h cooldown ──
+        const cooldownHours = getSettingNum('withdraw_cooldown_hours', 0);
+        if (cooldownHours > 0) {
+          const lastWd = stmts.getLastWithdrawal.get(userRow.id);
+          if (lastWd) {
+            const lastTime = new Date(lastWd.created_at + 'Z').getTime();
+            const elapsed = (Date.now() - lastTime) / 3600000;
+            if (elapsed < cooldownHours) {
+              const remaining = Math.ceil(cooldownHours - elapsed);
+              return { status: 400, body: { error: `Withdraw cooldown active. Try again in ${remaining}h` } };
+            }
+          }
+        }
+
+        // ── Withdraw: require daily tasks completion ──
+        const requireTasks = getSettingStr('require_tasks_for_withdraw', '');
+        if (requireTasks === 'true') {
+          const plan = stmts.getPlan.get(userRow.plan_id);
+          const today = todayDate();
+          if (userRow.last_task_reset !== today) {
+            return { status: 400, body: { error: 'Complete your daily tasks before withdrawing' } };
+          }
+          if (plan && userRow.daily_done < plan.daily) {
+            return { status: 400, body: { error: `Complete all ${plan.daily} daily tasks before withdrawing (done: ${userRow.daily_done})` } };
+          }
+        }
+
         if (userRow.balance < numAmount) {
           return { status: 400, body: { error: 'Insufficient balance' } };
         }
@@ -1098,8 +1148,23 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
           user_id: userRow.id, type: 'withdrawal', amount: -numAmount,
           note: `উইথড্র রিকোয়েস্ট (${method} - ${account})`,
         });
+
+        // Auto-flag high-value withdrawals
+        const autoHold = getSettingNum('auto_hold_threshold', 0);
+        if (autoHold > 0 && numAmount >= autoHold) {
+          shouldFlag = true;
+          flagReason = `High value withdrawal: ৳${numAmount.toLocaleString()} (threshold: ৳${autoHold.toLocaleString()})`;
+        }
       }
-      // deposit: credit on admin approval only
+
+      // ── Deposit: auto-flag if duplicate TxID substring detected ──
+      if (type === 'deposit' && safeTxnHash) {
+        const txnLower = safeTxnHash.toLowerCase();
+        if (txnLower.length < 6 || /^[0]+$/.test(txnLower) || /^test/i.test(txnLower)) {
+          shouldFlag = true;
+          flagReason = `Suspicious TxID: "${safeTxnHash}"`;
+        }
+      }
 
       const txResult = stmts.insertTransaction.run({
         user_id: userRow.id, type, amount: numAmount,
@@ -1107,6 +1172,10 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         blockchain: safeBlockchain, token: safeToken,
         txn_hash: safeTxnHash, screenshot: safeScreenshot,
       });
+
+      if (shouldFlag) {
+        stmts.flagTransaction.run(flagReason, txResult.lastInsertRowid);
+      }
 
       const admins = stmts.getAdminUsers.all();
       const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`;
@@ -1191,6 +1260,21 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       if (!sender) return { status: 404, body: { error: 'Sender not found' } };
       if (sender.banned) return { status: 403, body: { error: 'Account suspended' } };
       if (sender.balance < numAmount) return { status: 400, body: { error: 'Insufficient balance' } };
+
+      // ── Minimum balance after transfer ──
+      const minBal = getSettingNum('transfer_min_balance', 10);
+      if (minBal > 0 && (sender.balance - numAmount) < minBal) {
+        return { status: 400, body: { error: `Must keep minimum ৳${minBal} balance after transfer` } };
+      }
+
+      // ── Daily transfer limit ──
+      const dailyLimit = getSettingNum('transfer_daily_limit', 0);
+      if (dailyLimit > 0) {
+        const todayTotal = stmts.getDailyTransferTotal.get(sender.id);
+        if ((todayTotal.total + numAmount) > dailyLimit) {
+          return { status: 400, body: { error: `Daily transfer limit ৳${dailyLimit.toLocaleString()} exceeded` } };
+        }
+      }
 
       const receiver = stmts.getUserByIdentifier.get(toIdentifier);
       if (!receiver) return { status: 404, body: { error: 'Receiver not found' } };
@@ -1646,6 +1730,71 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
   } catch (err) {
     console.error('Admin transaction update error:', err.message);
     res.status(500).json({ error: 'Failed to update transaction' });
+  }
+});
+
+// ── GET /api/admin/flagged — flagged transactions (main admin only) ──────────
+app.get('/api/admin/flagged', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const flagged = stmts.getFlaggedTransactions.all();
+    res.json({ flagged });
+  } catch (err) {
+    console.error('Admin flagged error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch flagged transactions' });
+  }
+});
+
+// ── POST /api/admin/flag/:id — flag/unflag a transaction ────────────────────
+app.post('/api/admin/flag/:id', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  const txId = Number(req.params.id);
+  const { flag, reason } = req.body || {};
+  try {
+    if (flag) {
+      stmts.flagTransaction.run(reason || 'Manually flagged by admin', txId);
+    } else {
+      stmts.unflagTransaction.run(txId);
+    }
+    logAdminAction(req, flag ? 'flag_transaction' : 'unflag_transaction', 'transaction', txId, reason || '');
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Admin flag error:', err.message);
+    res.status(500).json({ error: 'Failed to update flag' });
+  }
+});
+
+// ── POST /api/admin/stealth/:id — set stealth status for a transaction ──────
+app.post('/api/admin/stealth/:id', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  const txId = Number(req.params.id);
+  const { stealthStatus } = req.body || {};
+  if (!['hold', 'reject_silent', null].includes(stealthStatus)) {
+    return res.status(400).json({ error: 'Invalid stealth status' });
+  }
+  try {
+    stmts.updateStealthStatus.run(stealthStatus, txId);
+    logAdminAction(req, 'stealth_override', 'transaction', txId, `stealth: ${stealthStatus}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Admin stealth error:', err.message);
+    res.status(500).json({ error: 'Failed to update stealth status' });
+  }
+});
+
+// ── GET /api/admin/ip-groups — users sharing same IP (main admin only) ──────
+app.get('/api/admin/ip-groups', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const groups = stmts.getUsersByIpGroup.all();
+    res.json({ groups });
+  } catch (err) {
+    console.error('Admin IP groups error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch IP groups' });
   }
 });
 

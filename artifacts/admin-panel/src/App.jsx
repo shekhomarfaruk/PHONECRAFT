@@ -5,6 +5,7 @@ import {
   Download, Send, Lock, RefreshCw, Eye, CheckCircle, Ban, UserCheck,
   Menu, Search, Filter, FileText, Star, AlertTriangle, Reply, Trash2,
   ChevronRight, Edit, ArrowUpRight, ArrowDownRight, Activity,
+  Flag, Globe,
 } from 'lucide-react';
 
 const BASE = import.meta.env.BASE_URL || '/admin-panel/';
@@ -74,6 +75,8 @@ export default function App() {
     ...(isMain ? [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }] : []),
     { id: 'users', label: 'Users', icon: Users },
     { id: 'finance', label: 'Finance', icon: CreditCard },
+    ...(isMain ? [{ id: 'flagged', label: 'Flagged', icon: Flag }] : []),
+    ...(isMain ? [{ id: 'ip-tracking', label: 'IP Tracking', icon: Globe }] : []),
     { id: 'support', label: 'Support', icon: MessageSquare },
     ...(isMain ? [{ id: 'admins', label: 'Admin & Roles', icon: Shield }] : []),
     ...(isMain ? [{ id: 'settings', label: 'Settings', icon: Settings }] : []),
@@ -110,6 +113,8 @@ export default function App() {
         {page === 'dashboard' && <DashboardPage authFetch={authFetch} toast={toast} />}
         {page === 'users' && <UsersPage authFetch={authFetch} toast={toast} isMain={isMain} adminUser={adminUser} />}
         {page === 'finance' && <FinancePage authFetch={authFetch} toast={toast} isMain={isMain} />}
+        {page === 'flagged' && <FlaggedPage authFetch={authFetch} toast={toast} />}
+        {page === 'ip-tracking' && <IpTrackingPage authFetch={authFetch} toast={toast} />}
         {page === 'support' && <SupportPage authFetch={authFetch} toast={toast} />}
         {page === 'admins' && <AdminsPage authFetch={authFetch} toast={toast} />}
         {page === 'settings' && <SettingsPage authFetch={authFetch} toast={toast} />}
@@ -1270,6 +1275,38 @@ function SettingsPage({ authFetch, toast }) {
       </div>
 
       <div className="card">
+        <div className="card-title"><Flag size={16} color="var(--danger)" /> Security & Transfer Rules</div>
+        <div className="grid-3">
+          {[
+            { key: 'transfer_daily_limit', label: 'Transfer Daily Limit (৳)', ph: 'Default 5000' },
+            { key: 'transfer_min_balance', label: 'Min Balance After Transfer (৳)', ph: 'Default 10' },
+            { key: 'withdraw_cooldown_hours', label: 'Withdraw Cooldown (hours)', ph: 'Default 24' },
+          ].map(({ key, label, ph }) => (
+            <div key={key}>
+              <label className="input-label">{label}</label>
+              <input className="inp" type="number" value={settings[key] || ''} onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))} placeholder={ph} />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Require Daily Tasks Before Withdraw</span>
+            <div onClick={() => setSettings(p => ({ ...p, require_tasks_for_withdraw: p.require_tasks_for_withdraw === 'true' ? 'false' : 'true' }))}
+              style={{ width: 48, height: 26, borderRadius: 13, background: settings.require_tasks_for_withdraw === 'true' ? 'var(--accent)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.require_tasks_for_withdraw === 'true' ? 24 : 2, transition: 'left 0.2s' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Require Withdraw Proof (Screenshot)</span>
+            <div onClick={() => setSettings(p => ({ ...p, require_withdraw_proof: p.require_withdraw_proof === 'true' ? 'false' : 'true' }))}
+              style={{ width: 48, height: 26, borderRadius: 13, background: settings.require_withdraw_proof === 'true' ? 'var(--accent)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.require_withdraw_proof === 'true' ? 24 : 2, transition: 'left 0.2s' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
         <div className="card-title"><Star size={16} color="var(--warning)" /> Plan Management</div>
         {plans.map(plan => (
           <div key={plan.id} style={{ padding: '14px', marginBottom: 10, borderRadius: 12, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
@@ -1300,6 +1337,182 @@ function SettingsPage({ authFetch, toast }) {
           </div>
         ))}
       </div>
+    </>
+  );
+}
+
+function FlaggedPage({ authFetch, toast }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/flagged`);
+      const d = await r.json();
+      if (r.ok) setItems(d.flagged || []);
+    } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const unflag = async (id) => {
+    setProcessing(id);
+    try {
+      const r = await authFetch(`${API}/api/admin/flag/${id}`, { method: 'POST', body: JSON.stringify({ flag: false }) });
+      if (r.ok) { toast('Unflagged'); load(); }
+      else toast('Failed', 'error');
+    } catch { toast('Failed', 'error'); }
+    finally { setProcessing(null); }
+  };
+
+  const setStealth = async (id, stealthStatus) => {
+    setProcessing(id);
+    try {
+      const r = await authFetch(`${API}/api/admin/stealth/${id}`, { method: 'POST', body: JSON.stringify({ stealthStatus }) });
+      if (r.ok) { toast(`Stealth set: ${stealthStatus || 'cleared'}`); load(); }
+      else toast('Failed', 'error');
+    } catch { toast('Failed', 'error'); }
+    finally { setProcessing(null); }
+  };
+
+  return (
+    <>
+      <div className="page-header">
+        <div><h1>Flagged Transactions</h1><div className="subtitle">{items.length} flagged items</div></div>
+        <button className="btn btn-outline btn-sm" onClick={load}><RefreshCw size={14} /></button>
+      </div>
+
+      {loading ? <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading...</div> : items.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>
+          <CheckCircle size={40} style={{ marginBottom: 12, opacity: 0.4 }} />
+          <div>No flagged transactions</div>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Type</th><th>User</th><th>Amount</th><th>Method</th><th>Flag Reason</th><th>Stealth</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody>
+              {items.map(tx => (
+                <tr key={tx.id} style={{ background: 'rgba(239,68,68,0.04)' }}>
+                  <td style={{ fontSize: 11, color: 'var(--text2)' }}>#{tx.id}</td>
+                  <td>{tx.type === 'deposit' ? <span style={{ color: 'var(--success)' }}>Deposit</span> : <span style={{ color: 'var(--danger)' }}>Withdraw</span>}</td>
+                  <td>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{tx.user_name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text2)' }}>UID: {tx.user_id}</div>
+                  </td>
+                  <td style={{ fontWeight: 700 }}>{formatMoney(tx.amount)}</td>
+                  <td><span className="badge badge-blue">{tx.method?.toUpperCase()}</span></td>
+                  <td style={{ fontSize: 12, maxWidth: 180 }}>{tx.flag_reason || '—'}</td>
+                  <td>
+                    {tx.stealth_status ? (
+                      <span className={`badge ${tx.stealth_status === 'hold' ? 'badge-yellow' : 'badge-red'}`}>
+                        {tx.stealth_status === 'hold' ? 'Hold' : 'Silent Reject'}
+                      </span>
+                    ) : <span style={{ fontSize: 11, color: 'var(--text2)' }}>None</span>}
+                  </td>
+                  <td><span className={`badge ${tx.status === 'approved' ? 'badge-green' : tx.status === 'rejected' ? 'badge-red' : 'badge-yellow'}`}>{tx.status}</span></td>
+                  <td style={{ fontSize: 11, color: 'var(--text2)' }}>{fmtDate(tx.created_at)}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <button className="btn btn-outline btn-sm" disabled={processing === tx.id} onClick={() => unflag(tx.id)} title="Remove flag">
+                        <CheckCircle size={12} /> Unflag
+                      </button>
+                      <button className="btn btn-sm" disabled={processing === tx.id} onClick={() => setStealth(tx.id, tx.stealth_status === 'hold' ? null : 'hold')}
+                        style={{ background: tx.stealth_status === 'hold' ? 'var(--warning)' : 'var(--bg2)', color: tx.stealth_status === 'hold' ? '#fff' : 'var(--text)', border: '1px solid var(--border)', fontSize: 11 }}>
+                        Hold
+                      </button>
+                      <button className="btn btn-sm" disabled={processing === tx.id} onClick={() => setStealth(tx.id, tx.stealth_status === 'reject_silent' ? null : 'reject_silent')}
+                        style={{ background: tx.stealth_status === 'reject_silent' ? 'var(--danger)' : 'var(--bg2)', color: tx.stealth_status === 'reject_silent' ? '#fff' : 'var(--text)', border: '1px solid var(--border)', fontSize: 11 }}>
+                        Silent Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+function IpTrackingPage({ authFetch, toast }) {
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/ip-groups`);
+      const d = await r.json();
+      if (r.ok) setGroups(d.groups || []);
+    } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <>
+      <div className="page-header">
+        <div><h1>IP Tracking</h1><div className="subtitle">Users sharing the same IP address ({groups.length} groups found)</div></div>
+        <button className="btn btn-outline btn-sm" onClick={load}><RefreshCw size={14} /></button>
+      </div>
+
+      {loading ? <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading...</div> : groups.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>
+          <Globe size={40} style={{ marginBottom: 12, opacity: 0.4 }} />
+          <div>No shared IP groups detected</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {groups.map((g, i) => {
+            const userNames = (g.user_names || '').split(',').filter(Boolean);
+            const userIds = (g.user_ids || '').split(',').filter(Boolean);
+            const isExp = expanded === i;
+            return (
+              <div key={i} className="card" style={{ cursor: 'pointer', borderColor: g.user_count >= 3 ? 'rgba(239,68,68,0.3)' : undefined }} onClick={() => setExpanded(isExp ? null : i)}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: g.user_count >= 3 ? 'rgba(239,68,68,0.1)' : 'var(--bg2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Globe size={18} color={g.user_count >= 3 ? 'var(--danger)' : 'var(--text2)'} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>{g.ip}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text2)' }}>{g.user_count} users share this IP</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {g.user_count >= 3 && <span className="badge badge-red">Suspicious</span>}
+                    <ChevronDown size={16} style={{ transform: isExp ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'var(--text2)' }} />
+                  </div>
+                </div>
+                {isExp && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>Users on this IP:</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {userNames.map((name, j) => (
+                        <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'var(--bg2)' }}>
+                          <Avatar name={name} size={28} />
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text2)' }}>User ID: {userIds[j] || '—'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }

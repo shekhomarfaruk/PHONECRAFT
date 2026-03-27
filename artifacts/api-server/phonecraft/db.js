@@ -93,6 +93,13 @@ try { db.exec('ALTER TABLE transactions ADD COLUMN blockchain TEXT DEFAULT ""');
 try { db.exec('ALTER TABLE transactions ADD COLUMN token TEXT DEFAULT ""'); } catch (_) {}
 try { db.exec('ALTER TABLE transactions ADD COLUMN txn_hash TEXT DEFAULT ""'); } catch (_) {}
 try { db.exec('ALTER TABLE transactions ADD COLUMN screenshot TEXT DEFAULT NULL'); } catch (_) {}
+// Security upgrade columns
+try { db.exec('ALTER TABLE transactions ADD COLUMN flagged INTEGER DEFAULT 0'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN flag_reason TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN stealth_status TEXT DEFAULT NULL'); } catch (_) {}
+try { db.exec('ALTER TABLE login_logs ADD COLUMN device_id TEXT DEFAULT ""'); } catch (_) {}
+// Index for duplicate TxID prevention (non-unique to allow empty strings)
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_txn_hash ON transactions(txn_hash) WHERE txn_hash != ""'); } catch (_) {}
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`
@@ -243,7 +250,9 @@ db.exec(`
 const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposit_bank',
   'maintenance_mode', 'announcement_banner', 'min_withdraw', 'max_withdraw',
   'min_deposit', 'max_deposit', 'daily_withdraw_limit', 'auto_hold_threshold',
-  'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3'];
+  'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3',
+  'transfer_daily_limit', 'transfer_min_balance', 'withdraw_cooldown_hours',
+  'require_tasks_for_withdraw', 'require_withdraw_proof', 'work_blocked_countries'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
 
@@ -620,6 +629,55 @@ const stmts = {
 
   // All plans (for admin editing)
   getAllPlans: db.prepare('SELECT * FROM plans ORDER BY rate ASC'),
+
+  // Security: duplicate TxID check
+  getTransactionByTxnHash: db.prepare(`SELECT id FROM transactions WHERE txn_hash = ? AND txn_hash != '' LIMIT 1`),
+
+  // Security: 24h withdrawal cooldown
+  getLastWithdrawal: db.prepare(`
+    SELECT created_at FROM transactions
+    WHERE user_id = ? AND type = 'withdraw' AND status != 'rejected'
+    ORDER BY id DESC LIMIT 1
+  `),
+
+  // Security: daily transfer total
+  getDailyTransferTotal: db.prepare(`
+    SELECT COALESCE(SUM(ABS(amount)), 0) as total
+    FROM balance_log
+    WHERE user_id = ? AND type = 'transfer_sent'
+      AND date(created_at, '+6 hours') = date('now', '+6 hours')
+  `),
+
+  // Security: flag transactions
+  flagTransaction: db.prepare(`UPDATE transactions SET flagged = 1, flag_reason = ? WHERE id = ?`),
+  unflagTransaction: db.prepare(`UPDATE transactions SET flagged = 0, flag_reason = '' WHERE id = ?`),
+  getFlaggedTransactions: db.prepare(`
+    SELECT t.*, u.name as user_name, u.identifier as user_identifier
+    FROM transactions t
+    LEFT JOIN users u ON u.id = t.user_id
+    WHERE t.flagged = 1
+    ORDER BY t.id DESC
+  `),
+
+  // Security: stealth approval
+  updateStealthStatus: db.prepare(`UPDATE transactions SET stealth_status = ? WHERE id = ?`),
+
+  // Admin: users grouped by IP
+  getUsersByIpGroup: db.prepare(`
+    SELECT ll.ip, COUNT(DISTINCT ll.user_id) as user_count,
+      GROUP_CONCAT(DISTINCT u.name) as user_names,
+      GROUP_CONCAT(DISTINCT ll.user_id) as user_ids
+    FROM login_logs ll
+    LEFT JOIN users u ON u.id = ll.user_id
+    WHERE ll.ip != '' AND ll.ip != 'unknown'
+    GROUP BY ll.ip
+    HAVING COUNT(DISTINCT ll.user_id) > 1
+    ORDER BY user_count DESC
+    LIMIT 100
+  `),
+
+  // Login log with device_id
+  insertLoginLogFull: db.prepare('INSERT INTO login_logs (user_id, ip, user_agent, city, country, device_id) VALUES (@user_id, @ip, @user_agent, @city, @country, @device_id)'),
 };
 
 // ── Helper: strip password from user object ─────────────────────────────────────

@@ -103,7 +103,9 @@ The admin panel (`AdminScreen.jsx`) is a comprehensive control center with 6 tab
 - **Finance** — transaction queue with status filter (Pending/Approved/Rejected/All) and type filter (Deposit/Withdraw/All). Inline approve/reject with admin notes. CSV export
 - **Support** — session list with unanswered filter, chat thread view with real-time polling, canned responses management (create/delete/quick-insert), session status management (resolve), admin assignment
 - **Admins** (main admin only) — admin list with role badges, granular permission editor (10 permissions: view_users, edit_users, ban_users, approve_deposits, approve_withdrawals, change_settings, manage_admins, view_reports, export_data, access_support), admin activity audit log
-- **Settings** (main admin only) — app control (maintenance mode toggle, announcement banner), payment accounts (bKash/Nagad/Rocket/Bank), financial limits (min/max deposit/withdraw, daily withdrawal limit, auto-hold threshold), plan management (edit price, per-task earnings, daily tasks, task time, referral percentages)
+- **Settings** (main admin only) — app control (maintenance mode toggle, announcement banner, work blocked countries), payment accounts (bKash/Nagad/Rocket/Bank), crypto wallet addresses (5 chains × USDT/USDC), financial limits (min/max deposit/withdraw, daily withdrawal limit, auto-hold threshold), security & transfer rules (transfer daily limit, min balance after transfer, withdraw cooldown hours, require daily tasks toggle, require withdraw proof toggle), plan management (edit price, per-task earnings, daily tasks, task time, referral percentages)
+- **Flagged** (main admin only) — flagged transactions list with unflag action, stealth override controls (Hold / Silent Reject toggles)
+- **IP Tracking** (main admin only) — users grouped by shared IP address, expandable cards showing all users on each IP, suspicious badge for 3+ users
 
 ### Admin Role System
 
@@ -150,5 +152,23 @@ Two-tier role hierarchy:
 - `PATCH /api/admin/plans/:id` — update plan
 - `GET  /api/admin/settings` — get app settings
 - `POST /api/admin/settings` — save app settings
+- `GET  /api/admin/flagged` — list flagged transactions (main admin)
+- `POST /api/admin/flag/:id` — flag/unflag a transaction (main admin)
+- `POST /api/admin/stealth/:id` — set stealth status (hold/reject_silent/null) (main admin)
+- `GET  /api/admin/ip-groups` — users grouped by shared IP (main admin)
 - `POST /webhook/telegram` — support bot webhook
 - `POST /webhook/telegram/finance` — finance bot webhook
+
+## Security Features
+
+- **Duplicate TxID prevention**: Deposits with an already-used txn_hash are rejected
+- **Withdrawal cooldown**: Configurable cooldown period (default 24h) between withdrawals
+- **Daily task requirement**: Optionally require daily tasks completed before allowing withdrawals
+- **Transfer daily limit**: Configurable daily transfer limit (default ৳5000)
+- **Minimum balance after transfer**: Ensures minimum balance is maintained (default ৳10)
+- **Auto-flagging**: High-value withdrawals above threshold are automatically flagged
+- **Stealth approval**: Main admin can set stealth status (hold / silent reject) on transactions — sub-admins see "approved" but real status is controlled by main admin
+- **Device fingerprint tracking**: Login logs include device_id for tracking
+- **IP grouping**: Admin can view users sharing the same IP address
+- **Rate limiting**: Login, register, finance, and support endpoints are rate-limited
+- **Security headers**: Helmet, CORS, bcrypt password hashing, HMAC token signing

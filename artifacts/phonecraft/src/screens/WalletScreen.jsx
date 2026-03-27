@@ -84,7 +84,7 @@ function CopyButton({ text, showToast }) {
   );
 }
 
-function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
+function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr }) {
   const t = I18N[lang] || I18N.en;
   const isBn = lang === 'bn';
   const cryptoEnabled = appSettings?.crypto_enabled !== 'false';
@@ -206,7 +206,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
             authFetch(`${API_URL}/api/user/${user.id}/transactions`)
               .then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
           } else {
-            showToast(data.error || t.toast_request_failed);
+            showToast((tErr ? tErr(data.error) : data.error) || t.toast_request_failed);
           }
         } catch (_) { showToast(t.toast_connection_error); }
         setTimeout(() => setSubmitted(false), 3000);
@@ -238,7 +238,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
             setUser(prev => ({ ...prev, balance: data.newBalance }));
           authFetch(`${API_URL}/api/user/${user.id}/transactions`)
             .then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
-        } else { showToast(data.error || t.toast_request_failed); }
+        } else { showToast((tErr ? tErr(data.error) : data.error) || t.toast_request_failed); }
       } catch (_) { showToast(t.toast_connection_error); }
       setTimeout(() => setSubmitted(false), 3000);
       setCryptoAmount(''); setCryptoWithdrawWallet('');
@@ -264,7 +264,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
           setUser(prev => ({ ...prev, balance: data.newBalance }));
         authFetch(`${API_URL}/api/user/${user.id}/transactions`)
           .then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
-      } else { showToast(data.error || t.toast_request_failed); }
+      } else { showToast((tErr ? tErr(data.error) : data.error) || t.toast_request_failed); }
     } catch (_) { showToast(t.toast_connection_error); }
     setTimeout(() => setSubmitted(false), 3000);
     setAmount(''); setAcct('');
