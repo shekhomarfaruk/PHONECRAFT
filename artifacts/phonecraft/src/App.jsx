@@ -130,9 +130,16 @@ export default function App() {
         .catch(() => {});
     };
     fetchAppSettings();
-    const interval = setInterval(fetchAppSettings, 60000);
+    const interval = setInterval(fetchAppSettings, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-logout non-main-admin users when maintenance mode turns on
+  useEffect(() => {
+    if (appSettings.maintenance_mode === 'true' && user && !user.is_main_admin) {
+      doLogout();
+    }
+  }, [appSettings.maintenance_mode, user?.is_main_admin]);
 
   // Fetch & cache live USD→BDT rate (every 7 minutes)
   useEffect(() => {
@@ -633,7 +640,7 @@ export default function App() {
             )}
 
             {/* ── MAINTENANCE MODE SCREEN ── */}
-            {appSettings.maintenance_mode === 'true' && !user?.isAdmin && (
+            {appSettings.maintenance_mode === 'true' && !user?.is_main_admin && (
               <div style={{
                 position: 'fixed', inset: 0, zIndex: 9999,
                 background: 'var(--bg)', display: 'flex', flexDirection: 'column',
