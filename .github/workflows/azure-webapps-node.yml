@@ -119,19 +119,31 @@ jobs:
               f.write(code)
           PYEOF
 
-      - name: Strip unnecessary build artifacts
+      - name: Verify better-sqlite3 binary compiled
+        run: |
+          BINARY="server/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+          if [ -f "$BINARY" ]; then
+            ls -lah "$BINARY"
+            echo "✅ Binary exists"
+          else
+            echo "❌ Binary missing! Trying emergency recompile..."
+            ls -la server/node_modules/better-sqlite3/build/ || echo "no build dir"
+            cd server && npm install --build-from-source better-sqlite3
+            ls -lah "$BINARY" || (echo "FAILED" && exit 1)
+          fi
+
+      - name: Strip large build sources (keep binary)
         run: |
           rm -rf server/node_modules/better-sqlite3/deps
           rm -rf server/node_modules/better-sqlite3/build/Release/obj
           rm -rf server/node_modules/better-sqlite3/build/Release/obj.target
           rm -rf server/node_modules/better-sqlite3/build/Release/.deps
-          rm -rf server/node_modules/better-sqlite3/build/deps
           find server/node_modules -name "*.c" -delete
-          find server/node_modules -name "*.h" -delete
           find server/node_modules -name "*.cc" -delete
           find server/node_modules -name "*.o" -delete
           find server/node_modules -name "*.a" -delete
-          find server/node_modules -name "Makefile" -delete
+          echo "Remaining binary:"
+          ls -lah server/node_modules/better-sqlite3/build/Release/ || true
 
       - name: Archive production artifacts
         run: zip -r release.zip server dist .env start.sh .deployment
@@ -151,9 +163,39 @@ jobs:
         with:
           name: node-app
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: phonecraft
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: release.zip
+      - name: Deploy to Azure via Kudu ZipDeploy
+        env:
+          KUDU_USER: ${{ secrets.KUDU_DEPLOY_USER }}
+          KUDU_PASS: ${{ secrets.KUDU_DEPLOY_PASS }}
+        run: |
+          python3 -c "
+import urllib.request, base64, os, sys, time
+
+user = os.environ['KUDU_USER']
+pwd  = os.environ['KUDU_PASS']
+creds = base64.b64encode((user + ':' + pwd).encode()).decode()
+
+print('Deploying (user prefix: ' + user[:4] + '...)')
+with open('release.zip', 'rb') as f:
+    data = f.read()
+print('Package: ' + str(round(len(data)/1024/1024, 1)) + ' MB')
+
+url = 'https://phonecraft-heddcdhuf0ajcyev.scm.eastus-01.azurewebsites.net/api/zipdeploy?isAsync=false'
+req = urllib.request.Request(url, data=data, method='POST')
+req.add_header('Authorization', 'Basic ' + creds)
+req.add_header('Content-Type', 'application/zip')
+
+try:
+    with urllib.request.urlopen(req, timeout=600) as resp:
+        body = resp.read().decode('utf-8', errors='replace')
+        print('Success: HTTP ' + str(resp.status))
+        if body: print(body[:300])
+except urllib.error.HTTPError as e:
+    body = e.read().decode('utf-8', errors='replace')
+    print('HTTP Error: ' + str(e.code))
+    print(body[:300])
+    sys.exit(1)
+except Exception as ex:
+    print('Error: ' + str(ex))
+    sys.exit(1)
+"
