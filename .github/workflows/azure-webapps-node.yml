@@ -120,7 +120,7 @@ jobs:
           PYEOF
 
       - name: Archive production artifacts
-        run: zip -r release.zip server dist .env start.sh
+        run: zip -r release.zip server dist .env start.sh .deployment
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
