@@ -1,0 +1,222 @@
+
+Library
+Tasks
+Pro feature
+Background tasks allow you to get more work done at once.
+
+Try creating your first one!
+Diff: App.jsx
+artifacts/phonecraft/src/App.jsx
+-0
++2
+          setUser(u);
+          setAuth(true);
+          setShowLanding(false);
+          // Reinit push after session restore
+          if (isPushSupported()) initPush(u.id);
+      } else if (u?.id) {
+        clearStoredSession();
+      }
+Diff: App.jsx
+artifacts/phonecraft/src/App.jsx
+-1
++1
+              {screen === 'balance'       && <BalanceScreen      {...screenProps} />}
+              {screen === 'refer'         && <ReferScreen        {...screenProps} />}
+              {screen === 'profile'       && <ProfileScreen      user={user} setUser={setUser} navigate={navigate} doLogout={doLogout} lang={lang} showToast={showToast} />}
+              {screen === 'teamchat'      && <TeamChatScreen     user={user} lang={lang} />}
+              {screen === 'teamchat'      && <TeamChatScreen     user={user} lang={lang} showToast={showToast} teamChatUnread={teamChatUnread} setTeamChatUnread={setTeamChatUnread} />}
+              {screen === 'marketplace'   && <MarketplaceScreen  user={user} lang={lang} />}
+              {screen === 'support'       && <SupportScreen      user={user} showToast={showToast} lang={lang} />}
+              {screen === 'guide'         && <GuideScreen        navigate={navigate} lang={lang} />}
+App.jsx
+App.jsx
+App.jsx
+Git
+Git Error
+PUSH_REJECTED
+The push was rejected by the remote. This is usually because the remote has commits that aren't in the local repository.
+Remote Updates
+origin/main•upstream
+last fetched just now
+Commit
+There are no changes to commit.
+Preview
+Agent
+Main admin and subadmin both Notification pabe notification option set koro admin panel.admin user er full activists Notification pabe. app theke admin penel removed koro. /admin-penel na rekhe aro securely link create koro jeno kew admin Panel khoje na pay..
+
+Preview saw hocche na kno?
+
+Time worked
+37 seconds
+Work done
+3 actions
+Agent Usage
+$0.32
+Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/download-artifact@v4.3.0, azure/webapps-deploy@v3.0.2. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners
+
+Deploy faild
+
+GitHub Actions workflow file দেখি:
+
+$ find /home/runner/workspace -name "*.yml" -path "*/.github/workflows/*" 2>/dev/null | head -10
+অনেকগুলো সমস্যা দেখছি। একসাথে সব ঠিক করি:
+
+Node.js 20.x → 24.x
+Admin panel URL /admin-panel/ → /xpc-ctrl-7f3b/ (আমরা যা পরিবর্তন করেছিলাম)
+web-push ও multer server dependencies-এ নেই
+VAPID keys .env-এ নেই
+Actions versions update
+এখন workflows চালু করি:
+
+artifacts/api-server: API Server
+API server is running. Let me start phonecraft and admin-panel workflows in parallel.
+
+artifacts/phonecraft: web
+Preview এখন দেখা যাবে।
+
+GitHub Actions deployment-এও এই সমস্যাগুলো ঠিক করা হয়েছে:
+
+✅ যা ঠিক করা হয়েছে:
+
+Node.js 20.x → 24.x (deprecated সমস্যা দূর)
+actions/download-artifact@v4.3.0 → v4 (latest)
+azure/webapps-deploy@v3.0.2 → v3 (latest)
+Admin panel build path /admin-panel/ → /xpc-ctrl-7f3b/ (নতুন hidden URL)
+Server dependencies-এ web-push ও multer যোগ করা হয়েছে (আগে ছিল না, তাই production-এ push notification কাজ করত না)
+VAPID keys .env-এ যোগ করা হয়েছে
+⚠️ একটি কাজ আপনাকে করতে হবে:
+
+GitHub repository-তে দুটো নতুন Secret যোগ করুন:
+
+Settings → Secrets and variables → Actions → New repository secret
+
+Secret Name	Value
+VAPID_PUBLIC_KEY	BMzqYPuk_-UyWtAuChDOHBT8vOnpBsYSWnFe6dPI6FHzsKPXaakfvfSWCz-etkDPn8p8gJ502QFYax6gyVLzgBg
+VAPID_PRIVATE_KEY	TYZRvv8BQmxFfQ6YQA8hie5sBOTTetrNstQGIIpwyMk
+এরপর code push করলে deployment সফল হবে।
+
+
+Make, test, iterate…
+azure-webapps-node.yml
+name: Build and Deploy Node.js App to Azure Web App - phonecraft
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: release.zip
+
+Diff: azure-webapps-node.yml
+.github/workflows/azure-webapps-node.yml
+-3
++0
+    branches:
+      - main
+  workflow_dispatch:
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+jobs:
+  build:
+-1
++1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          node-version: '24.x'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+-1
++1
+          NODE_ENV: production
+      - name: Build admin panel
+        run: PORT=3000 BASE_PATH=/admin-panel/ pnpm --filter @workspace/admin-panel run build
+        run: PORT=3000 BASE_PATH=/xpc-ctrl-7f3b/ pnpm --filter @workspace/admin-panel run build
+        env:
+          NODE_ENV: production
+-1
++3
+              "better-sqlite3": "^12.8.0",
+              "dotenv": "^16.4.5",
+              "node-fetch": "^3.3.2",
+              "cookie-parser": "^1.4.7"
+              "cookie-parser": "^1.4.7",
+              "web-push": "^3.6.7",
+              "multer": "^1.4.5-lts.2"
+            }
+          }' > server/package.json
+          cd server && npm install --production
+-0
++2
+          printf 'TELEGRAM_ADMIN_CHAT_IDS=%s\n' "${{ secrets.TELEGRAM_ADMIN_CHAT_IDS }}" >> .env
+          printf 'MAIN_ADMIN_REFER_CODE=%s\n' "${{ secrets.MAIN_ADMIN_REFER_CODE }}" >> .env
+          printf 'WEBHOOK_URL=%s\n' "${{ secrets.WEBHOOK_URL }}" >> .env
+          printf 'VAPID_PUBLIC_KEY=%s\n' "${{ secrets.VAPID_PUBLIC_KEY }}" >> .env
+          printf 'VAPID_PRIVATE_KEY=%s\n' "${{ secrets.VAPID_PRIVATE_KEY }}" >> .env
+        env:
+          SUPPORT_TOKEN: ${{ secrets.TELEGRAM_SUPPORT_BOT_TOKEN }}
+          FINANCE_TOKEN: ${{ secrets.TELEGRAM_FINANCE_BOT_TOKEN }}
+-1
++2
+      - name: Copy frontend builds
+        run: |
+          cp -r artifacts/phonecraft/dist/public dist
+          cp -r artifacts/admin-panel/dist/public dist/admin-panel
+          mkdir -p dist/xpc-ctrl-7f3b
+          cp -r artifacts/admin-panel/dist/public/. dist/xpc-ctrl-7f3b/
+      - name: Inject admin panel SPA routing into server
+        run: |
+-2
++0
+          with open('server/index.js', 'r') as f:
+              code = f.read()
+          # Replace existing single-app SPA catch-all with two-app version.
+          # Admin panel gets its own index.html; main app gets the other.
+          old_catchall = (
+              "// ── SPA fallback — serve index.html for non-API routes ───────────────────────\n"
+              "app.get('*', (_req, res) => {\n"
+-3
++3
+          )
+          new_catchall = (
+              "// ── SPA fallback (admin panel + main app) ──────────────────────────────────────\n"
+              "app.get('/admin-panel', (req, res) => res.redirect('/admin-panel/'));\n"
+              "app.get('/admin-panel/*', (req, res) => {\n"
+              "  res.sendFile(path.join(__dirname, '..', 'dist', 'admin-panel', 'index.html'));\n"
+              "app.get('/xpc-ctrl-7f3b', (req, res) => res.redirect('/xpc-ctrl-7f3b/'));\n"
+              "app.get('/xpc-ctrl-7f3b/*', (req, res) => {\n"
+              "  res.sendFile(path.join(__dirname, '..', 'dist', 'xpc-ctrl-7f3b', 'index.html'));\n"
+              "});\n"
+              "app.get('*', (_req, res) => {\n"
+              "  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));\n"
+-1
++0
+              code = code.replace(old_catchall, new_catchall, 1)
+              print("SPA catch-all replaced successfully.")
+          else:
+              # Fallback: inject before app.listen if pattern changed
+              code = code.replace('app.listen(', new_catchall + '\n\napp.listen(', 1)
+              print("Fallback: injected before app.listen.")
+-1
++1
+        run: zip -r release.zip server dist .env
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app
+          path: release.zip
+-2
++2
+    needs: build
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app
+      - name: Deploy to Azure Web App (Zip Deploy)
+        uses: azure/webapps-deploy@v3.0.2
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'phonecraft'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+Git
+Version control for your App.
