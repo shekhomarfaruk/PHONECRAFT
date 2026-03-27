@@ -210,6 +210,17 @@ db.exec(`
   );
 `);
 
+// User live locations
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_locations (
+    user_id     INTEGER PRIMARY KEY REFERENCES users(id),
+    lat         REAL NOT NULL,
+    lng         REAL NOT NULL,
+    accuracy    REAL DEFAULT 0,
+    updated_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // Admin permissions (granular)
 db.exec(`
   CREATE TABLE IF NOT EXISTS admin_permissions (
@@ -609,15 +620,34 @@ const stmts = {
     GROUP BY p.id ORDER BY p.rate ASC
   `),
   getTopEarners: db.prepare(`
-    SELECT id, name, balance, plan_id FROM users
-    WHERE banned = 0 AND is_admin = 0
-    ORDER BY balance DESC LIMIT 10
+    SELECT u.id, u.name, u.plan_id,
+      COALESCE(SUM(CASE WHEN bl.type IN ('daily_earn','referral_bonus','team_bonus') THEN bl.amount ELSE 0 END), 0) AS earned
+    FROM users u
+    LEFT JOIN balance_log bl ON bl.user_id = u.id
+    WHERE u.banned = 0 AND u.is_admin = 0
+    GROUP BY u.id
+    ORDER BY earned DESC LIMIT 10
   `),
   getRecentActivity: db.prepare(`
-    SELECT 'signup' as type, id, name as detail, created_at FROM users WHERE created_at > datetime('now', '-24 hours')
+    SELECT 'signup' as type, u.id, u.name as user_name, u.name as detail, u.created_at FROM users u WHERE u.created_at > datetime('now', '-24 hours')
     UNION ALL
-    SELECT type as type, id, amount || ' ' || method as detail, created_at FROM transactions WHERE created_at > datetime('now', '-24 hours')
+    SELECT t.type, t.id, u.name as user_name, CAST(t.amount AS TEXT) || ' ' || t.method as detail, t.created_at
+    FROM transactions t JOIN users u ON u.id = t.user_id
+    WHERE t.created_at > datetime('now', '-24 hours')
     ORDER BY created_at DESC LIMIT 30
+  `),
+  upsertUserLocation: db.prepare(`
+    INSERT INTO user_locations (user_id, lat, lng, accuracy, updated_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(user_id) DO UPDATE SET lat=excluded.lat, lng=excluded.lng, accuracy=excluded.accuracy, updated_at=excluded.updated_at
+  `),
+  getAllUserLocations: db.prepare(`
+    SELECT ul.user_id, ul.lat, ul.lng, ul.accuracy, ul.updated_at,
+           u.name, u.identifier, u.plan_id, u.banned
+    FROM user_locations ul
+    JOIN users u ON u.id = ul.user_id
+    WHERE u.is_admin = 0 AND ul.updated_at > datetime('now', '-2 hours')
+    ORDER BY ul.updated_at DESC
   `),
   getRevenueByPeriod: db.prepare(`
     SELECT

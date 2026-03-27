@@ -202,7 +202,8 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=()');
+  // geolocation allowed — used for live tracking
   next();
 });
 
@@ -2665,6 +2666,31 @@ app.post('/api/push/unsubscribe', authRequired, (req, res) => {
   const { endpoint } = req.body || {};
   if (endpoint) stmts.deletePushSubscription.run(req.auth.userId, endpoint);
   res.json({ ok: true });
+});
+
+// ── POST /api/user/location — store user's GPS location ──────────────────────
+app.post('/api/user/location', authRequired, (req, res) => {
+  const { lat, lng, accuracy } = req.body || {};
+  if (lat == null || lng == null) return res.status(400).json({ error: 'lat/lng required' });
+  const latN = Number(lat), lngN = Number(lng), accN = Number(accuracy) || 0;
+  if (isNaN(latN) || isNaN(lngN)) return res.status(400).json({ error: 'Invalid coordinates' });
+  try {
+    stmts.upsertUserLocation.run(req.auth.userId, latN, lngN, accN);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to save location' });
+  }
+});
+
+// ── GET /api/admin/live-locations — all active user locations (admin only) ───
+app.get('/api/admin/live-locations', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const locations = stmts.getAllUserLocations.all();
+    res.json({ locations });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch locations' });
+  }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

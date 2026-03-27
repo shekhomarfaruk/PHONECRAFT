@@ -167,6 +167,27 @@ export default function App() {
       }
     } catch (_) {}
   }, []);
+
+  // Live location tracking — send GPS to backend every 5 minutes
+  useEffect(() => {
+    if (!auth) return;
+    if (!('geolocation' in navigator)) return;
+    const sendLocation = (pos) => {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      authFetch(`${API_URL}/api/user/location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng, accuracy }),
+      }).catch(() => {});
+    };
+    const opts = { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 };
+    navigator.geolocation.getCurrentPosition(sendLocation, () => {}, opts);
+    const iv = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(sendLocation, () => {}, opts);
+    }, 5 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, [auth]);
+
   const [loginForm,     setLoginForm    ] = useState({ identifier: '', password: '' });
   const [regForm,       setRegForm      ] = useState({ name: '', identifier: '', password: '', plan: '', refCode: '' });
   const [authLoading,   setAuthLoading  ] = useState(false);

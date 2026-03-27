@@ -111,6 +111,7 @@ export default function App() {
     { id: 'finance', label: 'Finance', icon: CreditCard },
     ...(isMain ? [{ id: 'flagged', label: 'Flagged', icon: Flag }] : []),
     ...(isMain ? [{ id: 'ip-tracking', label: 'IP Tracking', icon: Globe }] : []),
+    ...(isMain ? [{ id: 'live-locations', label: 'Live Locations', icon: Activity }] : []),
     { id: 'support', label: 'Support', icon: MessageSquare },
     ...(isMain ? [{ id: 'admins', label: 'Admin & Roles', icon: Shield }] : []),
     { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -150,6 +151,7 @@ export default function App() {
         {page === 'finance' && <FinancePage authFetch={authFetch} toast={toast} isMain={isMain} />}
         {page === 'flagged' && <FlaggedPage authFetch={authFetch} toast={toast} />}
         {page === 'ip-tracking' && <IpTrackingPage authFetch={authFetch} toast={toast} />}
+        {page === 'live-locations' && <LiveLocationsPage authFetch={authFetch} toast={toast} />}
         {page === 'support' && <SupportPage authFetch={authFetch} toast={toast} />}
         {page === 'admins' && <AdminsPage authFetch={authFetch} toast={toast} />}
         {page === 'notifications' && <NotificationsPage authFetch={authFetch} toast={toast} token={token} />}
@@ -400,14 +402,14 @@ function DashboardPage({ authFetch, toast }) {
 
         {stats.topEarners?.length > 0 && (
           <div className="card">
-            <div className="card-title"><Trophy size={16} color="var(--warning)" /> Top Earners</div>
-            {stats.topEarners.map((u, i) => (
+            <div className="card-title"><Trophy size={16} color="var(--warning)" /> Top Earners <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 400 }}>(Task + Referral income)</span></div>
+            {stats.topEarners.filter(u => (u.earned || 0) > 0).map((u, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 8, background: 'rgba(35,175,145,0.05)', marginBottom: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontWeight: 800, color: 'var(--warning)', minWidth: 24 }}>#{i + 1}</span>
+                  <span style={{ fontWeight: 800, color: i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : 'var(--warning)', minWidth: 24 }}>#{i + 1}</span>
                   <span style={{ fontWeight: 600 }}>{u.name}</span>
                 </div>
-                <span style={{ fontWeight: 700, color: 'var(--success)' }}>{formatMoney(u.balance)}</span>
+                <span style={{ fontWeight: 700, color: 'var(--success)' }}>{formatMoney(u.earned)}</span>
               </div>
             ))}
           </div>
@@ -422,7 +424,16 @@ function DashboardPage({ authFetch, toast }) {
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 16 }}>{a.type === 'signup' ? '👤' : a.type === 'deposit' ? '💰' : '💸'}</span>
-                  <span>{a.type === 'signup' ? `${a.detail} joined` : `৳${a.detail}`}</span>
+                  <div>
+                    <span style={{ fontWeight: 600 }}>{a.user_name || a.detail}</span>
+                    {a.type !== 'signup' && (
+                      <span style={{ color: a.type === 'deposit' ? 'var(--success)' : 'var(--danger)', marginLeft: 6 }}>
+                        {a.type === 'deposit' ? '+' : '-'}৳{a.detail?.split(' ')[0]}
+                        <span style={{ color: 'var(--text2)', fontSize: 11, marginLeft: 4 }}>{a.detail?.split(' ')[1]?.toUpperCase()}</span>
+                      </span>
+                    )}
+                    {a.type === 'signup' && <span style={{ color: 'var(--text2)', marginLeft: 6, fontSize: 11 }}>joined</span>}
+                  </div>
                 </div>
                 <span style={{ color: 'var(--text2)', fontSize: 11 }}>{fmtDate(a.created_at)}</span>
               </div>
@@ -1253,6 +1264,86 @@ function AdminsPage({ authFetch, toast }) {
   );
 }
 
+function LiveLocationsPage({ authFetch, toast }) {
+  const [locations, setLocations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/live-locations`);
+      const d = await r.json();
+      if (r.ok) setLocations(d.locations || []);
+    } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const minsAgo = (ts) => {
+    if (!ts) return '—';
+    const diff = Date.now() - new Date(ts + 'Z').getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    return `${Math.floor(mins / 60)}h ago`;
+  };
+
+  return (
+    <>
+      <div className="page-header">
+        <div><h1>📍 Live Locations</h1><div className="subtitle">{locations.length} users sharing location (last 2 hours)</div></div>
+        <button className="btn btn-outline btn-sm" onClick={load}><RefreshCw size={14} /> Refresh</button>
+      </div>
+
+      {loading ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading...</div>
+      ) : locations.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📍</div>
+          <div style={{ fontWeight: 600 }}>No active locations</div>
+          <div style={{ fontSize: 12, marginTop: 6 }}>Users share their location when they open the app</div>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Coordinates</th><th>Accuracy</th><th>Last Updated</th><th>Map</th></tr></thead>
+            <tbody>
+              {locations.map(l => (
+                <tr key={l.user_id}>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{l.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)' }}>{l.identifier}</div>
+                  </td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                    <div>{Number(l.lat).toFixed(5)}</div>
+                    <div>{Number(l.lng).toFixed(5)}</div>
+                  </td>
+                  <td style={{ fontSize: 12, color: 'var(--text2)' }}>{l.accuracy ? `±${Math.round(l.accuracy)}m` : '—'}</td>
+                  <td>
+                    <div style={{ fontSize: 12 }}>{fmtDate(l.updated_at)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)' }}>{minsAgo(l.updated_at)}</div>
+                  </td>
+                  <td>
+                    <a
+                      href={`https://www.google.com/maps?q=${l.lat},${l.lng}&z=15`}
+                      target="_blank" rel="noreferrer"
+                      className="btn btn-outline btn-sm"
+                      style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    >
+                      <Globe size={12} /> View Map
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
 function SettingsPage({ authFetch, toast }) {
   const [settings, setSettings] = useState({});
   const [saving, setSaving] = useState(false);
@@ -1407,7 +1498,7 @@ function SettingsPage({ authFetch, toast }) {
       {/* ── Rotating Deposit Wallet Addresses ── */}
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <div className="card-title" style={{ color: '#f59e0b', margin: 0 }}>🔄 Rotating Deposit Wallets (১০টি)</div>
+          <div className="card-title" style={{ color: '#f59e0b', margin: 0 }}>🔄 Rotating Deposit Wallets (10 slots)</div>
           {settings.wallet_rotation_index !== undefined && settings.wallet_rotation_index !== '' && (
             <span style={{ fontSize: 11, background: 'rgba(245,158,11,.15)', border: '1px solid rgba(245,158,11,.4)', color: '#f59e0b', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>
               Current Slot: #{parseInt(settings.wallet_rotation_index || 0) + 1}
@@ -1415,8 +1506,8 @@ function SettingsPage({ authFetch, toast }) {
           )}
         </div>
         <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.6 }}>
-          ১০টি পর্যন্ত ডিপোজিট ওয়ালেট অ্যাড্রেস সেট করুন। প্রতিটি user ভিজিটে পর্যায়ক্রমে নতুন অ্যাড্রেস দেখাবে (Round-Robin Rotation)।<br/>
-          <span style={{ color: '#f59e0b' }}>⚡ ফাঁকা রাখলে সেই slot skip হবে।</span>
+          Set up to 10 deposit wallet addresses. Each user visit will show the next address in rotation (Round-Robin).<br/>
+          <span style={{ color: '#f59e0b' }}>⚡ Empty slots will be skipped automatically.</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[1,2,3,4,5,6,7,8,9,10].map(i => {
@@ -1437,7 +1528,7 @@ function SettingsPage({ authFetch, toast }) {
                 <input
                   className="inp"
                   style={{ flex: 1, borderColor: val ? 'rgba(0,210,180,.5)' : undefined }}
-                  placeholder={`Wallet Address #${i} (0x... বা যেকোনো crypto address)`}
+                  placeholder={`Wallet Address #${i} (0x... or any crypto address)`}
                   value={val}
                   onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))}
                 />
@@ -1453,7 +1544,7 @@ function SettingsPage({ authFetch, toast }) {
           })}
         </div>
         <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 8, fontSize: 11, color: 'var(--text2)' }}>
-          💡 <b>কীভাবে কাজ করে:</b> User যখন Crypto Deposit করতে আসে, সিস্টেম automatically এই list থেকে পরের wallet দেখায়। প্রতিটি visit এ ভিন্ন wallet দেখাবে।
+          💡 <b>How it works:</b> When a user opens Crypto Deposit, the system automatically shows the next wallet from this list. Each visit shows a different wallet.
         </div>
       </div>
 
@@ -1662,9 +1753,9 @@ function NotificationsPage({ toast, token }) {
     try {
       await initAdminPush(token);
       setStatus('granted');
-      toast('Push notification চালু হয়েছে! ✅');
+      toast('Push notifications enabled! ✅');
     } catch (e) {
-      toast('Push চালু করতে পারেনি: ' + e.message, 'error');
+      toast('Failed to enable push: ' + e.message, 'error');
     }
   };
 
@@ -1683,19 +1774,19 @@ function NotificationsPage({ toast, token }) {
         }
       }
       setStatus('default');
-      toast('Push notification বন্ধ করা হয়েছে।', 'info');
+      toast('Push notifications disabled.', 'info');
     } catch (e) {
-      toast('বন্ধ করতে পারেনি: ' + e.message, 'error');
+      toast('Failed to disable: ' + e.message, 'error');
     }
   };
 
   const notifTypes = [
-    { icon: '👤', label: 'নতুন Registration Request', desc: 'কেউ নতুন একাউন্ট খুলতে চাইলে' },
-    { icon: '💸', label: 'Withdraw / Deposit Request', desc: 'টাকা তোলা বা জমার আবেদন' },
-    { icon: '💬', label: 'Support Message', desc: 'ইউজার সাপোর্টে মেসেজ পাঠালে' },
-    { icon: '📋', label: 'Transaction Approved / Rejected', desc: 'Tx অনুমোদন বা বাতিল হলে' },
-    { icon: '🔔', label: 'Admin Broadcast Message', desc: 'Admin broadcast পাঠালে' },
-    { icon: '💬', label: 'Team Chat', desc: 'দলের নতুন বার্তা আসলে' },
+    { icon: '👤', label: 'New Registration Request', desc: 'When someone creates a new account' },
+    { icon: '💸', label: 'Withdraw / Deposit Request', desc: 'When a user submits a deposit or withdrawal' },
+    { icon: '💬', label: 'Support Message', desc: 'When a user sends a support message' },
+    { icon: '📋', label: 'Transaction Approved / Rejected', desc: 'When a transaction is approved or rejected' },
+    { icon: '🔔', label: 'Admin Broadcast Message', desc: 'When an admin sends a broadcast' },
+    { icon: '💬', label: 'Team Chat', desc: 'When a new team chat message arrives' },
   ];
 
   return (
@@ -1706,33 +1797,33 @@ function NotificationsPage({ toast, token }) {
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Push Notification Status</div>
           {!supported ? (
             <div style={{ color: '#F6465D', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BellOff size={18} /> এই ব্রাউজার Push Notification সাপোর্ট করে না
+              <BellOff size={18} /> This browser does not support Push Notifications
             </div>
           ) : status === 'granted' ? (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0ECB81', fontWeight: 600, marginBottom: 12 }}>
-                <BellRing size={18} /> Notification চালু আছে ✅
+                <BellRing size={18} /> Notifications are enabled ✅
               </div>
               <button className="btn btn-outline btn-sm" style={{ color: '#F6465D', borderColor: '#F6465D44' }} onClick={unsubscribe}>
-                <BellOff size={14} /> বন্ধ করুন
+                <BellOff size={14} /> Disable
               </button>
             </div>
           ) : status === 'denied' ? (
             <div style={{ color: '#F6465D', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BellOff size={18} /> Permission denied — ব্রাউজার settings থেকে allow করুন
+              <BellOff size={18} /> Permission denied — please allow in browser settings
             </div>
           ) : (
             <div>
-              <div style={{ color: 'var(--text2)', marginBottom: 12, fontSize: 14 }}>Admin activity-র push notification চালু করুন</div>
+              <div style={{ color: 'var(--text2)', marginBottom: 12, fontSize: 14 }}>Enable push notifications for admin activity</div>
               <button className="btn btn-primary btn-sm" onClick={subscribe}>
-                <Bell size={14} /> চালু করুন
+                <Bell size={14} /> Enable Notifications
               </button>
             </div>
           )}
         </div>
 
         <div className="card">
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>যে ঘটনায় Notification আসবে</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Notification triggers</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {notifTypes.map((n, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--bg2)' }}>
