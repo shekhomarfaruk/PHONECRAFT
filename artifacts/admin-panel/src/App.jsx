@@ -1404,6 +1404,59 @@ function SettingsPage({ authFetch, toast }) {
         })}
       </div>
 
+      {/* ── Rotating Deposit Wallet Addresses ── */}
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <div className="card-title" style={{ color: '#f59e0b', margin: 0 }}>🔄 Rotating Deposit Wallets (১০টি)</div>
+          {settings.wallet_rotation_index !== undefined && settings.wallet_rotation_index !== '' && (
+            <span style={{ fontSize: 11, background: 'rgba(245,158,11,.15)', border: '1px solid rgba(245,158,11,.4)', color: '#f59e0b', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>
+              Current Slot: #{parseInt(settings.wallet_rotation_index || 0) + 1}
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.6 }}>
+          ১০টি পর্যন্ত ডিপোজিট ওয়ালেট অ্যাড্রেস সেট করুন। প্রতিটি user ভিজিটে পর্যায়ক্রমে নতুন অ্যাড্রেস দেখাবে (Round-Robin Rotation)।<br/>
+          <span style={{ color: '#f59e0b' }}>⚡ ফাঁকা রাখলে সেই slot skip হবে।</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[1,2,3,4,5,6,7,8,9,10].map(i => {
+            const key = `deposit_wallet_${i}`;
+            const val = settings[key] || '';
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: val ? 'rgba(0,210,180,.15)' : 'var(--bg2)',
+                  border: `1px solid ${val ? 'var(--accent)' : 'var(--border)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 800, fontSize: 12,
+                  color: val ? 'var(--accent)' : 'var(--text2)',
+                }}>
+                  {i}
+                </div>
+                <input
+                  className="inp"
+                  style={{ flex: 1, borderColor: val ? 'rgba(0,210,180,.5)' : undefined }}
+                  placeholder={`Wallet Address #${i} (0x... বা যেকোনো crypto address)`}
+                  value={val}
+                  onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))}
+                />
+                {val && (
+                  <button
+                    type="button"
+                    onClick={() => setSettings(p => ({ ...p, [key]: '' }))}
+                    style={{ background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 6, padding: '4px 8px', color: '#ef4444', cursor: 'pointer', fontSize: 12, flexShrink: 0 }}
+                  >✕</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 8, fontSize: 11, color: 'var(--text2)' }}>
+          💡 <b>কীভাবে কাজ করে:</b> User যখন Crypto Deposit করতে আসে, সিস্টেম automatically এই list থেকে পরের wallet দেখায়। প্রতিটি visit এ ভিন্ন wallet দেখাবে।
+        </div>
+      </div>
+
       <div className="card">
         <div className="card-title"><Shield size={16} /> Financial Limits</div>
         <div className="grid-3">

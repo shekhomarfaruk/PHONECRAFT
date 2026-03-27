@@ -1139,6 +1139,11 @@ app.get('/api/deposit-info', (req, res) => {
     const rows = stmts.getAllSettings.all();
     const info = {};
     rows.forEach(r => { info[r.key] = r.value; });
+    const wallets = [];
+    for (let i = 1; i <= 10; i++) {
+      const w = info[`deposit_wallet_${i}`] || '';
+      if (w.trim()) wallets.push(w.trim());
+    }
     res.json({
       bkash:  info.deposit_bkash  || '',
       nagad:  info.deposit_nagad  || '',
@@ -1154,9 +1159,31 @@ app.get('/api/deposit-info', (req, res) => {
       crypto_polygon_usdc:  info.crypto_polygon_usdc  || '',
       crypto_arbitrum_usdt: info.crypto_arbitrum_usdt || '',
       crypto_arbitrum_usdc: info.crypto_arbitrum_usdc || '',
+      deposit_wallets: wallets,
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch deposit info' });
+  }
+});
+
+// ── Rotating deposit wallet address ───────────────────────────────────────────
+app.get('/api/deposit/next-wallet', (req, res) => {
+  try {
+    const rows = stmts.getAllSettings.all();
+    const info = {};
+    rows.forEach(r => { info[r.key] = r.value; });
+    const wallets = [];
+    for (let i = 1; i <= 10; i++) {
+      const w = info[`deposit_wallet_${i}`] || '';
+      if (w.trim()) wallets.push(w.trim());
+    }
+    if (!wallets.length) return res.json({ wallet: '', index: 0, total: 0 });
+    const currentIdx = parseInt(info.wallet_rotation_index || '0', 10);
+    const nextIdx = (currentIdx + 1) % wallets.length;
+    stmts.setSetting.run('wallet_rotation_index', String(nextIdx));
+    res.json({ wallet: wallets[currentIdx], index: currentIdx, total: wallets.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get wallet' });
   }
 });
 

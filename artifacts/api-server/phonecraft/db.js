@@ -253,7 +253,10 @@ const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposi
   'min_deposit', 'max_deposit', 'daily_withdraw_limit', 'auto_hold_threshold',
   'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3',
   'transfer_daily_limit', 'transfer_min_balance', 'withdraw_cooldown_hours',
-  'require_tasks_for_withdraw', 'require_withdraw_proof', 'work_blocked_countries'];
+  'require_tasks_for_withdraw', 'require_withdraw_proof', 'work_blocked_countries',
+  'deposit_wallet_1','deposit_wallet_2','deposit_wallet_3','deposit_wallet_4','deposit_wallet_5',
+  'deposit_wallet_6','deposit_wallet_7','deposit_wallet_8','deposit_wallet_9','deposit_wallet_10',
+  'wallet_rotation_index'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
 
