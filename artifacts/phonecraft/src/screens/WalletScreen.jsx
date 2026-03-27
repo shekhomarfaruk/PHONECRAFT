@@ -22,11 +22,14 @@ const TOKEN_OPTIONS = [
 ];
 
 const PAYMENT_OPTIONS = [
+  { value: 'crypto', label: 'Crypto', logo: '/crypto-logo.png',                                                          bg: '#00D2B4', text: '#111', letter: 'C' },
   { value: 'bkash',  label: 'bKash',  logo: 'https://cdn.brandfetch.io/id_4D40okd/w/400/h/400/theme/dark/icon.jpeg',   bg: '#E2136E', text: '#fff', letter: 'b' },
   { value: 'nagad',  label: 'Nagad',  logo: 'https://cdn.brandfetch.io/idPKXOsXfF/w/512/h/512/theme/dark/logo.png',     bg: '#F05A28', text: '#fff', letter: 'N' },
   { value: 'rocket', label: 'Rocket', logo: '/rocket-logo.png',                                                          bg: '#8B2FC9', text: '#fff', letter: 'R' },
-  { value: 'crypto', label: 'Crypto', logo: '/crypto-logo.png',                                                          bg: '#00D2B4', text: '#111', letter: 'C' },
 ];
+
+const COMING_SOON_DEPOSIT  = new Set(['bkash', 'nagad', 'rocket']);
+const COMING_SOON_WITHDRAW = new Set(['rocket']);
 
 const ALL_CRYPTO_KEYS = BLOCKCHAIN_OPTIONS.flatMap(b =>
   TOKEN_OPTIONS.map(tk => `crypto_${b.value}_${tk.value}`)
@@ -88,9 +91,10 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
 
   const [tab,        setTab      ] = useState('withdraw');
   const [amount,     setAmount   ] = useState('');
-  const [method,     setMethod   ] = useState('bkash');
+  const [method,     setMethod   ] = useState('crypto');
   const [acct,       setAcct     ] = useState('');
   const [submitted,  setSubmitted] = useState(false);
+  const [screenshot, setScreenshot] = useState(null);
 
   const emptyDepositInfo = {
     bkash: '', nagad: '', rocket: '',
@@ -126,9 +130,18 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
     if (!cryptoEnabled && method === 'crypto') setMethod('bkash');
   }, [cryptoEnabled, method]);
 
+  // Auto-switch away from "Coming Soon" methods when tab changes
+  useEffect(() => {
+    const comingSoonSet = tab === 'deposit' ? COMING_SOON_DEPOSIT : COMING_SOON_WITHDRAW;
+    if (comingSoonSet.has(method)) setMethod('crypto');
+  }, [tab]);
+
   const visiblePaymentOptions = cryptoEnabled
     ? PAYMENT_OPTIONS
     : PAYMENT_OPTIONS.filter(o => o.value !== 'crypto');
+
+  const isComingSoon = (val) =>
+    tab === 'deposit' ? COMING_SOON_DEPOSIT.has(val) : COMING_SOON_WITHDRAW.has(val);
 
   const isCrypto      = method === 'crypto';
   const cryptoKey     = `crypto_${blockchain}_${token}`;
@@ -139,6 +152,14 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
 
   const amountLabel       = isBn ? 'পরিমাণ (৳ BDT)' : 'Amount ($ USD)';
   const amountPlaceholder = isBn ? '৳ পরিমাণ লিখুন'  : '$ Enter USD amount';
+
+  const handleScreenshotChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setScreenshot(ev.target.result);
+    reader.readAsDataURL(file);
+  };
 
   const submit = async () => {
     if (isCrypto) {
@@ -155,6 +176,8 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
             userId: user.id, user: user.name, identifier: user.identifier,
             amount: amountInBDT, method: 'crypto',
             account: txnHash.trim(), type: 'deposit', coinType: coinLabel,
+            blockchain, token, txnHash: txnHash.trim(),
+            screenshot: screenshot || null,
           }),
         });
         const data = await res.json();
@@ -169,7 +192,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
         }
       } catch (_) { showToast(t.toast_connection_error); }
       setTimeout(() => setSubmitted(false), 3000);
-      setTxnHash(''); setCryptoAmount('');
+      setTxnHash(''); setCryptoAmount(''); setScreenshot(null);
       return;
     }
 
@@ -227,42 +250,54 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
         {/* ── Payment Method Grid ── */}
         <div className="input-wrap">
           <label className="input-label">{t.payment_method}</label>
-          <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8}}>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8}}>
             {visiblePaymentOptions.map(opt => {
               const isActive = method === opt.value;
+              const cs = isComingSoon(opt.value);
               return (
                 <button
                   type="button"
                   key={opt.value}
-                  onClick={() => setMethod(opt.value)}
+                  onClick={() => { if (!cs) setMethod(opt.value); }}
                   style={{
                     display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-                    gap:6, padding:'10px 4px', borderRadius:12,
-                    border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
-                    background: isActive ? 'rgba(0,210,180,.1)' : 'var(--input-bg)',
-                    cursor:'pointer', transition:'all .2s',
+                    gap:4, padding:'10px 2px', borderRadius:12, position:'relative',
+                    border: `2px solid ${isActive ? 'var(--accent)' : cs ? 'rgba(255,255,255,.08)' : 'var(--border)'}`,
+                    background: isActive ? 'rgba(0,210,180,.1)' : cs ? 'rgba(255,255,255,.03)' : 'var(--input-bg)',
+                    cursor: cs ? 'default' : 'pointer', transition:'all .2s',
+                    opacity: cs ? 0.55 : 1,
                   }}
                 >
                   {opt.logo ? (
-                    <ImgIcon src={opt.logo} alt={opt.label} size={32}
+                    <ImgIcon src={opt.logo} alt={opt.label} size={28}
                       fallback={opt.letter} fallbackBg={opt.bg} fallbackColor={opt.text} />
                   ) : (
                     <span style={{
-                      width:32, height:32, borderRadius:'50%',
+                      width:28, height:28, borderRadius:'50%',
                       background: isActive ? opt.bg : 'var(--border)',
                       display:'inline-flex', alignItems:'center', justifyContent:'center',
-                      fontSize:16, transition:'all .2s',
+                      fontSize:14, transition:'all .2s',
                     }}>
                       {opt.letter}
                     </span>
                   )}
                   <span style={{
-                    fontSize:10, fontWeight:700, letterSpacing:.3,
+                    fontSize:9, fontWeight:700, letterSpacing:.2,
                     color: isActive ? 'var(--accent)' : 'var(--text2)',
                     lineHeight:1,
                   }}>
                     {opt.label}
                   </span>
+                  {cs && (
+                    <span style={{
+                      position:'absolute', bottom:3, left:'50%', transform:'translateX(-50%)',
+                      fontSize:7, fontWeight:800, letterSpacing:.3, whiteSpace:'nowrap',
+                      background:'rgba(217,119,6,.85)', color:'#fff',
+                      borderRadius:4, padding:'1px 4px',
+                    }}>
+                      SOON
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -407,9 +442,38 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
 
             {/* TxnHash */}
             <div className="input-wrap">
-              <label className="input-label">Transaction Hash (TxnHash)</label>
+              <label className="input-label">🔗 Transaction Hash (TxnHash)</label>
               <input className="inp" placeholder="Paste your TxnHash here"
                 value={txnHash} onChange={e => setTxnHash(e.target.value)}/>
+            </div>
+
+            {/* Screenshot Upload */}
+            <div className="input-wrap">
+              <label className="input-label">📸 Screenshot (Transaction Proof)</label>
+              <label style={{
+                display:'flex', alignItems:'center', gap:10, cursor:'pointer',
+                background:'var(--input-bg)', border:`2px dashed ${screenshot ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius:10, padding:'12px 14px', transition:'all .2s',
+              }}>
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={handleScreenshotChange}/>
+                {screenshot ? (
+                  <>
+                    <img src={screenshot} alt="preview" style={{width:48,height:48,borderRadius:8,objectFit:'cover',flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,fontWeight:700,color:'var(--accent)'}}>Screenshot uploaded ✓</div>
+                      <div style={{fontSize:11,color:'var(--text2)'}}>ছবি পরিবর্তন করতে এখানে ক্লিক করুন</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span style={{fontSize:24}}>🖼️</span>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>ছবি আপলোড করুন</div>
+                      <div style={{fontSize:11,color:'var(--text2)'}}>Transaction-এর screenshot দিন (optional)</div>
+                    </div>
+                  </>
+                )}
+              </label>
             </div>
           </div>
         )}
@@ -418,8 +482,8 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
         {isCrypto && tab === 'withdraw' && (
           <div style={{background:'rgba(217,119,6,.08)',border:'1px solid rgba(217,119,6,.2)',borderRadius:10,padding:'14px 16px',margin:'4px 0 14px',textAlign:'center',fontSize:13,color:'var(--yellow)'}}>
             {isBn
-              ? 'ক্রিপ্টো উইথড্র সম্ভব নয়। bKash / Nagad / Rocket / Bank ব্যবহার করুন।'
-              : 'Crypto withdrawal is not available. Please use bKash / Nagad / Rocket / Bank.'}
+              ? 'ক্রিপ্টো উইথড্র সম্ভব নয়। bKash / Nagad ব্যবহার করুন।'
+              : 'Crypto withdrawal is not available. Please use bKash / Nagad.'}
           </div>
         )}
 
@@ -427,9 +491,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings }) {
         {!isCrypto && (
           <>
             <div className="input-wrap">
-              <label className="input-label">
-                {method === 'bank' ? t.wallet_bank_account : t.account_number}
-              </label>
+              <label className="input-label">{t.account_number}</label>
               <input className="inp"
                 placeholder={`${method.toUpperCase()} ${t.number_placeholder}`}
                 value={acct} onChange={e => setAcct(e.target.value)}/>

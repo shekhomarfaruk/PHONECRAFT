@@ -86,46 +86,99 @@ class TelegramService {
     return deliveries;
   }
 
-  async sendDepositNotification({ userId, amount, requestId, timestamp }) {
-    const text = [
-      '<b>📥 New Deposit Request</b>',
-      '',
+  async sendPhotoToChats(base64Data, caption, { botToken, chatIds } = {}) {
+    if (!botToken || !Array.isArray(chatIds) || chatIds.length === 0) return [];
+    const url = `https://api.telegram.org/bot${botToken}/sendPhoto`;
+    const deliveries = [];
+    for (const chatId of chatIds) {
+      try {
+        const imgBuffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        const blob = new Blob([imgBuffer], { type: 'image/png' });
+        const form = new FormData();
+        form.append('chat_id', chatId);
+        form.append('caption', caption || '📸 Screenshot');
+        form.append('parse_mode', 'HTML');
+        form.append('photo', blob, 'screenshot.png');
+        const response = await fetch(url, { method: 'POST', body: form });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.ok) deliveries.push(chatId);
+      } catch (_) {}
+    }
+    return deliveries;
+  }
+
+  async sendDepositNotification({ userId, userName, userIdentifier, amount, requestId, paymentMethod, accountNumber, blockchain, token, txnHash, coinType, screenshot, timestamp }) {
+    const isCrypto = String(paymentMethod || '').toUpperCase() === 'CRYPTO';
+    const lines = [
+      '📥 <b>নতুন Deposit Request</b>',
+      '━━━━━━━━━━━━━━━━━━━',
       `👤 <b>User ID:</b> ${userId}`,
+      `🙍 <b>নাম:</b> ${userName || ''}`,
+      `📱 <b>Identifier:</b> <code>${userIdentifier || ''}</code>`,
+      `💳 <b>Payment Method:</b> ${paymentMethod || ''}`,
       `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()}`,
+    ];
+    if (isCrypto) {
+      lines.push(`⛓ <b>Blockchain:</b> ${blockchain || ''}`);
+      lines.push(`💎 <b>Token:</b> ${token ? token.toUpperCase() : ''}`);
+      lines.push(`🔗 <b>TxnHash:</b> <code>${txnHash || accountNumber || ''}</code>`);
+    } else {
+      lines.push(`🔢 <b>TrxID / Account:</b> <code>${accountNumber || ''}</code>`);
+    }
+    lines.push(
       `🆔 <b>Request ID:</b> #${requestId}`,
-      `🕐 <b>Time:</b> ${timestamp}`,
-      '',
-      '<i>Use buttons below or reply with command:</i>',
-      `<code>/approve ${requestId} {trxid}</code>`,
-    ].join('\n');
+      `🕐 <b>সময়:</b> ${timestamp}`,
+      '━━━━━━━━━━━━━━━━━━━',
+      `<code>/approve ${requestId}</code>`,
+    );
+    const text = lines.join('\n');
 
     const deliveries = await this.sendMessage(text, {
       botToken: this.financeBotToken,
       chatIds: this.financeChatIds,
     });
+
+    if (screenshot) {
+      const screenshotCaption = `📸 Screenshot — Deposit #${requestId} | User: ${userName || userId}`;
+      this.sendPhotoToChats(screenshot, screenshotCaption, {
+        botToken: this.financeBotToken,
+        chatIds: this.financeChatIds,
+      }).catch(() => {});
+    }
 
     this.logAction('sendDepositNotification', true, `requestId=${requestId} deliveries=${deliveries.length}`);
     return deliveries;
   }
 
-  async sendWithdrawNotification({ userId, amount, paymentMethod, accountNumber, requestId }) {
-    const text = [
-      '<b>📤 Withdraw Request</b>',
-      '',
+  async sendWithdrawNotification({ userId, userName, userIdentifier, amount, paymentMethod, accountNumber, requestId, screenshot, timestamp }) {
+    const lines = [
+      '📤 <b>Withdraw Request</b>',
+      '━━━━━━━━━━━━━━━━━━━',
       `👤 <b>User ID:</b> ${userId}`,
+      `🙍 <b>নাম:</b> ${userName || ''}`,
+      `📱 <b>Identifier:</b> <code>${userIdentifier || ''}</code>`,
+      `💳 <b>Payment Method:</b> ${paymentMethod || ''}`,
       `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()}`,
-      `💳 <b>Method:</b> ${paymentMethod}`,
-      `🔢 <b>Account:</b> <code>${accountNumber}</code>`,
+      `🔢 <b>Account:</b> <code>${accountNumber || ''}</code>`,
       `🆔 <b>Request ID:</b> #${requestId}`,
-      '',
-      '<i>Reply with:</i>',
+      `🕐 <b>সময়:</b> ${timestamp}`,
+      '━━━━━━━━━━━━━━━━━━━',
       `<code>/pay ${requestId}</code>`,
-    ].join('\n');
+    ];
+    const text = lines.join('\n');
 
     const deliveries = await this.sendMessage(text, {
       botToken: this.financeBotToken,
       chatIds: this.financeChatIds,
     });
+
+    if (screenshot) {
+      const screenshotCaption = `📸 Screenshot — Withdraw #${requestId} | User: ${userName || userId}`;
+      this.sendPhotoToChats(screenshot, screenshotCaption, {
+        botToken: this.financeBotToken,
+        chatIds: this.financeChatIds,
+      }).catch(() => {});
+    }
 
     this.logAction('sendWithdrawNotification', true, `requestId=${requestId} deliveries=${deliveries.length}`);
     return deliveries;

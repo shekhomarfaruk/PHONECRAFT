@@ -761,15 +761,35 @@ function FinancePage({ authFetch, toast, isMain }) {
       {loading ? <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading...</div> : filtered.length === 0 ? <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>No transactions found</div> : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Type</th><th>User</th><th>Amount</th><th>Method</th><th>Account</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Type</th><th>User</th><th>Amount</th><th>Method / Details</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
             <tbody>
-              {filtered.map(tx => (
+              {filtered.map(tx => {
+                const isCrypto = tx.method === 'crypto';
+                return (
                 <tr key={tx.id} style={{ background: tx.status === 'pending' ? 'rgba(252,213,53,0.03)' : undefined }}>
                   <td>{tx.type === 'deposit' ? <span style={{ color: 'var(--success)' }}>💰 Deposit</span> : <span style={{ color: 'var(--danger)' }}>💸 Withdraw</span>}</td>
-                  <td><div style={{ fontWeight: 600 }}>{tx.user_name}</div><div style={{ fontSize: 10, color: 'var(--text2)' }}>{tx.user_identifier}</div></td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{tx.user_name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text2)' }}>ID: {tx.user_id} · {tx.user_identifier}</div>
+                  </td>
                   <td style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(tx.amount)}</td>
-                  <td><span className="badge badge-blue">{tx.method?.toUpperCase()}</span></td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{tx.account}</td>
+                  <td style={{ maxWidth: 220 }}>
+                    <span className="badge badge-blue" style={{ marginBottom: 4 }}>{tx.method?.toUpperCase()}</span>
+                    {isCrypto ? (
+                      <div style={{ fontSize: 11, marginTop: 4 }}>
+                        {tx.blockchain && <div style={{ color: 'var(--text2)' }}>⛓ {tx.blockchain?.toUpperCase()}</div>}
+                        {tx.token && <div style={{ color: 'var(--text2)' }}>💎 {tx.token?.toUpperCase()}</div>}
+                        {tx.txn_hash && <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--accent)', wordBreak: 'break-all' }}>🔗 {tx.txn_hash}</div>}
+                        {tx.screenshot && (
+                          <a href={tx.screenshot} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 4 }}>
+                            <img src={tx.screenshot} alt="screenshot" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer' }} title="Click to view screenshot" />
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>{tx.account}</div>
+                    )}
+                  </td>
                   <td><span className={`badge ${tx.status === 'approved' ? 'badge-green' : tx.status === 'rejected' ? 'badge-red' : 'badge-yellow'}`}>{tx.status}</span></td>
                   <td style={{ fontSize: 11, color: 'var(--text2)' }}>{fmtDate(tx.created_at)}</td>
                   <td>
@@ -791,7 +811,8 @@ function FinancePage({ authFetch, toast, isMain }) {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

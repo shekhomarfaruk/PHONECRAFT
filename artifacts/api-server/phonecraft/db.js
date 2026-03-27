@@ -88,6 +88,11 @@ try { db.exec('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0'); } catch 
 try { db.exec('ALTER TABLE notifications ADD COLUMN meta TEXT DEFAULT NULL'); } catch (_) {}
 // Add avatar_img column for user profile photo
 try { db.exec('ALTER TABLE users ADD COLUMN avatar_img TEXT DEFAULT NULL'); } catch (_) {}
+// Add crypto/screenshot columns to transactions
+try { db.exec('ALTER TABLE transactions ADD COLUMN blockchain TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN token TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN txn_hash TEXT DEFAULT ""'); } catch (_) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN screenshot TEXT DEFAULT NULL'); } catch (_) {}
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`
@@ -461,8 +466,8 @@ const stmts = {
 
   // Transactions
   insertTransaction:   db.prepare(`
-    INSERT INTO transactions (user_id, type, amount, method, account, status)
-    VALUES (@user_id, @type, @amount, @method, @account, @status)
+    INSERT INTO transactions (user_id, type, amount, method, account, status, blockchain, token, txn_hash, screenshot)
+    VALUES (@user_id, @type, @amount, @method, @account, @status, @blockchain, @token, @txn_hash, @screenshot)
   `),
   getTransactionById:  db.prepare('SELECT * FROM transactions WHERE id = ?'),
   getUserTransactions: db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 50'),

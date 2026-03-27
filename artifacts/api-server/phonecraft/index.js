@@ -996,7 +996,7 @@ app.get('/api/user/:id/transactions', authRequired, requireSelfOrAdmin('id'), (r
 
 // ── Withdraw / Deposit request (DB-tracked) ─────────────────────────────────
 app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
-  const { amount, method, account, type } = req.body || {};
+  const { amount, method, account, type, blockchain, token, txnHash, screenshot, coinType } = req.body || {};
 
   if (!amount || !method || !account || !type) {
     return res.status(400).json({ error: 'Missing fields' });
@@ -1008,6 +1008,12 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
   if (isNaN(numAmount) || numAmount <= 0) {
     return res.status(400).json({ error: 'Invalid amount' });
   }
+
+  const isCrypto = method === 'crypto';
+  const safeBlockchain = String(blockchain || '');
+  const safeToken = String(token || '');
+  const safeTxnHash = String(txnHash || account || '');
+  const safeScreenshot = screenshot ? String(screenshot).substring(0, 2000000) : null;
 
   try {
     const result = db.transaction(() => {
@@ -1027,18 +1033,15 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
           note: `উইথড্র রিকোয়েস্ট (${method} - ${account})`,
         });
       }
-      if (type === 'deposit') {
-        // Do NOT credit balance immediately — wait for admin approval
-        // Balance will be credited when admin approves via /api/admin/transactions/:id
-      }
+      // deposit: credit on admin approval only
 
-      // Insert transaction record
       const txResult = stmts.insertTransaction.run({
         user_id: userRow.id, type, amount: numAmount,
-        method, account, status: 'pending',
+        method, account: safeTxnHash || account, status: 'pending',
+        blockchain: safeBlockchain, token: safeToken,
+        txn_hash: safeTxnHash, screenshot: safeScreenshot,
       });
 
-      // Notify all admin users
       const admins = stmts.getAdminUsers.all();
       const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`;
       for (const admin of admins) {
@@ -1052,6 +1055,7 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
           transactionId: txResult.lastInsertRowid,
           newBalance: stmts.getUserById.get(userRow.id).balance,
         },
+        userRow,
       };
     })();
 
@@ -1059,15 +1063,24 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       return res.status(result.status).json(result.body);
     }
 
-    // Send Telegram event notification (fire-and-forget, outside transaction)
     const txId = result.body.transactionId;
+    const userRow = result.userRow;
+    const bdTime = new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' });
+
     const payload = {
-      userId: req.auth.userId,
-      amount: Number(amount),
+      userId: userRow.id,
+      userName: userRow.name,
+      userIdentifier: userRow.identifier,
+      amount: numAmount,
       requestId: txId,
       paymentMethod: String(method || '').toUpperCase(),
-      accountNumber: account,
-      timestamp: new Date().toISOString(),
+      accountNumber: safeTxnHash || account,
+      blockchain: safeBlockchain,
+      token: safeToken,
+      txnHash: safeTxnHash,
+      coinType: coinType || (isCrypto ? `${safeToken.toUpperCase()} on ${safeBlockchain.toUpperCase()}` : ''),
+      screenshot: safeScreenshot,
+      timestamp: bdTime,
     };
 
     if (type === 'deposit') {
