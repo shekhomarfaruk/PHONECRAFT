@@ -257,6 +257,42 @@ const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposi
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
 
+// Team chat messages (real community chat)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_chat (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    username    TEXT NOT NULL,
+    avatar      TEXT DEFAULT '',
+    message     TEXT NOT NULL DEFAULT '',
+    media_url   TEXT DEFAULT NULL,
+    media_type  TEXT DEFAULT NULL,
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Track last read message per user for unread count
+db.exec(`
+  CREATE TABLE IF NOT EXISTS team_chat_reads (
+    user_id     INTEGER PRIMARY KEY REFERENCES users(id),
+    last_read_id INTEGER DEFAULT 0,
+    updated_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Web Push subscriptions
+db.exec(`
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id),
+    endpoint     TEXT NOT NULL,
+    p256dh       TEXT NOT NULL,
+    auth         TEXT NOT NULL,
+    created_at   TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, endpoint)
+  );
+`);
+
 // Pending registrations table (awaiting referrer approval)
 db.exec(`
   CREATE TABLE IF NOT EXISTS pending_registrations (
@@ -745,6 +781,44 @@ const stmts = {
     WHERE bl.user_id = ?
     ORDER BY bl.id DESC
     LIMIT 200
+  `),
+
+  // Team chat
+  getTeamChat: db.prepare(`
+    SELECT tc.id, tc.user_id, tc.username, tc.avatar, tc.message, tc.media_url, tc.media_type, tc.created_at,
+           u.avatar_img
+    FROM team_chat tc
+    LEFT JOIN users u ON u.id = tc.user_id
+    ORDER BY tc.id DESC LIMIT 60
+  `),
+  insertTeamChat: db.prepare(`
+    INSERT INTO team_chat (user_id, username, avatar, message, media_url, media_type)
+    VALUES (@user_id, @username, @avatar, @message, @media_url, @media_type)
+  `),
+  getLatestTeamChatId: db.prepare(`SELECT COALESCE(MAX(id), 0) as max_id FROM team_chat`),
+  getTeamChatUnread: db.prepare(`
+    SELECT
+      (SELECT COALESCE(MAX(id), 0) FROM team_chat) -
+      COALESCE((SELECT last_read_id FROM team_chat_reads WHERE user_id = ?), 0) as unread
+  `),
+  markTeamChatRead: db.prepare(`
+    INSERT OR REPLACE INTO team_chat_reads (user_id, last_read_id, updated_at)
+    VALUES (?, (SELECT COALESCE(MAX(id), 0) FROM team_chat), datetime('now'))
+  `),
+
+  // Push subscriptions
+  upsertPushSubscription: db.prepare(`
+    INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+    VALUES (@user_id, @endpoint, @p256dh, @auth)
+  `),
+  deletePushSubscription: db.prepare(`
+    DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?
+  `),
+  getPushSubscriptions: db.prepare(`
+    SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?
+  `),
+  getAllPushSubscriptions: db.prepare(`
+    SELECT user_id, endpoint, p256dh, auth FROM push_subscriptions
   `),
 };
 

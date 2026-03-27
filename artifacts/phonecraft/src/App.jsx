@@ -23,6 +23,7 @@ import SupportWidget from "./SupportWidget.jsx";
 import { I18N } from "./i18n.js";
 import { convertCurrency, convertCurrencyText, fetchLiveRate, getLiveRate } from "./currency.js";
 import { clearStoredSession, getStoredSession, getAuthToken, authFetch, mapApiUser, saveStoredSession } from "./session.js";
+import { initPush, isPushSupported } from "./push.js";
 
 // ── Custom Balance Icon ───────────────────────────────────────────────────────
 const BalanceIconImg = ({ size = 18 }) => (
@@ -106,6 +107,7 @@ export default function App() {
   const [fontSize,      setFontSize     ] = useState(() => localStorage.getItem('app-font-size') || 'medium');
   const [appSettings,   setAppSettings  ] = useState({ maintenance_mode: 'false', announcement_banner: '' });
   const [usdRate,       setUsdRate      ] = useState(() => getLiveRate());
+  const [teamChatUnread, setTeamChatUnread] = useState(0);
 
   // Apply font size as CSS variable on root
   useEffect(() => {
@@ -159,6 +161,8 @@ export default function App() {
           setUser(u);
           setAuth(true);
           setShowLanding(false);
+          // Reinit push after session restore
+          if (isPushSupported()) initPush(u.id);
       } else if (u?.id) {
         clearStoredSession();
       }
@@ -215,7 +219,7 @@ export default function App() {
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    let notifTimer, balanceTimer, treeTimer;
+    let notifTimer, balanceTimer, treeTimer, chatUnreadTimer;
 
     const isVisible = () => document.visibilityState !== 'hidden';
 
@@ -266,18 +270,31 @@ export default function App() {
       } catch (_) {}
     };
 
+    const fetchChatUnread = async () => {
+      if (!isVisible() || cancelled) return;
+      try {
+        const res = await authFetch(`${API_URL}/api/team-chat/unread`);
+        if (!res.ok) return;
+        const d = await res.json();
+        setTeamChatUnread(d.unread || 0);
+      } catch (_) {}
+    };
+
     fetchNotifications();
     refreshBalance();
     refreshReferralTree();
+    fetchChatUnread();
 
     notifTimer = setInterval(fetchNotifications, 8_000);
     balanceTimer = setInterval(refreshBalance, 15_000);
     treeTimer = setInterval(refreshReferralTree, 120_000);
+    chatUnreadTimer = setInterval(fetchChatUnread, 30_000);
 
     const onVisChange = () => {
       if (isVisible()) {
         fetchNotifications();
         refreshBalance();
+        fetchChatUnread();
       }
     };
     document.addEventListener('visibilitychange', onVisChange);
@@ -287,6 +304,7 @@ export default function App() {
       clearInterval(notifTimer);
       clearInterval(balanceTimer);
       clearInterval(treeTimer);
+      clearInterval(chatUnreadTimer);
       document.removeEventListener('visibilitychange', onVisChange);
     };
   }, [user?.id]);
@@ -331,6 +349,8 @@ export default function App() {
       setUser(nextUser);
       saveStoredSession(nextUser);
       setAuth(true);
+      // Init push notifications after login
+      if (isPushSupported()) initPush(nextUser.id);
     } catch { showToast('⚠️ ' + t.auth_conn_error); }
     finally { setAuthLoading(false); }
   };
@@ -484,7 +504,7 @@ export default function App() {
   );
 
   const tErr = (e) => translateServerError(e, lang);
-  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings, tErr, usdRate };
+  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings, tErr, usdRate, teamChatUnread, setTeamChatUnread };
 
   // Dynamic menu: build from i18n, add Admin item only if user is admin
   const t = I18N[lang] || I18N.en;
@@ -528,6 +548,9 @@ export default function App() {
                     <span>{m.label}</span>
                     {m.screen === 'notifications' && unreadCount > 0 && (
                       <span style={{ marginLeft: 'auto', background: 'var(--accent)', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontFamily: 'Space Grotesk' }}>{unreadCount}</span>
+                    )}
+                    {m.screen === 'teamchat' && teamChatUnread > 0 && (
+                      <span style={{ marginLeft: 'auto', background: '#2DD4BF', color: '#000', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontFamily: 'Space Grotesk', fontWeight: 700 }}>{teamChatUnread > 99 ? '99+' : teamChatUnread}</span>
                     )}
                   </div>
                 ))}
@@ -625,7 +648,7 @@ export default function App() {
               {screen === 'balance'       && <BalanceScreen      {...screenProps} />}
               {screen === 'refer'         && <ReferScreen        {...screenProps} />}
               {screen === 'profile'       && <ProfileScreen      user={user} setUser={setUser} navigate={navigate} doLogout={doLogout} lang={lang} showToast={showToast} />}
-              {screen === 'teamchat'      && <TeamChatScreen     user={user} lang={lang} />}
+              {screen === 'teamchat'      && <TeamChatScreen     user={user} lang={lang} showToast={showToast} teamChatUnread={teamChatUnread} setTeamChatUnread={setTeamChatUnread} />}
               {screen === 'marketplace'   && <MarketplaceScreen  user={user} lang={lang} />}
               {screen === 'support'       && <SupportScreen      user={user} showToast={showToast} lang={lang} />}
               {screen === 'guide'         && <GuideScreen        navigate={navigate} lang={lang} />}
@@ -672,6 +695,9 @@ export default function App() {
                     <span>{m.label}</span>
                     {m.screen === 'notifications' && unreadCount > 0 && (
                       <span style={{ marginLeft: 'auto', background: '#F6465D', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px' }}>{unreadCount}</span>
+                    )}
+                    {m.screen === 'teamchat' && teamChatUnread > 0 && (
+                      <span style={{ marginLeft: 'auto', background: '#2DD4BF', color: '#000', borderRadius: 10, fontSize: 10, padding: '1px 6px', fontWeight: 700 }}>{teamChatUnread > 99 ? '99+' : teamChatUnread}</span>
                     )}
                   </div>
                 ))}

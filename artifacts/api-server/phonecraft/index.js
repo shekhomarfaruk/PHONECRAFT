@@ -3,11 +3,78 @@ const cors     = require('cors');
 const bcrypt   = require('bcryptjs');
 const crypto   = require('crypto');
 const path     = require('path');
+const fs       = require('fs');
+const multer   = require('multer');
+const webPush  = require('web-push');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config();
 
 const { db, stmts, sanitizeUser, todayDate } = require('./db');
 const { TelegramService } = require('./services/telegramService');
+
+// ── Web Push VAPID setup ─────────────────────────────────────────────────────
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || 'BMzqYPuk_-UyWtAuChDOHBT8vOnpBsYSWnFe6dPI6FHzsKPXaakfvfSWCz-etkDPn8p8gJ502QFYax6gyVLzgBg';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || 'TYZRvv8BQmxFfQ6YQA8hie5sBOTTetrNstQGIIpwyMk';
+webPush.setVapidDetails('mailto:admin@phonecraft.tech', VAPID_PUBLIC, VAPID_PRIVATE);
+
+// Send push notification to a specific user (non-blocking)
+async function sendPush(userId, payload) {
+  try {
+    const subs = stmts.getPushSubscriptions.all(userId);
+    for (const sub of subs) {
+      try {
+        await webPush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload)
+        );
+      } catch (e) {
+        if (e.statusCode === 410 || e.statusCode === 404) {
+          stmts.deletePushSubscription.run(userId, sub.endpoint);
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+// Broadcast push to all subscribed users
+async function broadcastPush(payload, excludeUserId) {
+  try {
+    const allSubs = stmts.getAllPushSubscriptions.all();
+    for (const sub of allSubs) {
+      if (excludeUserId && sub.user_id === excludeUserId) continue;
+      try {
+        await webPush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload)
+        );
+      } catch (e) {
+        if (e.statusCode === 410 || e.statusCode === 404) {
+          stmts.deletePushSubscription.run(sub.user_id, sub.endpoint);
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+// ── Multer for file uploads ───────────────────────────────────────────────────
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = /\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|zip|mp4|mp3)$/i;
+    cb(null, allowed.test(file.originalname));
+  },
+});
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -128,6 +195,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '5mb' }));
 app.set('trust proxy', true);
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 function createRateLimiter({ windowMs, max, prefix }) {
   const hits = new Map();
@@ -339,6 +407,17 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
     const noteStr = adminNote ? ` Note: ${adminNote}` : '';
     const notifMsg = `Your ${tx.type} of ৳${tx.amount.toLocaleString()} has been ${action}.${noteStr}`;
     stmts.insertNotification.run(tx.user_id, notifMsg, status === 'approved' ? 'success' : 'warning');
+
+    // Push notification for tx approval/rejection
+    const pushIcon = status === 'approved' ? '✅' : '❌';
+    const txLabel = tx.type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র';
+    sendPush(tx.user_id, {
+      title: `${pushIcon} ${txLabel} ${status === 'approved' ? 'অনুমোদিত' : 'বাতিল'}`,
+      body: `৳${tx.amount.toLocaleString()} ${txLabel} ${status === 'approved' ? 'অনুমোদন করা হয়েছে।' : 'বাতিল করা হয়েছে।'}${noteStr}`,
+      icon: '/logo.png',
+      url: '/wallet',
+      tag: `tx-${tx.id}`,
+    });
 
     return { status: 200, body: { transaction: stmts.getTransactionById.get(Number(txId)) } };
   })();
@@ -617,18 +696,36 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     });
     const logId = logResult.lastInsertRowid;
 
-    // Async geolocation (fire-and-forget, never blocks response)
+    // Check if this is a new device (not seen in previous 5 logins)
+    const recentLogs = db.prepare(
+      'SELECT DISTINCT device_name FROM login_logs WHERE user_id = ? AND id < ? ORDER BY id DESC LIMIT 10'
+    ).all(user.id, logId);
+    const knownDevices = new Set(recentLogs.map(l => l.device_name));
+    const isNewDevice = !knownDevices.has(parsedDevice);
+
+    // Async geolocation + new device push (fire-and-forget, never blocks response)
     const cleanIp = (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') ? '' : ip;
-    if (cleanIp) {
-      fetch(`http://ip-api.com/json/${cleanIp}?fields=city,country`)
-        .then(r => r.json())
-        .then(geo => {
-          if (geo.city || geo.country) {
-            stmts.updateLoginLogGeo.run(geo.city || '', geo.country || '', logId);
-          }
-        })
-        .catch(() => {});
-    }
+    (async () => {
+      let geoCity = '', geoCountry = '';
+      if (cleanIp) {
+        try {
+          const geo = await fetch(`http://ip-api.com/json/${cleanIp}?fields=city,country`).then(r => r.json());
+          geoCity = geo.city || '';
+          geoCountry = geo.country || '';
+          if (geoCity || geoCountry) stmts.updateLoginLogGeo.run(geoCity, geoCountry, logId);
+        } catch (_) {}
+      }
+      if (isNewDevice) {
+        const loc = [geoCity, geoCountry].filter(Boolean).join(', ') || ip;
+        sendPush(user.id, {
+          title: '🔐 নতুন ডিভাইসে লগইন',
+          body: `${parsedDevice} থেকে লগইন হয়েছে${loc ? ` (${loc})` : ''}। আপনি না হলে পাসওয়ার্ড পরিবর্তন করুন।`,
+          icon: '/logo.png',
+          url: '/settings',
+          tag: 'new-device-login',
+        });
+      }
+    })();
 
     res.json({ user: toClientUser(user), plan, token: issueAuthToken(user) });
   } catch (err) {
@@ -1693,14 +1790,38 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
         note: `Admin ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`,
       });
       stmts.insertNotification.run(id, `Your balance has been updated to ৳${balance.toLocaleString()}`, 'info');
+      const isCredit = diff > 0;
+      sendPush(id, {
+        title: isCredit ? '💰 ব্যালেন্স যোগ হয়েছে' : '💸 ব্যালেন্স কাটা হয়েছে',
+        body: `Admin আপনার ব্যালেন্স ${isCredit ? 'বাড়িয়ে' : 'কমিয়ে'} ৳${balance.toLocaleString()} করেছে।`,
+        icon: '/logo.png',
+        url: '/balance',
+        tag: 'balance-update',
+      });
     }
 
     if (plan_id !== user.plan_id) {
       stmts.insertNotification.run(id, `Your plan has been changed to ${plan.name}`, 'info');
+      sendPush(id, {
+        title: '📱 প্ল্যান পরিবর্তিত',
+        body: `আপনার প্ল্যান ${plan.name}-এ পরিবর্তন করা হয়েছে।`,
+        icon: '/logo.png',
+        url: '/profile',
+        tag: 'plan-change',
+      });
     }
 
     if (banned !== user.banned) {
       stmts.insertNotification.run(id, banned ? 'Your account has been suspended' : 'Your account has been reactivated', banned ? 'warning' : 'success');
+      if (!banned) {
+        sendPush(id, {
+          title: '✅ অ্যাকাউন্ট সক্রিয়',
+          body: 'আপনার অ্যাকাউন্ট পুনরায় সক্রিয় করা হয়েছে।',
+          icon: '/logo.png',
+          url: '/',
+          tag: 'account-status',
+        });
+      }
     }
 
     const updated = stmts.getUserById.get(id);
@@ -2026,6 +2147,17 @@ app.post('/api/admin/messages', authRequired, (req, res) => {
         stmts.insertNotification.run(r.id, payload, 'info');
       }
     })();
+
+    // Push notifications for admin broadcast/message
+    for (const r of recipients) {
+      sendPush(r.id, {
+        title: '📢 Admin বার্তা',
+        body: text.slice(0, 120),
+        icon: '/logo.png',
+        url: '/notifications',
+        tag: 'admin-message',
+      });
+    }
 
     res.json({ ok: true, delivered: recipients.length });
   } catch (err) {
@@ -2437,6 +2569,113 @@ setInterval(() => {
     console.error('[SupportClean] Error:', err.message);
   }
 }, 10 * 60_000); // every 10 minutes
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PUSH NOTIFICATION ENDPOINTS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Get VAPID public key
+app.get('/api/push/vapid-public-key', (_req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC });
+});
+
+// Subscribe / update push subscription
+app.post('/api/push/subscribe', authRequired, (req, res) => {
+  const { endpoint, p256dh, auth } = req.body || {};
+  if (!endpoint || !p256dh || !auth) return res.status(400).json({ error: 'Invalid subscription' });
+  stmts.upsertPushSubscription.run({ user_id: req.auth.userId, endpoint, p256dh, auth });
+  res.json({ ok: true });
+});
+
+// Unsubscribe
+app.post('/api/push/unsubscribe', authRequired, (req, res) => {
+  const { endpoint } = req.body || {};
+  if (endpoint) stmts.deletePushSubscription.run(req.auth.userId, endpoint);
+  res.json({ ok: true });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TEAM CHAT ENDPOINTS
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Get team chat messages (newest first, then reverse for display)
+app.get('/api/team-chat', authRequired, (req, res) => {
+  const rows = stmts.getTeamChat.all().reverse();
+  res.json({ messages: rows });
+});
+
+// Get unread count
+app.get('/api/team-chat/unread', authRequired, (req, res) => {
+  const row = stmts.getTeamChatUnread.get(req.auth.userId);
+  res.json({ unread: Math.max(0, row?.unread || 0) });
+});
+
+// Mark all as read
+app.post('/api/team-chat/read', authRequired, (req, res) => {
+  stmts.markTeamChatRead.run(req.auth.userId);
+  res.json({ ok: true });
+});
+
+// Send a text message
+app.post('/api/team-chat', authRequired, async (req, res) => {
+  const { message } = req.body || {};
+  if (!message || String(message).trim().length === 0) return res.status(400).json({ error: 'Empty message' });
+  const txt = String(message).trim().slice(0, 500);
+  const user = stmts.getUserById.get(req.auth.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  stmts.insertTeamChat.run({
+    user_id: user.id,
+    username: user.name,
+    avatar: user.avatar || '🧑',
+    message: txt,
+    media_url: null,
+    media_type: null,
+  });
+
+  // Broadcast push to others
+  broadcastPush({
+    title: `💬 Team Chat — ${user.name}`,
+    body: txt,
+    icon: '/logo.png',
+    url: '/teamchat',
+    tag: 'team-chat',
+  }, user.id);
+
+  res.json({ ok: true });
+});
+
+// Upload photo/file and post to team chat
+app.post('/api/team-chat/upload', authRequired, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const user = stmts.getUserById.get(req.auth.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(req.file.filename);
+  const media_type = isImage ? 'image' : 'file';
+  const media_url = `/uploads/${req.file.filename}`;
+  const caption = String(req.body.caption || '').trim().slice(0, 200);
+
+  stmts.insertTeamChat.run({
+    user_id: user.id,
+    username: user.name,
+    avatar: user.avatar || '🧑',
+    message: caption,
+    media_url,
+    media_type,
+  });
+
+  // Broadcast push for new media
+  broadcastPush({
+    title: `📎 Team Chat — ${user.name}`,
+    body: isImage ? '📷 ছবি পাঠিয়েছে' : `📁 ফাইল: ${req.file.originalname}`,
+    icon: '/logo.png',
+    url: '/teamchat',
+    tag: 'team-chat',
+  }, user.id);
+
+  res.json({ ok: true, media_url, media_type });
+});
 
 // ── SPA fallback — serve index.html for non-API routes ───────────────────────
 app.get('*', (_req, res) => {

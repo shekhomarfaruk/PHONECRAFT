@@ -131,7 +131,7 @@ function LiveActivityTicker({ t }) {
   );
 }
 
-function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [], setNotifications}) {
+function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [], setNotifications, teamChatUnread = 0}) {
   const t      = I18N[lang] || I18N.en;
   const plan   = PLANS.find(p => p.id === user.plan);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
@@ -326,6 +326,43 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
               <a.Icon size={22}/><span style={{fontSize:11}}>{a.label}</span>
             </button>
           ))}
+        </div>
+
+        {/* Team Chat quick access */}
+        <div
+          onClick={() => navigate('teamchat')}
+          style={{
+            marginTop: 10, padding: '12px 14px', borderRadius: 12,
+            background: 'linear-gradient(135deg, rgba(45,212,191,.12), rgba(99,102,241,.10))',
+            border: '1px solid rgba(45,212,191,.3)',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
+            transition: 'all .15s',
+          }}
+        >
+          <div style={{
+            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+            background: 'linear-gradient(135deg, #2DD4BF, #6366F1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'relative',
+          }}>
+            <Icons.Chat size={20} color="#fff" />
+            {teamChatUnread > 0 && (
+              <span style={{
+                position: 'absolute', top: -6, right: -6,
+                background: '#F6465D', color: '#fff', borderRadius: 10,
+                fontSize: 9, padding: '2px 5px', fontWeight: 700, lineHeight: 1.2,
+              }}>{teamChatUnread > 99 ? '99+' : teamChatUnread}</span>
+            )}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{t.nav_chat || 'Team Chat'}</div>
+            <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
+              {teamChatUnread > 0
+                ? `${teamChatUnread} টি নতুন বার্তা`
+                : 'দলের সাথে যোগাযোগ করুন'}
+            </div>
+          </div>
+          <div style={{ color: 'var(--accent)', fontWeight: 900, fontSize: 18 }}>›</div>
         </div>
       </div>
 
