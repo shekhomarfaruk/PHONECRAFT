@@ -28,9 +28,154 @@ function Avatar({ src, name, size = 36, style = {} }) {
     return <img src={src.startsWith('http') ? src : `${API}${src}`} alt={name || ''} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, ...style }} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex'); }} />;
   }
   return (
-    <div style={{ width: size, height: size, borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--accent2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontWeight: 700, flexShrink: 0, color: '#fff', ...style }}>
+    <div style={{ width: size, height: size, borderRadius: '50%', background: 'linear-gradient(135deg, #1E40AF, #3B82F6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontWeight: 700, flexShrink: 0, color: '#fff', ...style }}>
       {name?.[0] || '?'}
     </div>
+  );
+}
+
+function MfgBackground() {
+  const gearPath = "M12 2a1 1 0 0 1 1 1v1.07A7 7 0 0 1 17.93 8H19a1 1 0 0 1 0 2h-1.07A7 7 0 0 1 13 14.93V16a1 1 0 0 1-2 0v-1.07A7 7 0 0 1 6.07 10H5a1 1 0 0 1 0-2h1.07A7 7 0 0 1 11 3.07V2a1 1 0 0 1 1-1zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z";
+  const dots = Array.from({ length: 12 }, (_, i) => ({
+    left: `${Math.random() * 90 + 5}%`,
+    top: `${Math.random() * 90 + 5}%`,
+    dur: `${4 + Math.random() * 6}s`,
+    delay: `${Math.random() * 4}s`,
+  }));
+  return (
+    <div className="mfg-bg" aria-hidden="true">
+      <div className="mfg-bg-layer" />
+      <div className="mfg-grid" />
+      <svg className="mfg-gear" style={{ top: -40, left: -40, width: 200, height: 200 }} viewBox="0 0 24 24" fill="#1E40AF"><path d={gearPath}/></svg>
+      <svg className="mfg-gear reverse" style={{ top: '30%', right: -60, width: 180, height: 180 }} viewBox="0 0 24 24" fill="#EA580C"><path d={gearPath}/></svg>
+      <svg className="mfg-gear slow" style={{ bottom: -50, left: '40%', width: 240, height: 240 }} viewBox="0 0 24 24" fill="#1E40AF"><path d={gearPath}/></svg>
+      <svg className="mfg-gear" style={{ bottom: '20%', right: 60, width: 120, height: 120, animationDuration: '18s' }} viewBox="0 0 24 24" fill="#2563EB"><path d={gearPath}/></svg>
+      <svg className="mfg-circuit" style={{ top: '15%', left: '20%', width: 300, height: 160 }} viewBox="0 0 300 160" fill="none" stroke="#1E40AF" strokeWidth="1.5">
+        <path d="M0 80 H60 V30 H120 V80 H180 V120 H240 V80 H300" />
+        <circle cx="60" cy="80" r="4" fill="#1E40AF" />
+        <circle cx="120" cy="30" r="4" fill="#1E40AF" />
+        <circle cx="180" cy="80" r="4" fill="#1E40AF" />
+        <circle cx="240" cy="120" r="4" fill="#1E40AF" />
+      </svg>
+      <svg className="mfg-circuit" style={{ bottom: '10%', right: '15%', width: 250, height: 120, animationDelay: '2s' }} viewBox="0 0 250 120" fill="none" stroke="#EA580C" strokeWidth="1.5">
+        <path d="M0 60 H50 V20 H100 V60 H150 V100 H200 V60 H250" />
+        <circle cx="50" cy="60" r="3" fill="#EA580C" />
+        <circle cx="100" cy="20" r="3" fill="#EA580C" />
+        <circle cx="150" cy="60" r="3" fill="#EA580C" />
+      </svg>
+      <div className="mfg-particles">
+        {dots.map((d, i) => (
+          <div key={i} className="mfg-dot" style={{ left: d.left, top: d.top, '--dur': d.dur, '--delay': d.delay }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    authFetch(`${API}/api/admin/stats`)
+      .then(r => r.json())
+      .then(d => setStats(d))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [open]);
+
+  if (!open) return null;
+
+  const pendingDeposits = stats?.pendingDeposits || 0;
+  const pendingWithdrawals = stats?.pendingWithdrawals || 0;
+  const unreplied = stats?.support?.unrepliedSessions || 0;
+  const recentActivity = (stats?.recentActivity || []).slice(0, 8);
+  const total = pendingDeposits + pendingWithdrawals + unreplied;
+
+  return (
+    <>
+      <div className="notif-panel-overlay" onClick={onClose} />
+      <div className="notif-panel">
+        <div className="notif-panel-header">
+          <div className="notif-panel-title">🔔 Activity Overview</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', display: 'flex', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="notif-panel-body">
+          {loading ? (
+            <div className="notif-empty">
+              <RefreshCw size={24} style={{ opacity: 0.4, animation: 'spin 1s linear infinite' }} />
+              <div style={{ fontSize: 13 }}>Loading...</div>
+            </div>
+          ) : (
+            <>
+              {total === 0 && recentActivity.length === 0 ? (
+                <div className="notif-empty">
+                  <CheckCircle size={32} color="var(--success)" style={{ opacity: 0.6 }} />
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>All clear!</div>
+                  <div style={{ fontSize: 12 }}>No pending actions</div>
+                </div>
+              ) : (
+                <>
+                  {pendingDeposits > 0 && (
+                    <div className="notif-item" onClick={() => { onNavigate('finance'); onClose(); }}>
+                      <div className="notif-icon" style={{ background: 'rgba(5,150,105,0.1)' }}>💰</div>
+                      <div className="notif-content">
+                        <div className="notif-content-title">{pendingDeposits} Pending Deposit{pendingDeposits > 1 ? 's' : ''}</div>
+                        <div className="notif-content-sub">Awaiting approval → Finance</div>
+                      </div>
+                      <ChevronRight size={14} color="var(--text2)" />
+                    </div>
+                  )}
+                  {pendingWithdrawals > 0 && (
+                    <div className="notif-item" onClick={() => { onNavigate('finance'); onClose(); }}>
+                      <div className="notif-icon" style={{ background: 'rgba(220,38,38,0.1)' }}>💸</div>
+                      <div className="notif-content">
+                        <div className="notif-content-title">{pendingWithdrawals} Pending Withdrawal{pendingWithdrawals > 1 ? 's' : ''}</div>
+                        <div className="notif-content-sub">Awaiting approval → Finance</div>
+                      </div>
+                      <ChevronRight size={14} color="var(--text2)" />
+                    </div>
+                  )}
+                  {unreplied > 0 && (
+                    <div className="notif-item" onClick={() => { onNavigate('support'); onClose(); }}>
+                      <div className="notif-icon" style={{ background: 'rgba(124,58,237,0.1)' }}>💬</div>
+                      <div className="notif-content">
+                        <div className="notif-content-title">{unreplied} Unanswered Support{unreplied > 1 ? 's' : ''}</div>
+                        <div className="notif-content-sub">Users waiting for reply → Support</div>
+                      </div>
+                      <ChevronRight size={14} color="var(--text2)" />
+                    </div>
+                  )}
+                  {recentActivity.length > 0 && (
+                    <div style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                      Recent Activity
+                    </div>
+                  )}
+                  {recentActivity.map((a, i) => (
+                    <div key={i} className="notif-item" style={{ cursor: 'default' }}>
+                      <div className="notif-icon" style={{ background: a.type === 'signup' ? 'rgba(37,99,235,0.1)' : a.type === 'deposit' ? 'rgba(5,150,105,0.1)' : 'rgba(220,38,38,0.1)', fontSize: 15 }}>
+                        {a.type === 'signup' ? '👤' : a.type === 'deposit' ? '💰' : '💸'}
+                      </div>
+                      <div className="notif-content">
+                        <div className="notif-content-title">{a.user_name || a.detail}</div>
+                        <div className="notif-content-sub">
+                          {a.type === 'signup' ? 'New registration' : `${a.type === 'deposit' ? '+' : '-'}৳${a.detail?.split(' ')[0]}`}
+                          {' · '}{fmtDate(a.created_at)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -73,6 +218,8 @@ export default function App() {
   const [page, setPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const toast = (msg, type = 'success') => {
     const id = Date.now();
@@ -100,6 +247,19 @@ export default function App() {
     }).catch(() => { localStorage.removeItem('admin_token'); setToken(''); });
   }, [token]);
 
+  useEffect(() => {
+    if (!token || !adminUser) return;
+    const fetchPending = () => {
+      authFetch(`${API}/api/admin/stats`).then(r => r.json()).then(d => {
+        const n = (d.pendingDeposits || 0) + (d.pendingWithdrawals || 0) + (d.support?.unrepliedSessions || 0);
+        setPendingCount(n);
+      }).catch(() => {});
+    };
+    fetchPending();
+    const t = setInterval(fetchPending, 30_000);
+    return () => clearInterval(t);
+  }, [token, adminUser]);
+
   const logout = () => { localStorage.removeItem('admin_token'); setToken(''); setAdminUser(null); };
 
   if (!token || !adminUser) return <LoginScreen onLogin={(t, u) => { setToken(t); setAdminUser(u); localStorage.setItem('admin_token', t); initAdminPush(t); }} />;
@@ -121,31 +281,72 @@ export default function App() {
   const activePage = navItems.find(n => n.id === page) ? page : navItems[0]?.id || 'users';
   if (activePage !== page) setPage(activePage);
 
+  const pageLabels = {
+    dashboard: 'Dashboard', users: 'Users', finance: 'Finance', flagged: 'Flagged',
+    'ip-tracking': 'IP Tracking', 'live-locations': 'Live Locations', support: 'Support',
+    admins: 'Admin & Roles', notifications: 'Notification Settings', settings: 'Settings',
+  };
+
   return (
     <div className="app-layout">
+      <MfgBackground />
       <Toast toasts={toasts} />
+      <AdminNotifPanel
+        open={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        authFetch={authFetch}
+        onNavigate={(p) => { setPage(p); setSidebarOpen(false); }}
+      />
       <div className="hamburger" onClick={() => setSidebarOpen(p => !p)}><Menu size={20} /></div>
       <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} />
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <h2>🛡️ PhoneCraft Admin</h2>
-          <div className="user-info">{adminUser.name} ({isMain ? 'Main Admin' : 'Sub-Admin'})</div>
+          <div className="sidebar-brand">
+            <div className="sidebar-brand-icon">
+              <Shield size={20} color="#fff" />
+            </div>
+            <div>
+              <h2>PhoneCraft</h2>
+              <div className="user-info">Admin Console</div>
+            </div>
+          </div>
+          <div className="sidebar-admin-badge">
+            <Shield size={9} /> {isMain ? 'Main Admin' : 'Sub-Admin'}
+          </div>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
+            {adminUser.name}
+          </div>
         </div>
         <nav className="sidebar-nav">
           {navItems.map(n => {
             const Icon = n.icon;
             return (
               <div key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => { setPage(n.id); setSidebarOpen(false); }}>
-                <Icon size={18} /> {n.label}
+                <Icon size={17} /> {n.label}
               </div>
             );
           })}
         </nav>
         <div className="sidebar-footer">
-          <div className="nav-item" onClick={logout} style={{ color: 'var(--danger)' }}><LogOut size={18} /> Logout</div>
+          <div className="nav-item" onClick={logout} style={{ color: 'var(--danger)' }}><LogOut size={17} /> Logout</div>
         </div>
       </aside>
       <main className="main-content" onClick={() => sidebarOpen && setSidebarOpen(false)}>
+        <div className="admin-topbar">
+          <div className="topbar-left">
+            <div className="topbar-page-title">{pageLabels[page] || page}</div>
+          </div>
+          <div className="topbar-right">
+            <div className="topbar-icon-btn" onClick={(e) => { e.stopPropagation(); setNotifOpen(p => !p); }} title="Activity & Alerts">
+              <Bell size={18} />
+              {pendingCount > 0 && <span className="topbar-badge">{pendingCount > 9 ? '9+' : pendingCount}</span>}
+            </div>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#1E40AF,#3B82F6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 800 }}>
+              {adminUser.name?.[0] || 'A'}
+            </div>
+          </div>
+        </div>
+
         {page === 'dashboard' && <DashboardPage authFetch={authFetch} toast={toast} />}
         {page === 'users' && <UsersPage authFetch={authFetch} toast={toast} isMain={isMain} adminUser={adminUser} />}
         {page === 'finance' && <FinancePage authFetch={authFetch} toast={toast} isMain={isMain} />}
@@ -189,17 +390,28 @@ function LoginScreen({ onLogin }) {
 
   return (
     <div className="login-container">
+      <MfgBackground />
       <form className="login-box" onSubmit={login}>
-        <h1>🛡️ Admin Panel</h1>
-        <p className="subtitle">PhoneCraft Management Console</p>
-        {err && <div style={{ background: 'rgba(246,70,93,0.1)', border: '1px solid var(--danger)', borderRadius: 10, padding: '10px 14px', color: 'var(--danger)', fontSize: 12, marginBottom: 16 }}>{err}</div>}
+        <div className="login-logo">
+          <div className="login-logo-icon"><Shield size={22} color="#fff" /></div>
+        </div>
+        <h1>Admin Console</h1>
+        <p className="subtitle">PhoneCraft Manufacturing Platform</p>
+        {err && (
+          <div style={{ background: 'rgba(220,38,38,0.07)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 10, padding: '10px 14px', color: 'var(--danger)', fontSize: 12, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertTriangle size={14} /> {err}
+          </div>
+        )}
         <label className="input-label">Identifier</label>
-        <input className="inp" value={id} onChange={e => setId(e.target.value)} placeholder="Enter admin identifier" autoFocus />
+        <input className="inp" value={id} onChange={e => setId(e.target.value)} placeholder="Admin ID or phone" autoFocus />
         <label className="input-label">Password</label>
         <input className="inp" type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="Enter password" />
         <button className="btn btn-primary btn-full" type="submit" disabled={loading} style={{ marginTop: 8 }}>
-          {loading ? 'Logging in...' : 'Login to Admin Panel'}
+          <Lock size={14} /> {loading ? 'Verifying...' : 'Sign in to Admin Panel'}
         </button>
+        <div style={{ marginTop: 16, textAlign: 'center', fontSize: 11, color: 'var(--text2)' }}>
+          Secure • Encrypted • Admin Access Only
+        </div>
       </form>
     </div>
   );
@@ -264,14 +476,14 @@ function AnalyticsChart({ authFetch }) {
             const y = MT + plotH * (1 - t);
             return (
               <g key={t}>
-                <line x1={ML} y1={y} x2={W - MR} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-                <text x={ML - 4} y={y + 4} textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.3)">{formatMoney(Math.round(maxVal * t))}</text>
+                <line x1={ML} y1={y} x2={W - MR} y2={y} stroke="rgba(30,64,175,0.08)" strokeWidth="1" />
+                <text x={ML - 4} y={y + 4} textAnchor="end" fontSize="9" fill="#94A3B8">{formatMoney(Math.round(maxVal * t))}</text>
               </g>
             );
           })}
           {data.map((d, i) => {
             if (n > 18 && i % Math.ceil(n / 10) !== 0) return null;
-            return <text key={i} x={xPos(i)} y={H - 7} textAnchor="middle" fontSize="8.5" fill="rgba(255,255,255,0.35)">{periodLabel(d.period)}</text>;
+            return <text key={i} x={xPos(i)} y={H - 7} textAnchor="middle" fontSize="8.5" fill="#94A3B8">{periodLabel(d.period)}</text>;
           })}
           {polyline('deposits', 'var(--success)')}
           {polyline('withdrawals', 'var(--danger)')}
