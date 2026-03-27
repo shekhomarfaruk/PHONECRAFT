@@ -62,6 +62,31 @@ function formatRelativeTime(utcDateStr, lang) {
   return `${days} ${t.time_day_ago}`;
 }
 
+function ToastBox({ toast, setToast, lang }) {
+  const t = I18N[lang] || I18N.en;
+  const label = toast.type === 'success' ? t.toast_success
+    : toast.type === 'error'   ? t.toast_error
+    : toast.type === 'warning' ? t.toast_warning
+    : t.toast_info;
+  return (
+    <div className={`toast toast-${toast.type}`}>
+      <div className="toast-icon-wrap">
+        {toast.type === 'success' ? <Icons.CheckCircle size={22} />
+          : toast.type === 'error' ? <Icons.AlertCircle size={22} />
+          : toast.type === 'warning' ? <Icons.AlertTriangle size={22} />
+          : <Icons.Info size={22} />}
+      </div>
+      <div className="toast-body">
+        <div className="toast-type-label">{label}</div>
+        <div className="toast-msg-text">{toast.msg}</div>
+      </div>
+      <div className="toast-close" onClick={() => setToast(null)}>
+        <Icons.X size={16} />
+      </div>
+    </div>
+  );
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════════════════════════════════════════
@@ -257,6 +282,21 @@ export default function App() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // ── Auth ──────────────────────────────────────────────────────────────────
+  const translateServerError = (errStr, l) => {
+    const t = I18N[l] || I18N.en;
+    if (!errStr) return t.toast_connection_error;
+    const map = {
+      'Invalid credentials':                   t.err_invalid_credentials,
+      'This email/phone is already registered':t.err_email_phone_taken,
+      'Invalid referral code':                 t.err_ref_invalid,
+      'Invalid plan selected':                 t.err_plan_invalid,
+      'User not found':                        t.err_user_not_found,
+      'Your account has been suspended':       t.err_account_suspended,
+      'All fields are required including referral code': t.err_all_fields_ref,
+    };
+    return map[errStr] || errStr;
+  };
+
   const doLogin = async () => {
     const t = I18N[lang] || I18N.en;
     if (!loginForm.identifier || !loginForm.password) { showToast('⚠️ ' + t.auth_fill_all); return; }
@@ -268,7 +308,7 @@ export default function App() {
         body: JSON.stringify(loginForm),
       });
       const data = await res.json();
-      if (!res.ok) { showToast('⚠️ ' + data.error); return; }
+      if (!res.ok) { showToast('⚠️ ' + translateServerError(data.error, lang)); return; }
       const nextUser = mapApiUser(data.user, data.plan, data.token);
       setUser(nextUser);
       saveStoredSession(nextUser);
@@ -296,7 +336,7 @@ export default function App() {
             ? `⚠️ রেফারারের ব্যালেন্স অপর্যাপ্ত। প্রয়োজন: ${convertCurrency(data.needed, 'bn')}`
             : `⚠️ Referrer has insufficient balance. Needed: ${convertCurrency(data.needed, 'en')}`);
         } else {
-          showToast('⚠️ ' + data.error);
+          showToast('⚠️ ' + translateServerError(data.error, lang));
         }
         return;
       }
@@ -395,22 +435,7 @@ export default function App() {
         />
       </div>
       <SupportWidget lang={lang} />
-      {toast && (
-        <div className={`toast toast-${toast.type}`}>
-          <div className="toast-icon-wrap">
-            {toast.type === 'success' ? <Icons.CheckCircle size={22} /> : toast.type === 'error' ? <Icons.AlertCircle size={22} /> : toast.type === 'warning' ? <Icons.AlertTriangle size={22} /> : <Icons.Info size={22} />}
-          </div>
-          <div className="toast-body">
-            <div className="toast-type-label">
-              {toast.type === 'success' ? 'সফল' : toast.type === 'error' ? 'ত্রুটি' : toast.type === 'warning' ? 'সতর্কতা' : 'তথ্য'}
-            </div>
-            <div className="toast-msg-text">{toast.msg}</div>
-          </div>
-          <div className="toast-close" onClick={() => setToast(null)}>
-            <Icons.X size={16} />
-          </div>
-        </div>
-      )}
+      {toast && <ToastBox toast={toast} setToast={setToast} lang={lang} />}
     </>
   );
 
@@ -436,22 +461,7 @@ export default function App() {
         </div>
       </div>
       <SupportWidget lang={lang} />
-      {toast && (
-        <div className={`toast toast-${toast.type}`}>
-          <div className="toast-icon-wrap">
-            {toast.type === 'success' ? <Icons.CheckCircle size={22} /> : toast.type === 'error' ? <Icons.AlertCircle size={22} /> : toast.type === 'warning' ? <Icons.AlertTriangle size={22} /> : <Icons.Info size={22} />}
-          </div>
-          <div className="toast-body">
-            <div className="toast-type-label">
-              {toast.type === 'success' ? 'সফল' : toast.type === 'error' ? 'ত্রুটি' : toast.type === 'warning' ? 'সতর্কতা' : 'তথ্য'}
-            </div>
-            <div className="toast-msg-text">{toast.msg}</div>
-          </div>
-          <div className="toast-close" onClick={() => setToast(null)}>
-            <Icons.X size={16} />
-          </div>
-        </div>
-      )}
+      {toast && <ToastBox toast={toast} setToast={setToast} lang={lang} />}
     </>
   );
 
@@ -656,22 +666,7 @@ export default function App() {
         </div>
       </div>
 
-      {toast && (
-        <div className={`toast toast-${toast.type}`}>
-          <div className="toast-icon-wrap">
-            {toast.type === 'success' ? <Icons.CheckCircle size={22} /> : toast.type === 'error' ? <Icons.AlertCircle size={22} /> : toast.type === 'warning' ? <Icons.AlertTriangle size={22} /> : <Icons.Info size={22} />}
-          </div>
-          <div className="toast-body">
-            <div className="toast-type-label">
-              {toast.type === 'success' ? 'সফল' : toast.type === 'error' ? 'ত্রুটি' : toast.type === 'warning' ? 'সতর্কতা' : 'তথ্য'}
-            </div>
-            <div className="toast-msg-text">{toast.msg}</div>
-          </div>
-          <div className="toast-close" onClick={() => setToast(null)}>
-            <Icons.X size={16} />
-          </div>
-        </div>
-      )}
+      {toast && <ToastBox toast={toast} setToast={setToast} lang={lang} />}
     </>
   );
 }

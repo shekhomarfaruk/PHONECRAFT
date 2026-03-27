@@ -330,11 +330,32 @@ export const I18N = {
     toast_request_submitted:'request submitted!',
     toast_request_failed:   'Request failed',
 
+    // ── Toast type labels ───────────────────────────────────────────────────
+    toast_success:          'Success',
+    toast_error:            'Error',
+    toast_warning:          'Warning',
+    toast_info:             'Info',
+
+    // ── Server error translations ───────────────────────────────────────────
+    err_invalid_credentials:   'Incorrect password or ID',
+    err_email_phone_taken:     'This email/phone is already registered',
+    err_ref_invalid:           'Invalid referral code',
+    err_plan_invalid:          'Invalid plan selected',
+    err_user_not_found:        'User not found',
+    err_account_suspended:     'Your account has been suspended',
+    err_all_fields_ref:        'All fields required including referral code',
+
     // ── Auth toast extras ───────────────────────────────────────────────────
     auth_fill_all:          'Fill all fields',
     auth_all_required:      'All fields required including referral code',
     auth_welcome:           'Account created! Welcome aboard!',
     auth_conn_error:        'Connection error',
+
+    // ── Sound settings ──────────────────────────────────────────────────────
+    settings_sound:         'Notification Sound',
+    settings_sound_hint:    'Play a sound on activity & notifications',
+    settings_sound_on:      'Sound On',
+    settings_sound_off:     'Sound Off',
 
     // ── Balance/Profile extras ──────────────────────────────────────────────
     team_commission:        'Team Commission',
@@ -940,11 +961,32 @@ export const I18N = {
     toast_request_submitted:'রিকোয়েস্ট পাঠানো হয়েছে!',
     toast_request_failed:   'রিকোয়েস্ট ব্যর্থ হয়েছে',
 
+    // ── Toast type labels ───────────────────────────────────────────────────
+    toast_success:          'সফল',
+    toast_error:            'ত্রুটি',
+    toast_warning:          'সতর্কতা',
+    toast_info:             'তথ্য',
+
+    // ── Server error translations ───────────────────────────────────────────
+    err_invalid_credentials:   'পাসওয়ার্ড বা ID ভুল',
+    err_email_phone_taken:     'এই ইমেইল/ফোন ইতিমধ্যে নিবন্ধিত',
+    err_ref_invalid:           'রেফারেল কোড সঠিক নয়',
+    err_plan_invalid:          'প্ল্যান সঠিক নয়',
+    err_user_not_found:        'ব্যবহারকারী পাওয়া যায়নি',
+    err_account_suspended:     'আপনার অ্যাকাউন্ট স্থগিত করা হয়েছে',
+    err_all_fields_ref:        'রেফারেল কোডসহ সব ঘর পূরণ করুন',
+
     // ── Auth toast extras ───────────────────────────────────────────────────
     auth_fill_all:          'সব ঘর পূরণ করুন',
     auth_all_required:      'রেফারেল কোডসহ সব ঘর পূরণ করুন',
     auth_welcome:           'অ্যাকাউন্ট তৈরি হয়েছে! স্বাগতম!',
     auth_conn_error:        'সংযোগ ত্রুটি',
+
+    // ── Sound settings ──────────────────────────────────────────────────────
+    settings_sound:         'নোটিফিকেশন শব্দ',
+    settings_sound_hint:    'কার্যকলাপ ও নোটিফিকেশনে শব্দ বাজবে',
+    settings_sound_on:      'শব্দ চালু',
+    settings_sound_off:     'শব্দ বন্ধ',
 
     // ── Balance/Profile extras ──────────────────────────────────────────────
     team_commission:        'টিম কমিশন',

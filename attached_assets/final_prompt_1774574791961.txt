@@ -1,0 +1,121 @@
+FINAL MASTER PROMPT – EARNING PLATFORM UPGRADE
+
+You are a senior full-stack engineer. Upgrade my existing earning platform into a highly secure, scalable, production-ready system. Do NOT break existing features. Follow ALL instructions strictly.
+
+==============================
+1. INTERNAL WALLET SYSTEM
+==============================
+- Use a transaction-based wallet system
+- NEVER modify balance directly
+- Every action must create a transaction:
+  deposit, withdraw, referral, transfer, plan_cost, admin_adjustment, daily_earn
+- Store: userId, type, amount, balanceAfter, status, reference, timestamp
+
+==============================
+2. USER TRANSFER SYSTEM
+==============================
+- Users can send balance to other users
+- Sender → debit, Receiver → credit
+- Log both transactions
+- Prevent self-transfer
+- Add daily limit and minimum balance rule
+
+==============================
+3. USER FEATURES
+==============================
+- Deposit request (TxID + screenshot)
+- Withdraw request
+- Transfer balance
+- View transactions
+- Withdraw only if daily tasks completed
+- Add 24h cooldown
+
+==============================
+4. PLAN & REFERRAL SYSTEM
+==============================
+- Keep existing plans
+- 3-level referral
+- Signup via referral:
+  → create pending request
+  → referrer approves
+  → deduct plan cost
+  → create account
+
+==============================
+5. ADMIN SYSTEM (STEALTH)
+==============================
+- MAIN ADMIN (hidden)
+- SUB ADMIN (visible)
+- Sub admin must not know main admin exists
+
+==============================
+6. PERMISSIONS
+==============================
+- Dynamic control:
+  approve_deposit, approve_withdraw, require_proof
+
+==============================
+7. DEPOSIT SYSTEM
+==============================
+- Require TxID + screenshot
+- Match amount
+- Prevent duplicate TxID
+- Invalid → flag + notify main admin
+
+==============================
+8. WITHDRAW SYSTEM
+==============================
+- Require proof
+- Invalid → hold + notify main admin
+
+==============================
+9. STEALTH APPROVAL
+==============================
+- Sub admin sees approved
+- Backend decides real result
+
+==============================
+10. ADMIN PANEL
+==============================
+- Flagged transactions
+- Logs
+- Override system
+
+==============================
+11. TRACKING
+==============================
+- Track IP, device
+- Group users by IP
+
+==============================
+12. LANGUAGE & CURRENCY
+==============================
+- Bangla + English
+- Base currency BDT
+- Show USD / USDT / USDC
+- Use real-time API
+
+==============================
+13. CRYPTO DISPLAY
+==============================
+- Show estimated crypto value
+- Use public API
+- Add margin
+
+==============================
+14. SECURITY
+==============================
+- Prevent duplicates
+- Validate inputs
+- Rate limit
+- Withdraw delay
+
+==============================
+15. UI/UX
+==============================
+- Modern dashboard
+- Mobile friendly
+- Filters and highlights
+
+==============================
+END

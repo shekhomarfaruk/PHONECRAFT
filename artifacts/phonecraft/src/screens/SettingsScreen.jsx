@@ -15,6 +15,13 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
   const [curPass,  setCurPass]  = useState('');
   const [newPass,  setNewPass]  = useState('');
   const [conPass,  setConPass]  = useState('');
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem('app-sound') !== 'off');
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    localStorage.setItem('app-sound', next ? 'on' : 'off');
+  };
+
   const [notifs, setNotifs] = useState(() => {
     try {
       const saved = localStorage.getItem('notif-prefs');
@@ -98,6 +105,39 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
           }}>
             <div style={{ fontSize: 16, marginBottom: 6, fontWeight: 800, color: 'var(--accent)', fontFamily: 'Space Grotesk', letterSpacing: 1 }}>বাং</div>
             <div style={{ fontFamily: 'Space Grotesk', fontSize: 11, color: lang === 'bn' ? 'var(--accent)' : 'var(--text2)', letterSpacing: 1 }}>বাংলা</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Notification Sound ─── */}
+      <div className="card">
+        <div className="card-title"><Icons.Bell size={14} /> {t.settings_sound}</div>
+        <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>{t.settings_sound_hint}</div>
+        <div onClick={toggleSound} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
+          border: `2px solid ${soundOn ? 'var(--accent)' : 'var(--border)'}`,
+          background: soundOn ? 'var(--input-bg)' : 'transparent',
+          boxShadow: soundOn ? 'var(--glow)' : 'none',
+          transition: 'all .2s',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 22 }}>{soundOn ? '🔔' : '🔕'}</span>
+            <div style={{ fontWeight: 700, fontSize: '0.9em', color: soundOn ? 'var(--accent)' : 'var(--text)' }}>
+              {soundOn ? t.settings_sound_on : t.settings_sound_off}
+            </div>
+          </div>
+          <div style={{
+            width: 46, height: 26, borderRadius: 13,
+            background: soundOn ? 'var(--accent)' : 'var(--border)',
+            position: 'relative', transition: 'background .2s', flexShrink: 0,
+          }}>
+            <div style={{
+              position: 'absolute', top: 3,
+              left: soundOn ? 22 : 3,
+              width: 20, height: 20, borderRadius: '50%', background: '#fff',
+              transition: 'left .2s', boxShadow: '0 1px 4px rgba(0,0,0,.25)',
+            }} />
           </div>
         </div>
       </div>
