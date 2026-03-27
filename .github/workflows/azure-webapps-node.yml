@@ -119,6 +119,20 @@ jobs:
               f.write(code)
           PYEOF
 
+      - name: Strip unnecessary build artifacts
+        run: |
+          rm -rf server/node_modules/better-sqlite3/deps
+          rm -rf server/node_modules/better-sqlite3/build/Release/obj
+          rm -rf server/node_modules/better-sqlite3/build/Release/obj.target
+          rm -rf server/node_modules/better-sqlite3/build/Release/.deps
+          rm -rf server/node_modules/better-sqlite3/build/deps
+          find server/node_modules -name "*.c" -delete
+          find server/node_modules -name "*.h" -delete
+          find server/node_modules -name "*.cc" -delete
+          find server/node_modules -name "*.o" -delete
+          find server/node_modules -name "*.a" -delete
+          find server/node_modules -name "Makefile" -delete
+
       - name: Archive production artifacts
         run: zip -r release.zip server dist .env start.sh .deployment
 
