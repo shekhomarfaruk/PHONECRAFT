@@ -118,8 +118,19 @@ export default function App() {
     localStorage.setItem('app-font-size', fontSize);
   }, [fontSize]);
 
-  // Persist language to localStorage
-  useEffect(() => { localStorage.setItem('app-lang', lang); }, [lang]);
+  // Persist language to localStorage + sync to server when logged in
+  useEffect(() => {
+    localStorage.setItem('app-lang', lang);
+    const tok = auth?.token;
+    const uid = user?.id;
+    if (tok && uid) {
+      fetch(`${API_URL}/api/user/${uid}/lang`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ lang }),
+      }).catch(() => {});
+    }
+  }, [lang, user?.id, auth?.token]);
 
   // Persist theme to localStorage
   useEffect(() => { localStorage.setItem('app-theme', isDark ? 'dark' : 'light'); }, [isDark]);
@@ -349,6 +360,13 @@ export default function App() {
   const translateServerError = (errStr, l) => {
     const t = I18N[l] || I18N.en;
     if (!errStr) return t.toast_connection_error;
+    // Handle bilingual JSON error messages from server
+    if (typeof errStr === 'string' && errStr.startsWith('{') && errStr.includes('"en"')) {
+      try {
+        const parsed = JSON.parse(errStr);
+        return (l === 'bn' ? parsed.bn : parsed.en) || errStr;
+      } catch (_) {}
+    }
     const map = {
       'Invalid credentials':                   t.err_invalid_credentials,
       'This email/phone is already registered':t.err_email_phone_taken,

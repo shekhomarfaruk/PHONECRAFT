@@ -246,6 +246,9 @@ db.exec(`
 // Add support chat status columns
 try { db.exec('ALTER TABLE support_chats ADD COLUMN status TEXT DEFAULT NULL'); } catch (_) {}
 
+// Add user language preference (bn = Bangla/BDT, en = English/USD)
+try { db.exec("ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'bn'"); } catch (_) {}
+
 // Support session metadata table
 db.exec(`
   CREATE TABLE IF NOT EXISTS support_sessions (

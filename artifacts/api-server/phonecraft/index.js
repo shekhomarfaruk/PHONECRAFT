@@ -78,6 +78,38 @@ async function broadcastPush(payload, excludeUserId) {
   } catch (_) {}
 }
 
+// ── Currency helpers ──────────────────────────────────────────────────────────
+const DEFAULT_USD_RATE = 122.80;
+let _usdRate = DEFAULT_USD_RATE;
+let _usdRateTs = 0;
+async function refreshUsdRate() {
+  if (Date.now() - _usdRateTs < 7 * 60 * 1000) return _usdRate;
+  try {
+    const r = await fetch('https://open.er-api.com/v6/latest/USD');
+    const d = await r.json();
+    if (d?.rates?.BDT) { _usdRate = Number(d.rates.BDT); _usdRateTs = Date.now(); }
+  } catch (_) {}
+  if (typeof telegramService !== 'undefined' && telegramService) telegramService.usdRate = _usdRate;
+  return _usdRate;
+}
+refreshUsdRate();
+setInterval(refreshUsdRate, 7 * 60 * 1000);
+
+function fmtAmt(bdt, lang) {
+  const n = Number(bdt) || 0;
+  if (lang === 'bn') return `৳${n.toLocaleString('en-US')}`;
+  return `$${(n / _usdRate).toFixed(2)}`;
+}
+function biMsg(en, bn) {
+  return JSON.stringify({ en, bn });
+}
+function getUserLang(userId) {
+  try {
+    const u = stmts.getUserById.get(Number(userId));
+    return u?.lang || 'bn';
+  } catch (_) { return 'bn'; }
+}
+
 // ── Multer for file uploads ───────────────────────────────────────────────────
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -430,7 +462,7 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
         user_id: tx.user_id,
         type: 'withdrawal_refund',
         amount: tx.amount,
-        note: `উইথড্র রিফান্ড (প্রত্যাখ্যাত) — ${tx.method}`,
+        note: biMsg(`Withdrawal refund (rejected) — ${tx.method}`, `উইথড্র রিফান্ড (প্রত্যাখ্যাত) — ${tx.method}`),
       });
     }
 
@@ -440,21 +472,31 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
         user_id: tx.user_id,
         type: 'deposit',
         amount: tx.amount,
-        note: `ডিপোজিট অনুমোদিত (${tx.method} - ${tx.account})`,
+        note: biMsg(`Deposit approved (${tx.method} - ${tx.account})`, `ডিপোজিট অনুমোদিত (${tx.method} - ${tx.account})`),
       });
     }
 
     const action = status === 'approved' ? 'approved' : 'rejected';
-    const noteStr = adminNote ? ` Note: ${adminNote}` : '';
-    const notifMsg = `Your ${tx.type} of ৳${tx.amount.toLocaleString()} has been ${action}.${noteStr}`;
+    const noteStr = adminNote ? ` (${adminNote})` : '';
+    const noteStrBn = adminNote ? ` (${adminNote})` : '';
+    const notifMsg = biMsg(
+      `Your ${tx.type} of ${fmtAmt(tx.amount, 'en')} has been ${action}.${noteStr}`,
+      `আপনার ${tx.type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র'} ${fmtAmt(tx.amount, 'bn')} ${status === 'approved' ? 'অনুমোদিত হয়েছে।' : 'বাতিল হয়েছে।'}${noteStrBn}`
+    );
     stmts.insertNotification.run(tx.user_id, notifMsg, status === 'approved' ? 'success' : 'warning');
 
-    // Push notification for tx approval/rejection
+    // Push notification for tx approval/rejection (use user's language)
     const pushIcon = status === 'approved' ? '✅' : '❌';
-    const txLabel = tx.type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র';
+    const uLang = getUserLang(tx.user_id);
+    const txLabelEn = tx.type === 'deposit' ? 'Deposit' : 'Withdrawal';
+    const txLabelBn = tx.type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র';
     sendPush(tx.user_id, {
-      title: `${pushIcon} ${txLabel} ${status === 'approved' ? 'অনুমোদিত' : 'বাতিল'}`,
-      body: `৳${tx.amount.toLocaleString()} ${txLabel} ${status === 'approved' ? 'অনুমোদন করা হয়েছে।' : 'বাতিল করা হয়েছে।'}${noteStr}`,
+      title: uLang === 'bn'
+        ? `${pushIcon} ${txLabelBn} ${status === 'approved' ? 'অনুমোদিত' : 'বাতিল'}`
+        : `${pushIcon} ${txLabelEn} ${status === 'approved' ? 'Approved' : 'Rejected'}`,
+      body: uLang === 'bn'
+        ? `${fmtAmt(tx.amount, 'bn')} ${txLabelBn} ${status === 'approved' ? 'অনুমোদন করা হয়েছে।' : 'বাতিল করা হয়েছে।'}${noteStrBn}`
+        : `${fmtAmt(tx.amount, 'en')} ${txLabelEn} ${status === 'approved' ? 'has been approved.' : 'has been rejected.'}${noteStr}`,
       icon: '/logo.png',
       url: '/wallet',
       tag: `tx-${tx.id}`,
@@ -476,6 +518,7 @@ const telegramService = new TelegramService({
     stmts.insertSupportMsg.run(sessionId, 'admin', String(text || '').trim());
   },
 });
+telegramService.usdRate = _usdRate;
 
 // ── Admin guard ─────────────────────────────────────────────────────────────
 function requireAdmin(req, res) {
@@ -573,7 +616,10 @@ app.post('/api/register', registerLimiter, (req, res) => {
     const meta = JSON.stringify({ pending_id: pendingId, plan_name: planRow.name, amount: planRow.rate, new_user_name: name.trim() });
     stmts.insertNotifWithMeta.run(
       referrer.id,
-      `🔔 ${name.trim()} আপনার রেফারেল কোড ব্যবহার করে ${planRow.name} প্ল্যানে যোগ দিতে চাইছেন। আপনার ব্যালেন্স থেকে ৳${planRow.rate.toLocaleString()} কাটা হবে।`,
+      biMsg(
+        `🔔 ${name.trim()} wants to join using your referral code (${planRow.name}). ${fmtAmt(planRow.rate, 'en')} will be deducted from your balance.`,
+        `🔔 ${name.trim()} আপনার রেফারেল কোড ব্যবহার করে ${planRow.name} প্ল্যানে যোগ দিতে চাইছেন। আপনার ব্যালেন্স থেকে ${fmtAmt(planRow.rate, 'bn')} কাটা হবে।`
+      ),
       'registration_request',
       meta
     );
@@ -583,7 +629,7 @@ app.post('/api/register', registerLimiter, (req, res) => {
       `🔔 <b>নতুন Registration Request</b>`,
       `━━━━━━━━━━━━━━━━━━━`,
       `👤 নাম: <b>${name.trim()}</b>`,
-      `📋 প্ল্যান: <b>${planRow.name}</b> (৳${planRow.rate.toLocaleString()})`,
+      `📋 প্ল্যান: <b>${planRow.name}</b> (${fmtAmt(planRow.rate, 'bn')} / ${fmtAmt(planRow.rate, 'en')})`,
       `🔗 রেফারার: <b>${referrer.name}</b>`,
       `🆔 Pending ID: #${pendingId}`,
       `🕐 সময়: ${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })}`,
@@ -594,7 +640,7 @@ app.post('/api/register', registerLimiter, (req, res) => {
     // Push notification to all admins
     notifyAdmins({
       title: '👤 নতুন Registration Request',
-      body: `${name.trim()} — ${planRow.name} (৳${planRow.rate.toLocaleString()})`,
+      body: `${name.trim()} — ${planRow.name} (${fmtAmt(planRow.rate, 'bn')} / ${fmtAmt(planRow.rate, 'en')})`,
       icon: '/logo.png', tag: 'admin-reg', url: '/xpc-ctrl-7f3b/',
     });
 
@@ -666,11 +712,17 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
           });
           stmts.insertBalanceLog.run({
             user_id: currentUser.id, type: logType, amount: bonus,
-            note: `${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন (${pct}%)`,
+            note: biMsg(
+              `L${lvl} commission +${fmtAmt(bonus, 'en')} from ${pending.name}'s registration (${pct}%)`,
+              `${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন +${fmtAmt(bonus, 'bn')} (${pct}%)`
+            ),
           });
           stmts.insertNotification.run(
             currentUser.id,
-            `🎁 রেফারেল বোনাস: ${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন +৳${bonus.toLocaleString()} আপনার ব্যালেন্সে যোগ হয়েছে।`,
+            biMsg(
+              `🎁 Referral Bonus: L${lvl} commission +${fmtAmt(bonus, 'en')} from ${pending.name}'s registration added to your balance.`,
+              `🎁 রেফারেল বোনাস: ${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন +${fmtAmt(bonus, 'bn')} আপনার ব্যালেন্সে যোগ হয়েছে।`
+            ),
             'success'
           );
         }
@@ -683,7 +735,10 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
       // ── 4. Notify direct referrer of approval ────────────────────────────
       stmts.insertNotification.run(
         referrer.id,
-        `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ৳${pending.plan_rate.toLocaleString()} কাটা হয়েছে।`,
+        biMsg(
+          `✅ You approved ${pending.name}'s registration. ${fmtAmt(pending.plan_rate, 'en')} was deducted from your balance.`,
+          `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ${fmtAmt(pending.plan_rate, 'bn')} কাটা হয়েছে।`
+        ),
         'success'
       );
 
@@ -1331,6 +1386,19 @@ app.patch('/api/user/:id/avatar', authRequired, requireSelfOrAdmin('id'), (req, 
   }
 });
 
+// ── User language preference ──────────────────────────────────────────────────
+app.patch('/api/user/:id/lang', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const { lang } = req.body || {};
+    if (!['en', 'bn'].includes(lang)) return res.status(400).json({ error: 'Invalid language' });
+    db.prepare("UPDATE users SET lang = ? WHERE id = ?").run(lang, userId);
+    res.json({ ok: true, lang });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update language' });
+  }
+});
+
 // ── User's transactions ──────────────────────────────────────────────────────
 app.get('/api/user/:id/transactions', authRequired, requireSelfOrAdmin('id'), (req, res) => {
   try {
@@ -1370,17 +1438,17 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
     const minWd = getSettingNum('min_withdraw', 0);
     const maxWd = getSettingNum('max_withdraw', 0);
     if (minWd > 0 && numAmount < minWd)
-      return res.status(400).json({ error: `Minimum withdrawal is ৳${minWd.toLocaleString()}` });
+      return res.status(400).json({ error: biMsg(`Minimum withdrawal is ${fmtAmt(minWd, 'en')}`, `সর্বনিম্ন উইথড্র পরিমাণ ${fmtAmt(minWd, 'bn')}`) });
     if (maxWd > 0 && numAmount > maxWd)
-      return res.status(400).json({ error: `Maximum withdrawal is ৳${maxWd.toLocaleString()}` });
+      return res.status(400).json({ error: biMsg(`Maximum withdrawal is ${fmtAmt(maxWd, 'en')}`, `সর্বোচ্চ উইথড্র পরিমাণ ${fmtAmt(maxWd, 'bn')}`) });
   }
   if (type === 'deposit') {
     const minDep = getSettingNum('min_deposit', 0);
     const maxDep = getSettingNum('max_deposit', 0);
     if (minDep > 0 && numAmount < minDep)
-      return res.status(400).json({ error: `Minimum deposit is ৳${minDep.toLocaleString()}` });
+      return res.status(400).json({ error: biMsg(`Minimum deposit is ${fmtAmt(minDep, 'en')}`, `সর্বনিম্ন ডিপোজিট পরিমাণ ${fmtAmt(minDep, 'bn')}`) });
     if (maxDep > 0 && numAmount > maxDep)
-      return res.status(400).json({ error: `Maximum deposit is ৳${maxDep.toLocaleString()}` });
+      return res.status(400).json({ error: biMsg(`Maximum deposit is ${fmtAmt(maxDep, 'en')}`, `সর্বোচ্চ ডিপোজিট পরিমাণ ${fmtAmt(maxDep, 'bn')}`) });
   }
 
   const isCrypto = method === 'crypto';
@@ -1475,7 +1543,7 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       }
 
       const admins = stmts.getAdminUsers.all();
-      const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`;
+      const notifMsg = `New ${type} request: ${fmtAmt(numAmount, 'bn')} / ${fmtAmt(numAmount, 'en')} from ${userRow.name} (${method})`;
       for (const admin of admins) {
         stmts.insertNotification.run(admin.id, notifMsg, 'info');
       }
@@ -1520,8 +1588,8 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         console.error('Finance Telegram error:', err.message);
       });
       notifyAdmins({
-        title: '💰 নতুন Deposit Request',
-        body: `${userRow.name} — ৳${numAmount.toLocaleString()} (${String(method).toUpperCase()})`,
+        title: '💰 New Deposit Request',
+        body: `${userRow.name} — ${fmtAmt(numAmount, 'bn')} / ${fmtAmt(numAmount, 'en')} (${String(method).toUpperCase()})`,
         icon: '/logo.png', tag: 'admin-deposit', url: '/xpc-ctrl-7f3b/',
       });
     } else {
@@ -1529,8 +1597,8 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         console.error('Finance Telegram error:', err.message);
       });
       notifyAdmins({
-        title: '💸 নতুন Withdraw Request',
-        body: `${userRow.name} — ৳${numAmount.toLocaleString()} (${String(method).toUpperCase()})`,
+        title: '💸 New Withdraw Request',
+        body: `${userRow.name} — ${fmtAmt(numAmount, 'bn')} / ${fmtAmt(numAmount, 'en')} (${String(method).toUpperCase()})`,
         icon: '/logo.png', tag: 'admin-withdraw', url: '/xpc-ctrl-7f3b/',
       });
     }
@@ -1574,7 +1642,7 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       // ── Minimum balance after transfer ──
       const minBal = getSettingNum('transfer_min_balance', 10);
       if (minBal > 0 && (sender.balance - numAmount) < minBal) {
-        return { status: 400, body: { error: `Must keep minimum ৳${minBal} balance after transfer` } };
+        return { status: 400, body: { error: biMsg(`Must keep minimum ${fmtAmt(minBal, 'en')} balance after transfer`, `ট্রান্সফারের পরে ন্যূনতম ${fmtAmt(minBal, 'bn')} ব্যালেন্স রাখতে হবে`) } };
       }
 
       // ── Daily transfer limit ──
@@ -1582,7 +1650,7 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       if (dailyLimit > 0) {
         const todayTotal = stmts.getDailyTransferTotal.get(sender.id);
         if ((todayTotal.total + numAmount) > dailyLimit) {
-          return { status: 400, body: { error: `Daily transfer limit ৳${dailyLimit.toLocaleString()} exceeded` } };
+          return { status: 400, body: { error: biMsg(`Daily transfer limit ${fmtAmt(dailyLimit, 'en')} exceeded`, `দৈনিক ট্রান্সফার সীমা ${fmtAmt(dailyLimit, 'bn')} অতিক্রম করেছে`) } };
         }
       }
 
@@ -1593,18 +1661,21 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       stmts.deductBalance.run(numAmount, sender.id, numAmount);
       stmts.insertBalanceLog.run({
         user_id: sender.id, type: 'transfer_sent', amount: -numAmount,
-        note: `${receiver.name}-কে ট্রান্সফার`,
+        note: biMsg(`Transfer sent to ${receiver.name}`, `${receiver.name}-কে ট্রান্সফার`),
       });
 
       stmts.creditBalance.run(numAmount, receiver.id);
       stmts.insertBalanceLog.run({
         user_id: receiver.id, type: 'transfer_received', amount: numAmount,
-        note: `${sender.name}-এর কাছ থেকে ট্রান্সফার`,
+        note: biMsg(`Transfer received from ${sender.name}`, `${sender.name}-এর কাছ থেকে ট্রান্সফার`),
       });
 
       stmts.insertNotification.run(
         receiver.id,
-        `${sender.name} আপনাকে ৳${numAmount.toLocaleString()} ট্রান্সফার করেছেন।`,
+        biMsg(
+          `${sender.name} transferred ${fmtAmt(numAmount, 'en')} to you.`,
+          `${sender.name} আপনাকে ${fmtAmt(numAmount, 'bn')} ট্রান্সফার করেছেন।`
+        ),
         'success'
       );
 
@@ -1964,13 +2035,22 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       const diff = balance - user.balance;
       stmts.insertBalanceLog.run({
         user_id: id, type: 'admin_adjustment', amount: diff,
-        note: `Admin ব্যালেন্স সংশোধন: ৳${user.balance.toLocaleString()} → ৳${balance.toLocaleString()}`,
+        note: biMsg(
+          `Admin balance adjustment: ${fmtAmt(user.balance, 'en')} → ${fmtAmt(balance, 'en')}`,
+          `Admin ব্যালেন্স সংশোধন: ${fmtAmt(user.balance, 'bn')} → ${fmtAmt(balance, 'bn')}`
+        ),
       });
-      stmts.insertNotification.run(id, `Your balance has been updated to ৳${balance.toLocaleString()}`, 'info');
+      const uLangAdj = getUserLang(id);
+      stmts.insertNotification.run(id, biMsg(
+        `Your balance has been updated to ${fmtAmt(balance, 'en')}`,
+        `আপনার ব্যালেন্স ${fmtAmt(balance, 'bn')}-এ আপডেট করা হয়েছে`
+      ), 'info');
       const isCredit = diff > 0;
       sendPush(id, {
-        title: isCredit ? '💰 ব্যালেন্স যোগ হয়েছে' : '💸 ব্যালেন্স কাটা হয়েছে',
-        body: `Admin আপনার ব্যালেন্স ${isCredit ? 'বাড়িয়ে' : 'কমিয়ে'} ৳${balance.toLocaleString()} করেছে।`,
+        title: uLangAdj === 'bn' ? (isCredit ? '💰 ব্যালেন্স যোগ হয়েছে' : '💸 ব্যালেন্স কাটা হয়েছে') : (isCredit ? '💰 Balance Credited' : '💸 Balance Deducted'),
+        body: uLangAdj === 'bn'
+          ? `Admin আপনার ব্যালেন্স ${isCredit ? 'বাড়িয়ে' : 'কমিয়ে'} ${fmtAmt(balance, 'bn')} করেছে।`
+          : `Admin has ${isCredit ? 'increased' : 'decreased'} your balance to ${fmtAmt(balance, 'en')}.`,
         icon: '/logo.png',
         url: '/balance',
         tag: 'balance-update',
@@ -1978,10 +2058,11 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
     }
 
     if (plan_id !== user.plan_id) {
-      stmts.insertNotification.run(id, `Your plan has been changed to ${plan.name}`, 'info');
+      stmts.insertNotification.run(id, biMsg(`Your plan has been changed to ${plan.name}`, `আপনার প্ল্যান ${plan.name}-এ পরিবর্তন করা হয়েছে।`), 'info');
+      const uLangPlan = getUserLang(id);
       sendPush(id, {
-        title: '📱 প্ল্যান পরিবর্তিত',
-        body: `আপনার প্ল্যান ${plan.name}-এ পরিবর্তন করা হয়েছে।`,
+        title: uLangPlan === 'bn' ? '📱 প্ল্যান পরিবর্তিত' : '📱 Plan Changed',
+        body: uLangPlan === 'bn' ? `আপনার প্ল্যান ${plan.name}-এ পরিবর্তন করা হয়েছে।` : `Your plan has been changed to ${plan.name}.`,
         icon: '/logo.png',
         url: '/profile',
         tag: 'plan-change',
@@ -1989,11 +2070,15 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
     }
 
     if (banned !== user.banned) {
-      stmts.insertNotification.run(id, banned ? 'Your account has been suspended' : 'Your account has been reactivated', banned ? 'warning' : 'success');
+      stmts.insertNotification.run(id, biMsg(
+        banned ? 'Your account has been suspended' : 'Your account has been reactivated',
+        banned ? 'আপনার অ্যাকাউন্ট স্থগিত করা হয়েছে।' : 'আপনার অ্যাকাউন্ট পুনরায় সক্রিয় করা হয়েছে।'
+      ), banned ? 'warning' : 'success');
       if (!banned) {
+        const uLangBan = getUserLang(id);
         sendPush(id, {
-          title: '✅ অ্যাকাউন্ট সক্রিয়',
-          body: 'আপনার অ্যাকাউন্ট পুনরায় সক্রিয় করা হয়েছে।',
+          title: uLangBan === 'bn' ? '✅ অ্যাকাউন্ট সক্রিয়' : '✅ Account Reactivated',
+          body: uLangBan === 'bn' ? 'আপনার অ্যাকাউন্ট পুনরায় সক্রিয় করা হয়েছে।' : 'Your account has been reactivated.',
           icon: '/logo.png',
           url: '/',
           tag: 'account-status',
@@ -2073,12 +2158,12 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
     // Notify admin on Telegram about approval/rejection
     if (result.status === 200) {
       const tx = result.body.transaction;
-      logAdminAction(req, `transaction_${status}`, 'transaction', txId, `${tx.type} ৳${tx.amount}`);
+      logAdminAction(req, `transaction_${status}`, 'transaction', txId, `${tx.type} ${fmtAmt(tx.amount, 'bn')}`);
       const icon = status === 'approved' ? '✅' : '❌';
       const tgMsg = [
         `${icon} <b>${tx.type === 'deposit' ? 'Deposit' : 'Withdraw'} ${status === 'approved' ? 'Approved' : 'Rejected'}</b>`,
         `👤 User ID: ${tx.user_id}`,
-        `💵 পরিমাণ: <b>৳${tx.amount.toLocaleString()}</b>`,
+        `💵 Amount: <b>${fmtAmt(tx.amount, 'bn')} / ${fmtAmt(tx.amount, 'en')}</b>`,
         `📱 ${tx.method.toUpperCase()}: <code>${tx.account}</code>`,
         admin_note ? `📝 নোট: ${admin_note}` : '',
       ].filter(Boolean).join('\n');

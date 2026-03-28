@@ -1,3 +1,4 @@
+const DEFAULT_USD_RATE = 122.80;
 class TelegramService {
   constructor({
     financeBotToken = '',
@@ -11,6 +12,7 @@ class TelegramService {
   }) {
     this.financeBotToken = String(financeBotToken || '').trim();
     this.supportBotToken = String(supportBotToken || '').trim();
+    this.usdRate = DEFAULT_USD_RATE;
     this.financeChatIds = Array.isArray(financeChatIds) ? financeChatIds.map((v) => String(v)) : [];
     this.supportChatIds = Array.isArray(supportChatIds) ? supportChatIds.map((v) => String(v)) : [];
     this.adminChatIds = new Set((Array.isArray(adminChatIds) ? adminChatIds : []).map((v) => String(v)));
@@ -116,7 +118,7 @@ class TelegramService {
       `🙍 <b>নাম:</b> ${userName || ''}`,
       `📱 <b>Identifier:</b> <code>${userIdentifier || ''}</code>`,
       `💳 <b>Payment Method:</b> ${paymentMethod || ''}`,
-      `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()}`,
+      `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()} (~$${(Number(amount) / (this.usdRate || DEFAULT_USD_RATE)).toFixed(2)})`,
     ];
     if (isCrypto) {
       lines.push(`⛓ <b>Blockchain:</b> ${blockchain || ''}`);
@@ -158,7 +160,7 @@ class TelegramService {
       `🙍 <b>নাম:</b> ${userName || ''}`,
       `📱 <b>Identifier:</b> <code>${userIdentifier || ''}</code>`,
       `💳 <b>Payment Method:</b> ${paymentMethod || ''}`,
-      `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()}`,
+      `💰 <b>Amount:</b> ৳${Number(amount).toLocaleString()} (~$${(Number(amount) / (this.usdRate || DEFAULT_USD_RATE)).toFixed(2)})`,
       `🔢 <b>Account:</b> <code>${accountNumber || ''}</code>`,
       `🆔 <b>Request ID:</b> #${requestId}`,
       `🕐 <b>সময়:</b> ${timestamp}`,

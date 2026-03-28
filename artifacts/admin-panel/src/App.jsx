@@ -20,7 +20,12 @@ function Toast({ toasts }) {
 }
 
 const DEFAULT_USD_RATE = 122.80;
-function formatMoney(n) { return `৳${(Number(n) || 0).toLocaleString()}`; }
+let _adminCur = localStorage.getItem('admin-currency') || 'bdt';
+function formatMoney(n) {
+  const v = Number(n) || 0;
+  if (_adminCur === 'usd') return `$${(v / DEFAULT_USD_RATE).toFixed(2)}`;
+  return `৳${v.toLocaleString()}`;
+}
 function formatMoneyUSD(n, rate) { const r = rate > 0 ? rate : DEFAULT_USD_RATE; return `$${((Number(n) || 0) / r).toFixed(2)}`; }
 function fmtDate(d) { if (!d) return '—'; try { return new Date(d.includes('Z') ? d : d + 'Z').toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return d; } }
 
@@ -222,6 +227,7 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [adminCurrency, setAdminCurrency] = useState(() => localStorage.getItem('admin-currency') || 'bdt');
 
   const toast = (msg, type = 'success') => {
     const id = Date.now();
@@ -263,6 +269,13 @@ export default function App() {
   }, [token, adminUser]);
 
   const logout = () => { localStorage.removeItem('admin_token'); setToken(''); setAdminUser(null); };
+
+  const toggleCurrency = () => {
+    const next = adminCurrency === 'bdt' ? 'usd' : 'bdt';
+    _adminCur = next;
+    localStorage.setItem('admin-currency', next);
+    setAdminCurrency(next);
+  };
 
   if (!token || !adminUser) return <LoginScreen onLogin={(t, u) => { setToken(t); setAdminUser(u); localStorage.setItem('admin_token', t); initAdminPush(t); }} />;
 
@@ -339,6 +352,13 @@ export default function App() {
             <div className="topbar-page-title">{pageLabels[page] || page}</div>
           </div>
           <div className="topbar-right">
+            <button
+              onClick={toggleCurrency}
+              title={adminCurrency === 'bdt' ? 'Switch to USD ($)' : 'Switch to BDT (৳)'}
+              style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: adminCurrency === 'usd' ? '#22C55E' : '#F59E0B', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              {adminCurrency === 'bdt' ? '৳ BDT' : '$ USD'}
+            </button>
             <div className="topbar-icon-btn" onClick={(e) => { e.stopPropagation(); setNotifOpen(p => !p); }} title="Activity & Alerts">
               <Bell size={18} />
               {pendingCount > 0 && <span className="topbar-badge">{pendingCount > 9 ? '9+' : pendingCount}</span>}
@@ -912,10 +932,7 @@ function UsersPage({ authFetch, toast, isMain, adminUser }) {
                     {profile.transactions.map(tx => (
                       <tr key={tx.id}>
                         <td>{tx.type === 'deposit' ? '💰' : '💸'} {tx.type}</td>
-                        <td style={{ fontWeight: 700 }}>
-                          <div>{formatMoney(tx.amount)}</div>
-                          <div style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 400 }}>{formatMoneyUSD(tx.amount)}</div>
-                        </td>
+                        <td style={{ fontWeight: 700 }}>{formatMoney(tx.amount)}</td>
                         <td>{tx.method}</td>
                         <td><span className={`badge ${tx.status === 'approved' ? 'badge-green' : tx.status === 'rejected' ? 'badge-red' : 'badge-yellow'}`}>{tx.status}</span></td>
                         <td style={{ fontSize: 11, color: 'var(--text2)' }}>{fmtDate(tx.created_at)}</td>
@@ -1112,10 +1129,7 @@ function FinancePage({ authFetch, toast, isMain }) {
                     <div style={{ fontWeight: 600 }}>{tx.user_name}</div>
                     <div style={{ fontSize: 10, color: 'var(--text2)' }}>ID: {tx.user_id} · {tx.user_identifier}</div>
                   </td>
-                  <td style={{ fontWeight: 700, fontSize: 15 }}>
-                    <div>{formatMoney(tx.amount)}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 400 }}>{formatMoneyUSD(tx.amount)}</div>
-                  </td>
+                  <td style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(tx.amount)}</td>
                   <td style={{ maxWidth: 220 }}>
                     <span className="badge badge-blue" style={{ marginBottom: 4 }}>{tx.method?.toUpperCase()}</span>
                     {isCrypto ? (
