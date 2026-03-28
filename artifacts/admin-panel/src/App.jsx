@@ -1421,6 +1421,90 @@ function SupportPage({ authFetch, toast }) {
   );
 }
 
+function ResetDatabaseCard({ authFetch, toast }) {
+  const [open, setOpen] = useState(false);
+  const [phrase, setPhrase] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const doReset = async () => {
+    if (phrase !== 'RESET CONFIRM') {
+      toast('Type the exact phrase: RESET CONFIRM', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/reset-database`, {
+        method: 'POST',
+        body: JSON.stringify({ confirmPhrase: 'RESET CONFIRM' }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setDone(true);
+        toast('Database reset complete!', 'success');
+      } else {
+        toast(d.error || 'Reset failed', 'error');
+      }
+    } catch {
+      toast('Connection error', 'error');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="card" style={{ borderColor: 'rgba(220,38,38,0.4)', background: 'rgba(220,38,38,0.04)' }}>
+      <div className="card-title" style={{ color: 'var(--danger)' }}>
+        <AlertTriangle size={16} color="var(--danger)" /> Danger Zone — Reset Database
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14, lineHeight: 1.6 }}>
+        This will <strong style={{ color: 'var(--danger)' }}>permanently delete</strong> all users, transactions, support chats, and activity logs.
+        Your main admin account will be preserved. <strong>This cannot be undone.</strong>
+      </div>
+
+      {!open && !done && (
+        <button className="btn btn-sm" style={{ background: 'rgba(220,38,38,0.12)', color: 'var(--danger)', border: '1px solid rgba(220,38,38,0.3)' }} onClick={() => setOpen(true)}>
+          <Trash2 size={14} /> Reset All Server Data
+        </button>
+      )}
+
+      {open && !done && (
+        <div style={{ background: 'rgba(220,38,38,0.07)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', marginBottom: 10 }}>
+            ⚠️ Type <code style={{ background: 'rgba(220,38,38,0.15)', padding: '2px 6px', borderRadius: 4 }}>RESET CONFIRM</code> to proceed:
+          </div>
+          <input
+            className="inp"
+            placeholder="RESET CONFIRM"
+            value={phrase}
+            onChange={e => setPhrase(e.target.value)}
+            style={{ marginBottom: 12, borderColor: phrase === 'RESET CONFIRM' ? 'var(--danger)' : undefined }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-sm"
+              style={{ background: 'var(--danger)', color: '#fff', border: 'none', opacity: phrase === 'RESET CONFIRM' ? 1 : 0.5 }}
+              onClick={doReset}
+              disabled={loading || phrase !== 'RESET CONFIRM'}
+            >
+              {loading ? 'Resetting...' : '🗑️ Confirm Reset'}
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => { setOpen(false); setPhrase(''); }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {done && (
+        <div style={{ background: 'rgba(14,203,129,0.08)', border: '1px solid rgba(14,203,129,0.25)', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: 'var(--success)' }}>
+          ✅ Database reset complete. All user data cleared. Refresh the page to continue.
+          <button className="btn btn-outline btn-sm" style={{ marginLeft: 12 }} onClick={() => window.location.reload()}>Refresh</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminsPage({ authFetch, toast, adminUser }) {
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -1665,6 +1749,9 @@ function AdminsPage({ authFetch, toast, adminUser }) {
           </div>
         </div>
       )}
+
+      {/* ⚠️ Danger Zone — Reset Database (main admin only) */}
+      {isMain && <ResetDatabaseCard authFetch={authFetch} toast={toast} />}
     </>
   );
 }

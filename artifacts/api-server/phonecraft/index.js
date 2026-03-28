@@ -3075,6 +3075,45 @@ app.post('/api/reset-password', (req, res) => {
   res.json({ ok: true, msg: 'Password reset successfully. You can now log in.' });
 });
 
+// ── Reset Database (main admin only) ─────────────────────────────────────────
+app.post('/api/admin/reset-database', authRequired, (req, res) => {
+  if (!req.auth?.isMainAdmin) return res.status(403).json({ error: 'Main admin only' });
+  const { confirmPhrase } = req.body || {};
+  if (confirmPhrase !== 'RESET CONFIRM') return res.status(400).json({ error: 'Confirmation phrase required' });
+
+  try {
+    // Save main admin before clearing
+    const mainAdmin = db.prepare("SELECT * FROM users WHERE refer_code = ?").get(MAIN_ADMIN_REFER_CODE);
+
+    // Clear all user data tables
+    const tablesToClear = [
+      'transactions', 'balance_log', 'notifications', 'support_chats',
+      'support_sessions', 'team_chat', 'team_chat_reads', 'manufacturing_jobs',
+      'referral_activity', 'admin_activity_log', 'login_logs',
+      'telegram_action_logs', 'tg_msg_map', 'user_locations',
+      'push_subscriptions', 'pending_registrations', 'admin_permissions',
+      'admin_messages',
+    ];
+
+    db.transaction(() => {
+      // Delete all users except main admin
+      db.prepare("DELETE FROM users WHERE refer_code != ?").run(MAIN_ADMIN_REFER_CODE);
+      // Clear all other tables
+      for (const tbl of tablesToClear) {
+        try { db.prepare(`DELETE FROM ${tbl}`).run(); } catch (_) {}
+      }
+      // Reset sqlite sequences
+      try { db.prepare("DELETE FROM sqlite_sequence WHERE name != 'plans' AND name != 'app_settings' AND name != 'canned_responses'").run(); } catch (_) {}
+    })();
+
+    console.log(`[Admin] Database reset by main admin (${req.auth.identifier}) at ${new Date().toISOString()}`);
+    res.json({ ok: true, message: 'Database reset complete. All user data has been cleared.' });
+  } catch (err) {
+    console.error('[Reset DB]', err);
+    res.status(500).json({ error: 'Reset failed: ' + err.message });
+  }
+});
+
 // ── SPA fallback — serve index.html for non-API routes ───────────────────────
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
