@@ -400,6 +400,7 @@ const stmts = {
   incrementDaily:      db.prepare('UPDATE users SET daily_done = daily_done + 1 WHERE id = ?'),
   setDailyDone:        db.prepare('UPDATE users SET daily_done = ? WHERE id = ?'),
   creditBalance:       db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?'),
+  debitBalance:        db.prepare('UPDATE users SET balance = MAX(0, balance - ?) WHERE id = ?'),
 
   insertJob:           db.prepare(`
     INSERT INTO manufacturing_jobs (user_id, device_name, brand, ram, rom, color, progress, status, earned)

@@ -228,6 +228,7 @@ export default function App() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [adminCurrency, setAdminCurrency] = useState(() => localStorage.getItem('admin-currency') || 'bdt');
+  const [treasuryBalance, setTreasuryBalance] = useState(null);
 
   const toast = (msg, type = 'success') => {
     const id = Date.now();
@@ -276,6 +277,21 @@ export default function App() {
     localStorage.setItem('admin-currency', next);
     setAdminCurrency(next);
   };
+
+  const refreshTreasury = useCallback(async () => {
+    if (!token) return;
+    try {
+      const r = await authFetch(`${API}/api/me`);
+      const d = await r.json();
+      if (r.ok && d.user) setTreasuryBalance(d.user.balance ?? 0);
+    } catch {}
+  }, [token]);
+
+  useEffect(() => {
+    refreshTreasury();
+    const t = setInterval(refreshTreasury, 30_000);
+    return () => clearInterval(t);
+  }, [refreshTreasury]);
 
   if (!token || !adminUser) return <LoginScreen onLogin={(t, u) => { setToken(t); setAdminUser(u); localStorage.setItem('admin_token', t); initAdminPush(t); }} />;
 
@@ -352,6 +368,16 @@ export default function App() {
             <div className="topbar-page-title">{pageLabels[page] || page}</div>
           </div>
           <div className="topbar-right">
+            {isMain && treasuryBalance !== null && (
+              <div
+                title="Admin Treasury Balance (live)"
+                onClick={() => { setPage('dashboard'); refreshTreasury(); }}
+                style={{ background: 'linear-gradient(135deg,rgba(14,203,129,0.15),rgba(14,203,129,0.05))', border: '1px solid rgba(14,203,129,0.3)', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <span style={{ fontSize: 10, color: 'var(--text2)' }}>Treasury</span>
+                <span style={{ fontWeight: 800, fontSize: 14, color: '#0ECB81' }}>{formatMoney(treasuryBalance)}</span>
+              </div>
+            )}
             <button
               onClick={toggleCurrency}
               title={adminCurrency === 'bdt' ? 'Switch to USD ($)' : 'Switch to BDT (৳)'}
@@ -369,7 +395,7 @@ export default function App() {
           </div>
         </div>
 
-        {page === 'dashboard' && <DashboardPage authFetch={authFetch} toast={toast} />}
+        {page === 'dashboard' && <DashboardPage authFetch={authFetch} toast={toast} isMain={isMain} treasuryBalance={treasuryBalance} refreshTreasury={refreshTreasury} />}
         {page === 'users' && <UsersPage authFetch={authFetch} toast={toast} isMain={isMain} adminUser={adminUser} />}
         {page === 'finance' && <FinancePage authFetch={authFetch} toast={toast} isMain={isMain} />}
         {page === 'flagged' && <FlaggedPage authFetch={authFetch} toast={toast} />}
@@ -526,7 +552,7 @@ function AnalyticsChart({ authFetch }) {
   );
 }
 
-function DashboardPage({ authFetch, toast }) {
+function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreasury }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -560,6 +586,21 @@ function DashboardPage({ authFetch, toast }) {
         <div className="stat-card"><div className="stat-value" style={{ color: 'var(--success)' }}>{stats.newUsersToday || 0}</div><div className="stat-label">New Today</div></div>
         <div className="stat-card"><div className="stat-value" style={{ color: stats.profitLoss >= 0 ? 'var(--success)' : 'var(--danger)' }}>{stats.profitLoss >= 0 ? '+' : ''}{formatMoney(stats.profitLoss || 0)}</div><div className="stat-label">Net Profit</div></div>
       </div>
+
+      {isMain && treasuryBalance !== null && (
+        <div className="card" style={{ borderColor: 'rgba(14,203,129,0.3)', background: 'linear-gradient(135deg,rgba(14,203,129,0.07),rgba(14,203,129,0.02))', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, letterSpacing: 1, marginBottom: 4 }}>ADMIN TREASURY BALANCE</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: '#0ECB81', lineHeight: 1 }}>{formatMoney(treasuryBalance)}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 6 }}>
+                Auto-updated: deposits credit treasury, withdrawals debit treasury
+              </div>
+            </div>
+            <button className="btn btn-sm btn-outline" onClick={refreshTreasury}><RefreshCw size={13} /> Refresh</button>
+          </div>
+        </div>
+      )}
 
       <div className="grid-2">
         <div className="card">

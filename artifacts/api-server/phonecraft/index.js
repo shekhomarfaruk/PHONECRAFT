@@ -474,6 +474,21 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
         amount: tx.amount,
         note: biMsg(`Deposit approved (${tx.method} - ${tx.account})`, `ডিপোজিট অনুমোদিত (${tx.method} - ${tx.account})`),
       });
+      // Admin treasury: deposit received — credit admin wallet
+      const mainAdmin = db.prepare("SELECT id FROM users WHERE refer_code=? AND is_admin=1 LIMIT 1").get(MAIN_ADMIN_REFER_CODE);
+      if (mainAdmin) {
+        stmts.creditBalance.run(tx.amount, mainAdmin.id);
+        stmts.insertBalanceLog.run({ user_id: mainAdmin.id, type: 'treasury_deposit_in', amount: tx.amount, note: `Deposit received from user #${tx.user_id} via ${tx.method}` });
+      }
+    }
+
+    if (tx.type === 'withdraw' && status === 'approved') {
+      // Admin treasury: withdrawal paid out — debit admin wallet
+      const mainAdmin = db.prepare("SELECT id FROM users WHERE refer_code=? AND is_admin=1 LIMIT 1").get(MAIN_ADMIN_REFER_CODE);
+      if (mainAdmin) {
+        stmts.debitBalance.run(tx.amount, mainAdmin.id);
+        stmts.insertBalanceLog.run({ user_id: mainAdmin.id, type: 'treasury_withdrawal_out', amount: -tx.amount, note: `Withdrawal paid to user #${tx.user_id} via ${tx.method} (${tx.account})` });
+      }
     }
 
     const action = status === 'approved' ? 'approved' : 'rejected';
