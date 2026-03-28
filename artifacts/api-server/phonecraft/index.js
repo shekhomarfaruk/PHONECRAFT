@@ -1630,7 +1630,7 @@ app.get('/api/lookup-user', authRequired, (req, res) => {
   const { identifier } = req.query;
   if (!identifier || !identifier.trim()) return res.status(400).json({ error: 'Missing identifier' });
   const user = stmts.getUserByIdentifier.get(identifier.trim());
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user || user.is_admin) return res.status(404).json({ error: 'User not found' });
   res.json({ name: user.name, identifier: user.identifier });
 });
 
@@ -1670,7 +1670,7 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       }
 
       const receiver = stmts.getUserByIdentifier.get(toIdentifier);
-      if (!receiver) return { status: 404, body: { error: 'Receiver not found' } };
+      if (!receiver || receiver.is_admin) return { status: 404, body: { error: 'Receiver not found' } };
       if (receiver.id === sender.id) return { status: 400, body: { error: 'Cannot transfer to yourself' } };
 
       stmts.deductBalance.run(numAmount, sender.id, numAmount);
@@ -2473,6 +2473,10 @@ app.get('/api/admin/users/:id/full-profile', authRequired, (req, res) => {
     const userId = Number(req.params.id);
     const user = stmts.getUserById.get(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
+    // Block sub-admins from viewing main admin profile
+    if (!req.auth.isMainAdmin && isMainAdminUser(user)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     const plan = stmts.getPlan.get(user.plan_id);
     const txStats = stmts.getUserTransactionStats.get(userId);

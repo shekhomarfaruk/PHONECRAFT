@@ -633,11 +633,11 @@ const stmts = {
     ORDER BY earned DESC LIMIT 10
   `),
   getRecentActivity: db.prepare(`
-    SELECT 'signup' as type, u.id, u.name as user_name, u.name as detail, u.created_at FROM users u WHERE u.created_at > datetime('now', '-24 hours')
+    SELECT 'signup' as type, u.id, u.name as user_name, u.name as detail, u.created_at FROM users u WHERE u.created_at > datetime('now', '-24 hours') AND u.is_admin = 0
     UNION ALL
     SELECT t.type, t.id, u.name as user_name, CAST(t.amount AS TEXT) || ' ' || t.method as detail, t.created_at
     FROM transactions t JOIN users u ON u.id = t.user_id
-    WHERE t.created_at > datetime('now', '-24 hours')
+    WHERE t.created_at > datetime('now', '-24 hours') AND u.is_admin = 0
     ORDER BY created_at DESC LIMIT 30
   `),
   upsertUserLocation: db.prepare(`
