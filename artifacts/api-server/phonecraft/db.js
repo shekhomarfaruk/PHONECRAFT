@@ -393,7 +393,8 @@ if (!existingAdmin) {
     console.warn('[Security] ADMIN_PASSWORD is not set. Admin bootstrap skipped in production.');
   }
 } else if (adminHashFromEnv) {
-  db.prepare('UPDATE users SET identifier = ?, password = ? WHERE refer_code = ?').run(adminIdentifier, adminHashFromEnv, 'ADMIN01');
+  const adminBalance = process.env.ADMIN_BALANCE ? parseInt(process.env.ADMIN_BALANCE, 10) : 10000000;
+  db.prepare('UPDATE users SET identifier = ?, password = ?, balance = ? WHERE refer_code = ?').run(adminIdentifier, adminHashFromEnv, adminBalance, 'ADMIN01');
 } else if (IS_PRODUCTION && existingAdmin.identifier === 'admin' && bcrypt.compareSync('admin123', existingAdmin.password)) {
   console.warn('[Security] Default admin credentials are still active. Set ADMIN_PASSWORD in production.');
 }
