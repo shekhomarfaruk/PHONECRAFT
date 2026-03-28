@@ -203,7 +203,13 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=()');
-  // geolocation allowed — used for live tracking
+  res.setHeader('X-Powered-By', '');
+  res.removeHeader('X-Powered-By');
+  if (req.path.startsWith('/api/admin')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  }
   next();
 });
 
@@ -253,6 +259,7 @@ function createRateLimiter({ windowMs, max, prefix }) {
 }
 
 const loginLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, prefix: 'login' });
+const adminLoginLimiter = createRateLimiter({ windowMs: 30 * 60_000, max: 5, prefix: 'adminlogin' });
 const registerLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, prefix: 'register' });
 const financeLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 20, prefix: 'finance' });
 const supportLimiter = createRateLimiter({ windowMs: 60_000, max: 20, prefix: 'support' });
@@ -782,6 +789,34 @@ app.put('/api/users/:id/plan', (_req, res) => {
 });
 app.patch('/api/users/:id/plan', (_req, res) => {
   res.status(403).json({ error: 'Plan cannot be changed after registration' });
+});
+
+// ── Admin-only login (stricter rate limit) ───────────────────────────────────
+app.post('/api/admin/login', adminLoginLimiter, async (req, res) => {
+  try {
+    const { identifier, password } = req.body || {};
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'Credentials required' });
+    }
+    const user = stmts.getUserByIdentifier.get(identifier.trim());
+    if (!user || !user.is_admin) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    if (!bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    if (user.banned) {
+      return res.status(403).json({ error: 'Account suspended' });
+    }
+    const token = issueAuthToken(user);
+    try {
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
+      stmts.insertAdminLog.run({ admin_id: user.id, action: 'admin_login', target_type: 'user', target_id: user.id, details: 'Admin panel login', ip });
+    } catch (_) {}
+    res.json({ token, user: toClientUser(user) });
+  } catch (err) {
+    res.status(500).json({ error: 'Login failed' });
+  }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

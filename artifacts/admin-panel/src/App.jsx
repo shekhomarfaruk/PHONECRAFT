@@ -372,17 +372,15 @@ function LoginScreen({ onLogin }) {
     e.preventDefault();
     setLoading(true); setErr('');
     try {
-      const res = await fetch(`${API}/api/login`, {
+      const res = await fetch(`${API}/api/admin/login`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: id, password: pw }),
       });
       const data = await res.json();
       if (res.ok && data.token && data.user?.is_admin) {
         onLogin(data.token, data.user);
-      } else if (res.ok && data.token && !data.user?.is_admin) {
-        setErr('Access denied. Admin account required.');
       } else {
-        setErr(data.error || 'Login failed');
+        setErr(data.error || 'Invalid credentials');
       }
     } catch { setErr('Connection error'); }
     finally { setLoading(false); }
@@ -395,8 +393,8 @@ function LoginScreen({ onLogin }) {
         <div className="login-logo">
           <div className="login-logo-icon"><Shield size={22} color="#fff" /></div>
         </div>
-        <h1>Admin Console</h1>
-        <p className="subtitle">PhoneCraft Manufacturing Platform</p>
+        <h1>Secure Access</h1>
+        <p className="subtitle">Authorized Personnel Only</p>
         {err && (
           <div style={{ background: 'rgba(220,38,38,0.07)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 10, padding: '10px 14px', color: 'var(--danger)', fontSize: 12, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
             <AlertTriangle size={14} /> {err}

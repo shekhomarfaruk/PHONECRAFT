@@ -4,7 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PhoneCraft Admin Panel</title>
+    <title>Dashboard</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <script>
+      (function() {
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'F12' ||
+            (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+            (e.ctrlKey && e.key === 'U') ||
+            (e.ctrlKey && e.key === 'S')) {
+            e.preventDefault(); return false;
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

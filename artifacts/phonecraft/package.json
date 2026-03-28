@@ -20,6 +20,7 @@
     "qrcode.react": "^4.2.0",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "terser": "^5.46.1",
     "vite": "catalog:"
   },
   "dependencies": {

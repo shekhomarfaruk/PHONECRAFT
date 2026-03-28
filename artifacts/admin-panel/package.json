@@ -18,6 +18,7 @@
     "@vitejs/plugin-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "terser": "^5.46.1",
     "vite": "catalog:"
   },
   "dependencies": {

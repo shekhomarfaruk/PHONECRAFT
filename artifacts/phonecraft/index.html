@@ -24,6 +24,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="robots" content="noindex, nofollow" />
+    <script>
+      (function() {
+        var _x = false;
+        var _d = new Image();
+        Object.defineProperty(_d, 'id', { get: function() { _x = true; } });
+        function _c() {
+          _x = false;
+          console.log(_d);
+          if (_x) { document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#000;color:#fff;font-family:sans-serif">Access Denied</div>'; }
+        }
+        setInterval(_c, 1500);
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'F12' ||
+            (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+            (e.ctrlKey && e.key === 'U') ||
+            (e.ctrlKey && e.key === 'S')) {
+            e.preventDefault(); return false;
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
