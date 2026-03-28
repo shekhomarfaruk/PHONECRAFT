@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { playNotifSound } from './sounds.js';
 import {
   LayoutDashboard, Users, CreditCard, MessageSquare, Shield, Settings,
   LogOut, TrendingUp, Clock, Trophy, BarChart2, User, X, ChevronDown,
   Download, Send, Lock, RefreshCw, Eye, CheckCircle, Ban, UserCheck,
   Menu, Search, Filter, FileText, Star, AlertTriangle, Reply, Trash2,
   ChevronRight, Edit, ArrowUpRight, ArrowDownRight, Activity,
-  Flag, Globe, Bell, BellOff, BellRing,
+  Flag, Globe, Bell, BellOff, BellRing, Link,
 } from 'lucide-react';
 
 const BASE = import.meta.env.BASE_URL || '/admin-panel/';
@@ -227,6 +228,7 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const prevPendingRef = useRef(null);
   const [adminCurrency, setAdminCurrency] = useState(() => localStorage.getItem('admin-currency') || 'bdt');
   const [treasuryBalance, setTreasuryBalance] = useState(null);
 
@@ -261,6 +263,10 @@ export default function App() {
     const fetchPending = () => {
       authFetch(`${API}/api/admin/stats`).then(r => r.json()).then(d => {
         const n = (d.pendingDeposits || 0) + (d.pendingWithdrawals || 0) + (d.support?.unrepliedSessions || 0);
+        if (prevPendingRef.current !== null && n > prevPendingRef.current) {
+          playNotifSound();
+        }
+        prevPendingRef.current = n;
         setPendingCount(n);
       }).catch(() => {});
     };
@@ -402,7 +408,7 @@ export default function App() {
         {page === 'ip-tracking' && <IpTrackingPage authFetch={authFetch} toast={toast} />}
         {page === 'live-locations' && <LiveLocationsPage authFetch={authFetch} toast={toast} />}
         {page === 'support' && <SupportPage authFetch={authFetch} toast={toast} />}
-        {page === 'admins' && <AdminsPage authFetch={authFetch} toast={toast} />}
+        {page === 'admins' && <AdminsPage authFetch={authFetch} toast={toast} adminUser={adminUser} />}
         {page === 'notifications' && <NotificationsPage authFetch={authFetch} toast={toast} token={token} />}
         {page === 'settings' && <SettingsPage authFetch={authFetch} toast={toast} />}
       </main>
@@ -798,6 +804,23 @@ function UsersPage({ authFetch, toast, isMain, adminUser }) {
     } catch {}
   };
 
+  const selectUserById = async (id) => {
+    const u = users.find(u => u.id === id);
+    if (u) { selectUser(u); return; }
+    // If not in list (e.g., sub-admin), fetch it
+    try {
+      const r = await authFetch(`${API}/api/admin/users/${id}/full-profile`);
+      const d = await r.json();
+      if (r.ok) {
+        const fakeUser = { id, name: d.user?.name || '?', balance: d.user?.balance || 0, plan_id: d.user?.plan_id, is_admin: d.user?.is_admin || 0 };
+        setSelected(fakeUser);
+        setProfileTab('info');
+        setEditForm({ balance: fakeUser.balance, plan_id: fakeUser.plan_id, is_admin: !!fakeUser.is_admin });
+        setProfile(d);
+      }
+    } catch {}
+  };
+
   const saveUser = async () => {
     if (!selected) return;
     setSaving(true);
@@ -993,8 +1016,17 @@ function UsersPage({ authFetch, toast, isMain, adminUser }) {
                 </div>
                 <div style={{ maxHeight: 250, overflowY: 'auto' }}>
                   {(profile.referralTree || []).map(r => (
-                    <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13, paddingLeft: (r.level - 1) * 20 }}>
-                      <span>{r.name} <span className="badge badge-blue" style={{ fontSize: 9 }}>L{r.level}</span></span>
+                    <div
+                      key={r.id}
+                      onClick={() => selectUserById(r.id)}
+                      style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 6px', borderBottom: '1px solid var(--border)', fontSize: 13, paddingLeft: (r.level - 1) * 20 + 6, cursor: 'pointer', borderRadius: 6, transition: 'background .15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = ''}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <ChevronRight size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                        {r.name} <span className="badge badge-blue" style={{ fontSize: 9 }}>L{r.level}</span>
+                      </span>
                       <span style={{ color: 'var(--text2)', fontSize: 11 }}>{r.refer_code}</span>
                     </div>
                   ))}
@@ -1389,12 +1421,18 @@ function SupportPage({ authFetch, toast }) {
   );
 }
 
-function AdminsPage({ authFetch, toast }) {
+function AdminsPage({ authFetch, toast, adminUser }) {
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [editPerms, setEditPerms] = useState(null);
   const [perms, setPerms] = useState({});
+  const [chatMsgs, setChatMsgs] = useState([]);
+  const [chatText, setChatText] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const chatEndRef = useRef(null);
+  const isMain = adminUser?.is_main_admin;
 
   const loadUsers = useCallback(async () => {
     try { const r = await authFetch(`${API}/api/admin/users`); const d = await r.json(); if (r.ok) setUsers((d.users || []).filter(u => u.is_admin)); } catch {}
@@ -1406,7 +1444,27 @@ function AdminsPage({ authFetch, toast }) {
     finally { setLogsLoading(false); }
   }, []);
 
-  useEffect(() => { loadUsers(); loadLogs(); }, [loadUsers, loadLogs]);
+  const loadChat = useCallback(async () => {
+    setChatLoading(true);
+    try { const r = await authFetch(`${API}/api/admin/group-chat`); const d = await r.json(); if (r.ok) setChatMsgs(d.messages || []); } catch {}
+    finally { setChatLoading(false); }
+  }, []);
+
+  const sendChat = async () => {
+    if (!chatText.trim() || isMain) return;
+    setChatSending(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/group-chat`, {
+        method: 'POST',
+        body: JSON.stringify({ message: chatText.trim() }),
+      });
+      if (r.ok) { setChatText(''); loadChat(); } else { toast('Failed to send', 'error'); }
+    } catch { toast('Connection error', 'error'); }
+    setChatSending(false);
+  };
+
+  useEffect(() => { loadUsers(); loadLogs(); loadChat(); }, [loadUsers, loadLogs, loadChat]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMsgs]);
 
   const loadPerms = async (adminId) => {
     try {
@@ -1533,6 +1591,80 @@ function AdminsPage({ authFetch, toast }) {
           </div>
         )}
       </div>
+
+      {/* Admin Group Chat */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div className="card-title" style={{ marginBottom: 0 }}>
+            <MessageSquare size={16} /> Admin Group Chat
+            {isMain && <span className="badge badge-purple" style={{ marginLeft: 8, fontSize: 9 }}>Read Only</span>}
+          </div>
+          <button className="btn btn-outline btn-sm" onClick={loadChat}><RefreshCw size={12} /> Refresh</button>
+        </div>
+        <div style={{
+          background: 'var(--bg2)', borderRadius: 12, padding: 12,
+          height: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8,
+          border: '1px solid var(--border)',
+        }}>
+          {chatLoading
+            ? <div style={{ textAlign: 'center', color: 'var(--text2)', marginTop: 40 }}>Loading messages...</div>
+            : chatMsgs.length === 0
+              ? <div style={{ textAlign: 'center', color: 'var(--text2)', marginTop: 40 }}>No messages yet</div>
+              : chatMsgs.map(m => (
+                <div key={m.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,var(--accent),var(--accent2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0, color: '#fff' }}>
+                    {(m.admin_name || 'A')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 2 }}>
+                      {m.admin_name || 'Admin'}
+                      <span style={{ color: 'var(--text2)', fontWeight: 400, marginLeft: 8 }}>{fmtDate(m.created_at)}</span>
+                    </div>
+                    <div style={{ fontSize: 13, background: 'var(--card)', padding: '7px 12px', borderRadius: '0 10px 10px 10px', border: '1px solid var(--border)' }}>
+                      {m.message}
+                    </div>
+                    {m.image_url && <img src={m.image_url} alt="" style={{ maxWidth: 220, borderRadius: 8, marginTop: 6, display: 'block' }} />}
+                  </div>
+                </div>
+              ))
+          }
+          <div ref={chatEndRef} />
+        </div>
+        {!isMain && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <input
+              className="inp"
+              style={{ flex: 1 }}
+              placeholder="Type a message to the group..."
+              value={chatText}
+              onChange={e => setChatText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat()}
+            />
+            <button className="btn btn-primary" onClick={sendChat} disabled={chatSending || !chatText.trim()}>
+              <Send size={14} /> Send
+            </button>
+          </div>
+        )}
+        {isMain && (
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 8, textAlign: 'center' }}>
+            Main admin can read messages. Sub-admins communicate here.
+          </div>
+        )}
+      </div>
+
+      {/* Access Link — visible to main admin only */}
+      {isMain && (
+        <div className="card" style={{ borderColor: 'rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.04)' }}>
+          <div className="card-title"><Link size={16} /> Admin Panel Access Link</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>Share this path with new admins to reach the login screen:</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg2)', borderRadius: 8, padding: '10px 14px', border: '1px solid var(--border)' }}>
+            <code style={{ fontFamily: 'monospace', fontSize: 13, flex: 1, wordBreak: 'break-all' }}>/xpc-ctrl-7f3b/</code>
+            <button className="btn btn-outline btn-sm" onClick={() => { navigator.clipboard.writeText('/xpc-ctrl-7f3b/'); toast('Copied!'); }}>
+              Copy
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -5,6 +5,9 @@ import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
 import PwaInstallGuideModal from "../components/PwaInstallGuideModal.jsx";
 import { RegistrationModal } from "./NotifScreen.jsx";
+import { authFetch } from "../session.js";
+
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 // ── Static pool so it doesn't re-generate every render ──────────────────────
 const EARN_DATA = Array.from({ length: 14 }, () => {
@@ -131,12 +134,62 @@ function LiveActivityTicker({ t }) {
   );
 }
 
+function WeekEarningsBar({ earnings, lang }) {
+  if (!earnings || earnings.length === 0) return null;
+  const t = I18N[lang] || I18N.en;
+  const maxVal = Math.max(...earnings.map(e => e.earned), 1);
+  const total = earnings.reduce((s, e) => s + (e.earned || 0), 0);
+  const dayLabel = d => {
+    try { return new Date(d + 'T12:00:00Z').toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'short' }); } catch { return d.slice(5); }
+  };
+  return (
+    <div className="card" style={{ padding: '14px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="card-title" style={{ marginBottom: 0 }}>
+          <Icons.TrendUp size={14} /> {lang === 'bn' ? 'শেষ ৭ দিনের আয়' : 'Last 7 Days Earnings'}
+        </div>
+        <div style={{ fontFamily: 'Space Grotesk', fontWeight: 800, fontSize: 15, color: 'var(--green)' }}>
+          {convertCurrency(total, lang)}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 60 }}>
+        {earnings.map((e, i) => {
+          const pct = maxVal > 0 ? (e.earned / maxVal) * 100 : 0;
+          return (
+            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <div style={{
+                width: '100%', borderRadius: 4,
+                height: `${Math.max(pct, 4)}%`,
+                background: pct > 60 ? 'var(--accent)' : pct > 30 ? 'rgba(35,175,145,.6)' : 'rgba(35,175,145,.25)',
+                minHeight: 4, alignSelf: 'flex-end',
+                transition: 'height 0.3s ease',
+              }} />
+              <div style={{ fontSize: 8, color: 'var(--text2)', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                {dayLabel(e.day)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [], setNotifications, teamChatUnread = 0}) {
   const t      = I18N[lang] || I18N.en;
   const plan   = PLANS.find(p => p.id === user.plan);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [regModalNotif, setRegModalNotif] = useState(null);
   const shownIds = useRef(new Set());
+  const [weekEarnings, setWeekEarnings] = useState([]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    authFetch(`${API_URL}/api/user/${user.id}/analytics`)
+      .then(r => r.json())
+      .then(d => { if (d.earnings) setWeekEarnings(d.earnings); })
+      .catch(() => {});
+  }, [user?.id]);
 
   const pendingRegs = notifications.filter(
     n => n.type === 'registration_request' && !n.read
@@ -365,6 +418,8 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
           <div style={{ color: 'var(--accent)', fontWeight: 900, fontSize: 18 }}>›</div>
         </div>
       </div>
+
+      <WeekEarningsBar earnings={weekEarnings} lang={lang} />
 
       <EarningsTicker lang={lang} />
 

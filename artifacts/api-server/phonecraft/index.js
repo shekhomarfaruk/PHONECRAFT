@@ -492,8 +492,17 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
     }
 
     const action = status === 'approved' ? 'approved' : 'rejected';
-    const noteStr = adminNote ? ` (${adminNote})` : '';
-    const noteStrBn = adminNote ? ` (${adminNote})` : '';
+    // Filter out admin-only notes (Telegram commands, trxids) from user-facing message
+    const isAdminOnlyNote = adminNote && (
+      adminNote.startsWith('trxid:') ||
+      adminNote.includes('Telegram') ||
+      adminNote.includes('telegram') ||
+      adminNote.includes('via Telegram') ||
+      adminNote.includes('command')
+    );
+    const userNote = isAdminOnlyNote ? '' : (adminNote || '');
+    const noteStr = userNote ? ` (${userNote})` : '';
+    const noteStrBn = userNote ? ` (${userNote})` : '';
     const notifMsg = biMsg(
       `Your ${tx.type} of ${fmtAmt(tx.amount, 'en')} has been ${action}.${noteStr}`,
       `আপনার ${tx.type === 'deposit' ? 'ডিপোজিট' : 'উইথড্র'} ${fmtAmt(tx.amount, 'bn')} ${status === 'approved' ? 'অনুমোদিত হয়েছে।' : 'বাতিল হয়েছে।'}${noteStrBn}`
@@ -1055,7 +1064,7 @@ const completeManufactureTx = db.transaction((body) => {
   // Log to balance_log
   stmts.insertBalanceLog.run({
     user_id: userId, type: 'daily_earn', amount: earned,
-    note: `${job.device_name} উৎপাদন সম্পন্ন`,
+    note: biMsg(`${job.device_name} manufacturing complete`, `${job.device_name} উৎপাদন সম্পন্ন`),
   });
 
   // Auto-post to marketplace with random price in USD (capped at $10)
@@ -1526,7 +1535,7 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         }
         stmts.insertBalanceLog.run({
           user_id: userRow.id, type: 'withdrawal', amount: -numAmount,
-          note: `উইথড্র রিকোয়েস্ট (${method} - ${account})`,
+          note: biMsg(`Withdrawal request (${method} - ${account})`, `উইথড্র রিকোয়েস্ট (${method} - ${account})`),
         });
 
         // Auto-flag high-value withdrawals
@@ -2981,6 +2990,89 @@ app.post('/api/team-chat/upload', authRequired, upload.single('file'), async (re
   }, user.id);
 
   res.json({ ok: true, media_url, media_type });
+});
+
+// ── Admin Group Chat ──────────────────────────────────────────────────────────
+app.get('/api/admin/group-chat', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const since = Number(req.query.since || 0);
+  const msgs = since
+    ? stmts.getAdminMessagesSince.all(since)
+    : stmts.getAdminMessages.all().reverse();
+  res.json({ messages: msgs });
+});
+
+app.post('/api/admin/group-chat/send', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { message } = req.body || {};
+  if (!message || !String(message).trim()) return res.status(400).json({ error: 'Empty message' });
+  const admin = req.auth.user;
+  // Main admin can only read; block sending
+  if (isMainAdminUser(admin)) {
+    return res.status(403).json({ error: 'Main admin is read-only in group chat' });
+  }
+  const result = stmts.insertAdminMessage.run({
+    sender_id: admin.id,
+    sender_name: admin.name,
+    message: String(message).trim().slice(0, 2000),
+    media_url: null,
+    media_type: null,
+  });
+  res.json({ ok: true, id: result.lastInsertRowid });
+});
+
+app.post('/api/admin/group-chat/upload', authRequired, upload.single('file'), (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const admin = req.auth.user;
+  if (isMainAdminUser(admin)) {
+    return res.status(403).json({ error: 'Main admin is read-only in group chat' });
+  }
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  const isImage = req.file.mimetype.startsWith('image/');
+  const media_url = `/uploads/${req.file.filename}`;
+  const media_type = isImage ? 'image' : 'file';
+  const caption = String(req.body.caption || '').trim().slice(0, 500);
+  const result = stmts.insertAdminMessage.run({
+    sender_id: admin.id,
+    sender_name: admin.name,
+    message: caption,
+    media_url,
+    media_type,
+  });
+  res.json({ ok: true, id: result.lastInsertRowid, media_url, media_type });
+});
+
+// ── Forgot Password ───────────────────────────────────────────────────────────
+app.post('/api/forgot-password', (req, res) => {
+  const { identifier } = req.body || {};
+  if (!identifier) return res.status(400).json({ error: 'Identifier required' });
+  const user = db.prepare("SELECT * FROM users WHERE identifier = ? AND is_admin = 0 AND banned = 0").get(String(identifier).trim());
+  // Always return success (don't reveal if account exists)
+  if (!user) return res.status(200).json({ ok: true });
+  // Generate 6-digit token
+  const token = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+  try { stmts.insertPasswordReset.run(user.id, token, expiresAt); } catch (_) {}
+  // Notify main admin via system notification
+  const mainAdmin = db.prepare("SELECT id FROM users WHERE refer_code=? AND is_admin=1 LIMIT 1").get(MAIN_ADMIN_REFER_CODE);
+  if (mainAdmin) {
+    const adminNotifMsg = JSON.stringify({ en: `🔑 Password Reset: ${user.name} (${user.identifier}) — Code: ${token}`, bn: `🔑 পাসওয়ার্ড রিসেট: ${user.name} (${user.identifier}) — কোড: ${token}` });
+    stmts.insertNotification.run(mainAdmin.id, adminNotifMsg, 'info');
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/reset-password', (req, res) => {
+  const { token, newPassword } = req.body || {};
+  if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
+  if (String(newPassword).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  const reset = stmts.getPasswordReset.get(String(token).trim());
+  if (!reset) return res.status(400).json({ error: 'Invalid or expired reset code' });
+  const bcrypt = require('bcryptjs');
+  const hash = bcrypt.hashSync(String(newPassword), 10);
+  stmts.updateUserPassword.run(hash, reset.user_id);
+  stmts.markPasswordResetUsed.run(token);
+  res.json({ ok: true, msg: 'Password reset successfully. You can now log in.' });
 });
 
 // ── SPA fallback — serve index.html for non-API routes ───────────────────────

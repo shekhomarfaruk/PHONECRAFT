@@ -233,6 +233,94 @@ function PaymentPage({ page, onBack, onConfirm, showToast, lang, user }) {
   );
 }
 
+// ── Transaction Submitted Card ──────────────────────────────────────────────
+function SubmissionCard({ type, lang, onClose }) {
+  const isBn = lang === 'bn';
+  const isDeposit = type === 'deposit';
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24,
+    }}>
+      <div style={{
+        background: 'var(--card)',
+        border: '1px solid rgba(35,175,145,.35)',
+        borderRadius: 24,
+        padding: '32px 28px',
+        maxWidth: 360,
+        width: '100%',
+        textAlign: 'center',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(35,175,145,.15)',
+        animation: 'cardSlideUp .35s cubic-bezier(.34,1.56,.64,1)',
+      }}>
+        <style>{`
+          @keyframes cardSlideUp {
+            0% { opacity:0; transform:translateY(40px) scale(.92); }
+            100% { opacity:1; transform:translateY(0) scale(1); }
+          }
+          @keyframes successPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(35,175,145,.4); }
+            50% { box-shadow: 0 0 0 18px rgba(35,175,145,.0); }
+          }
+        `}</style>
+        {/* Icon */}
+        <div style={{
+          width: 80, height: 80, borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(35,175,145,.2), rgba(35,175,145,.05))',
+          border: '2px solid rgba(35,175,145,.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 20px',
+          animation: 'successPulse 2s ease-in-out infinite',
+        }}>
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+
+        {/* Title */}
+        <div style={{ fontFamily: 'Space Grotesk', fontWeight: 900, fontSize: 22, marginBottom: 8 }}>
+          {isBn
+            ? (isDeposit ? 'ডিপোজিট জমা হয়েছে!' : 'উইথড্র অনুরোধ হয়েছে!')
+            : (isDeposit ? 'Deposit Submitted!' : 'Withdrawal Requested!')}
+        </div>
+
+        {/* Message */}
+        <div style={{
+          fontSize: 14, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 28,
+          background: 'var(--input-bg)', borderRadius: 14, padding: '16px 18px',
+          border: '1px solid var(--border)',
+        }}>
+          {isBn
+            ? `আপনার ${isDeposit ? 'ডিপোজিট' : 'উইথড্র'} সাপোর্ট টিম অনুমোদন করবে। অনুগ্রহ করে অপেক্ষা করুন — আপনাকে নোটিফিকেশনের মাধ্যমে জানানো হবে।`
+            : `Your ${isDeposit ? 'deposit' : 'withdrawal'} will be approved by the support team. Please wait — you will be informed via notification.`}
+        </div>
+
+        {/* Dots decoration */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 24 }}>
+          {[0,1,2].map(i => (
+            <div key={i} style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: i === 1 ? 'var(--accent)' : 'var(--border)',
+            }} />
+          ))}
+        </div>
+
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="btn btn-primary btn-full"
+          style={{ fontSize: 15, padding: '14px 0', borderRadius: 14, fontWeight: 800 }}
+        >
+          {isBn ? '✓ ঠিক আছে' : '✓ Got it'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main WalletScreen ──────────────────────────────────────────────────────────
 function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRate = 122.80 }) {
   const t = I18N[lang] || I18N.en;
@@ -246,6 +334,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
   const [submitted,  setSubmitted] = useState(false);
   const [screenshot, setScreenshot] = useState(null);
   const [paymentPage, setPaymentPage] = useState(null);
+  const [submissionCard, setSubmissionCard] = useState(null); // 'deposit' | 'withdraw' | null
 
   const [depositInfo,  setDepositInfo ] = useState({});
   const [transactions, setTransactions] = useState([]);
@@ -388,9 +477,9 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`${t.withdraw} ${t.request_sent}`);
         if (data.newBalance !== undefined) setUser(prev => ({ ...prev, balance: data.newBalance }));
         authFetch(`${API_URL}/api/user/${user.id}/transactions`).then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
+        setSubmissionCard('withdraw');
       } else { showToast((tErr ? tErr(data.error) : data.error) || t.toast_request_failed); }
     } catch (_) { showToast(t.toast_connection_error); }
     setTimeout(() => setSubmitted(false), 3000);
@@ -416,10 +505,10 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
         });
         const data = await res.json();
         if (res.ok) {
-          showToast(`${t.deposit} ${t.request_sent}`);
           if (data.newBalance !== undefined) setUser(prev => ({ ...prev, balance: data.newBalance }));
           authFetch(`${API_URL}/api/user/${user.id}/transactions`).then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
           setPaymentPage(null); setCryptoAmount(''); setTxnHash(''); setScreenshot(null);
+          setSubmissionCard('deposit');
         } else {
           showToast((tErr ? tErr(data.error) : data.error) || t.toast_request_failed);
         }
@@ -434,10 +523,10 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
         });
         const data = await res.json();
         if (res.ok) {
-          showToast(`${t.deposit} ${t.request_sent}`);
           if (data.newBalance !== undefined) setUser(prev => ({ ...prev, balance: data.newBalance }));
           authFetch(`${API_URL}/api/user/${user.id}/transactions`).then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
           setPaymentPage(null); setAmount(''); setAcct('');
+          setSubmissionCard('deposit');
         } else { showToast((tErr ? tErr(data.error) : data.error) || t.toast_request_failed); }
       } catch (_) { showToast(t.toast_connection_error); }
     }
@@ -459,6 +548,9 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
 
   return (
     <>
+      {submissionCard && (
+        <SubmissionCard type={submissionCard} lang={lang} onClose={() => setSubmissionCard(null)} />
+      )}
       <div className="screen-title"><Icons.Wallet size={18}/> {t.withdraw_deposit}</div>
       <div className="tabs">
         <div className={`tab ${tab==='withdraw'?'active':''}`} onClick={() => setTab('withdraw')}>

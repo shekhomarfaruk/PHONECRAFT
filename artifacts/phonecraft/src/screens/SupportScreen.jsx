@@ -122,6 +122,9 @@ function TeamChat({ user, showToast, lang }) {
                 <span style={{ fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
                   {m.isMe ? t.team_you : m.name}
                 </span>
+                <span style={{ fontSize: 9, color: 'var(--text2)', background: 'var(--input-bg)', borderRadius: 6, padding: '1px 5px', fontFamily: 'monospace' }}>
+                  #{m.id}
+                </span>
               </div>
             ))}
           </div>

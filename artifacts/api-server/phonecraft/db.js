@@ -327,6 +327,31 @@ db.exec(`
   );
 `);
 
+// Admin group chat messages
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_messages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id   INTEGER NOT NULL REFERENCES users(id),
+    sender_name TEXT NOT NULL,
+    message     TEXT DEFAULT '',
+    media_url   TEXT DEFAULT NULL,
+    media_type  TEXT DEFAULT NULL,
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Password reset tokens
+db.exec(`
+  CREATE TABLE IF NOT EXISTS password_resets (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    token       TEXT NOT NULL UNIQUE,
+    expires_at  TEXT NOT NULL,
+    used        INTEGER DEFAULT 0,
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // ── Seed plans ──────────────────────────────────────────────────────────────────
 const PLANS = [
   { id:'basic',    name:'BASIC',    price_display:'\u09F312,800',  rate:12800,  per_task:20,  daily_earn:200,   daily:10, task_time:2, color:'#00d2ff', l1:20, l2:4, l3:1 },
@@ -857,6 +882,29 @@ const stmts = {
   getAllPushSubscriptions: db.prepare(`
     SELECT user_id, endpoint, p256dh, auth FROM push_subscriptions
   `),
+
+  // Admin group chat
+  insertAdminMessage: db.prepare(`
+    INSERT INTO admin_messages (sender_id, sender_name, message, media_url, media_type)
+    VALUES (@sender_id, @sender_name, @message, @media_url, @media_type)
+  `),
+  getAdminMessages: db.prepare(`
+    SELECT * FROM admin_messages ORDER BY created_at DESC LIMIT 100
+  `),
+  getAdminMessagesSince: db.prepare(`
+    SELECT * FROM admin_messages WHERE id > ? ORDER BY created_at ASC LIMIT 200
+  `),
+
+  // Password resets
+  insertPasswordReset: db.prepare(`
+    INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)
+  `),
+  getPasswordReset: db.prepare(`
+    SELECT pr.*, u.identifier FROM password_resets pr JOIN users u ON u.id = pr.user_id
+    WHERE pr.token = ? AND pr.used = 0 AND pr.expires_at > datetime('now')
+  `),
+  markPasswordResetUsed: db.prepare(`UPDATE password_resets SET used = 1 WHERE token = ?`),
+  updateUserPassword: db.prepare(`UPDATE users SET password = ? WHERE id = ?`),
 };
 
 // ── Helper: strip password from user object ─────────────────────────────────────
