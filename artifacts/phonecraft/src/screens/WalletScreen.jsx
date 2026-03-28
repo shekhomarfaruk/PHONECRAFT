@@ -313,8 +313,12 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
   const selectedChain = BLOCKCHAIN_OPTIONS.find(b => b.value === blockchain);
   const selectedToken = TOKEN_OPTIONS.find(tk => tk.value === token);
 
-  const amountLabel       = isBn ? t.amount_label : 'Amount ($ USD)';
-  const amountPlaceholder = isBn ? t.enter_amount : '$ Enter USD amount';
+  const amountLabel       = !isCrypto
+    ? (isBn ? t.amount_label : 'Amount (৳ BDT)')
+    : (isBn ? t.amount_label : 'Amount ($ USD)');
+  const amountPlaceholder = !isCrypto
+    ? (isBn ? t.enter_amount : '৳ Enter BDT amount')
+    : (isBn ? t.enter_amount : '$ Enter USD amount');
 
   const depositNumber = { bkash: depositInfo.bkash, nagad: depositInfo.nagad, rocket: depositInfo.rocket }[method] || '';
 

@@ -19,7 +19,9 @@ function Toast({ toasts }) {
   );
 }
 
+const DEFAULT_USD_RATE = 122.80;
 function formatMoney(n) { return `৳${(Number(n) || 0).toLocaleString()}`; }
+function formatMoneyUSD(n, rate) { const r = rate > 0 ? rate : DEFAULT_USD_RATE; return `$${((Number(n) || 0) / r).toFixed(2)}`; }
 function fmtDate(d) { if (!d) return '—'; try { return new Date(d.includes('Z') ? d : d + 'Z').toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return d; } }
 
 function Avatar({ src, name, size = 36, style = {} }) {
@@ -910,7 +912,10 @@ function UsersPage({ authFetch, toast, isMain, adminUser }) {
                     {profile.transactions.map(tx => (
                       <tr key={tx.id}>
                         <td>{tx.type === 'deposit' ? '💰' : '💸'} {tx.type}</td>
-                        <td style={{ fontWeight: 700 }}>{formatMoney(tx.amount)}</td>
+                        <td style={{ fontWeight: 700 }}>
+                          <div>{formatMoney(tx.amount)}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 400 }}>{formatMoneyUSD(tx.amount)}</div>
+                        </td>
                         <td>{tx.method}</td>
                         <td><span className={`badge ${tx.status === 'approved' ? 'badge-green' : tx.status === 'rejected' ? 'badge-red' : 'badge-yellow'}`}>{tx.status}</span></td>
                         <td style={{ fontSize: 11, color: 'var(--text2)' }}>{fmtDate(tx.created_at)}</td>
@@ -1107,7 +1112,10 @@ function FinancePage({ authFetch, toast, isMain }) {
                     <div style={{ fontWeight: 600 }}>{tx.user_name}</div>
                     <div style={{ fontSize: 10, color: 'var(--text2)' }}>ID: {tx.user_id} · {tx.user_identifier}</div>
                   </td>
-                  <td style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(tx.amount)}</td>
+                  <td style={{ fontWeight: 700, fontSize: 15 }}>
+                    <div>{formatMoney(tx.amount)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 400 }}>{formatMoneyUSD(tx.amount)}</div>
+                  </td>
                   <td style={{ maxWidth: 220 }}>
                     <span className="badge badge-blue" style={{ marginBottom: 4 }}>{tx.method?.toUpperCase()}</span>
                     {isCrypto ? (
