@@ -89,12 +89,21 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
   },
 });
+const ALLOWED_MIME = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'application/pdf', 'application/zip',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'audio/mpeg', 'video/mp4',
+]);
+const ALLOWED_EXT = /\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|zip|mp4|mp3)$/i;
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|zip|mp4|mp3)$/i;
-    cb(null, allowed.test(file.originalname));
+    const extOk  = ALLOWED_EXT.test(file.originalname);
+    const mimeOk = ALLOWED_MIME.has(file.mimetype);
+    cb(null, extOk && mimeOk);
   },
 });
 
@@ -260,9 +269,11 @@ function createRateLimiter({ windowMs, max, prefix }) {
 
 const loginLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, prefix: 'login' });
 const adminLoginLimiter = createRateLimiter({ windowMs: 30 * 60_000, max: 5, prefix: 'adminlogin' });
-const registerLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, prefix: 'register' });
-const financeLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 20, prefix: 'finance' });
-const supportLimiter = createRateLimiter({ windowMs: 60_000, max: 20, prefix: 'support' });
+const registerLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 5, prefix: 'register' });
+const financeLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 10, prefix: 'finance' });
+const supportLimiter = createRateLimiter({ windowMs: 60_000, max: 10, prefix: 'support' });
+const manufactureLimiter = createRateLimiter({ windowMs: 60_000, max: 20, prefix: 'manufacture' });
+const passwordLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 5, prefix: 'password' });
 
 function getSettingNum(key, fallback) {
   const row = stmts.getSetting.get(key);
@@ -514,7 +525,20 @@ app.post('/api/register', registerLimiter, (req, res) => {
     if (!name || !identifier || !password || !plan || !refCode)
       return res.status(400).json({ error: 'All fields are required including referral code' });
 
-    if (stmts.getUserByIdentifier.get(identifier))
+    // ── Input length & format validation ────────────────────────────────────
+    const cleanName = String(name).trim();
+    const cleanId = String(identifier).trim();
+    const cleanPass = String(password);
+    if (cleanName.length < 2 || cleanName.length > 60)
+      return res.status(400).json({ error: 'Name must be 2–60 characters' });
+    if (cleanId.length < 5 || cleanId.length > 80)
+      return res.status(400).json({ error: 'Phone/email must be 5–80 characters' });
+    if (cleanPass.length < 6 || cleanPass.length > 100)
+      return res.status(400).json({ error: 'Password must be 6–100 characters' });
+    if (!/^[a-zA-Z0-9._@+\-]+$/.test(cleanId))
+      return res.status(400).json({ error: 'Invalid phone/email format' });
+
+    if (stmts.getUserByIdentifier.get(cleanId))
       return res.status(400).json({ error: 'This email/phone is already registered' });
 
     const referrer = stmts.getUserByReferCode.get(refCode);
@@ -528,9 +552,9 @@ app.post('/api/register', registerLimiter, (req, res) => {
     if (referrer.balance < planRow.rate)
       return res.status(400).json({ error: 'insufficient_balance', needed: planRow.rate, plan_name: planRow.name });
 
-    const hash = bcrypt.hashSync(password, 10);
+    const hash = bcrypt.hashSync(cleanPass, 10);
 
-    const prefix = name.trim().split(' ')[0].substring(0, 3).toUpperCase();
+    const prefix = cleanName.split(' ')[0].substring(0, 3).toUpperCase();
     let newReferCode;
     let attempts = 0;
     do {
@@ -539,7 +563,7 @@ app.post('/api/register', registerLimiter, (req, res) => {
     } while (stmts.getUserByReferCode.get(newReferCode) && attempts < 20);
 
     const pending = stmts.insertPendingReg.run({
-      name: name.trim(), identifier: identifier.trim(),
+      name: cleanName, identifier: cleanId,
       password_hash: hash, plan_id: plan,
       refer_code_used: refCode, referrer_id: referrer.id,
       new_refer_code: newReferCode, plan_rate: planRow.rate,
@@ -902,7 +926,7 @@ const startManufactureTx = db.transaction((body) => {
   };
 });
 
-app.post('/api/manufacture/start', authRequired, (req, res) => {
+app.post('/api/manufacture/start', authRequired, manufactureLimiter, (req, res) => {
   try {
     const result = startManufactureTx({ ...(req.body || {}), userId: req.auth.userId });
     res.status(result.status).json(result.body);
@@ -930,6 +954,21 @@ const completeManufactureTx = db.transaction((body) => {
   const user = stmts.getUserById.get(userId);
   const plan = stmts.getPlan.get(user.plan_id);
   const earned = plan.per_task;
+
+  // ── SERVER-SIDE TIME ENFORCEMENT: ensure task_time has elapsed ──────────
+  const requiredMs = (plan.task_time || 2) * 60 * 1000;
+  const jobCreatedAt = new Date(job.created_at + 'Z').getTime();
+  const elapsed = Date.now() - jobCreatedAt;
+  if (elapsed < requiredMs) {
+    const remainingSec = Math.ceil((requiredMs - elapsed) / 1000);
+    return {
+      status: 400,
+      body: {
+        error: 'Manufacturing still in progress',
+        remainingSeconds: remainingSec,
+      },
+    };
+  }
 
   // Complete the job
   const updated = stmts.completeJob.run('completed', earned, jobId, userId, 'processing');
@@ -982,7 +1021,7 @@ const completeManufactureTx = db.transaction((body) => {
   };
 });
 
-app.post('/api/manufacture/complete', authRequired, (req, res) => {
+app.post('/api/manufacture/complete', authRequired, manufactureLimiter, (req, res) => {
   try {
     const result = completeManufactureTx({ ...(req.body || {}), userId: req.auth.userId });
     res.status(result.status).json(result.body);
@@ -1142,7 +1181,7 @@ app.get('/api/user/:id/team-members', authRequired, requireSelfOrAdmin('id'), (r
     if (!userRow) return res.status(404).json({ error: 'User not found' });
     const tree = stmts.getReferralTreeMembers.all(userRow.refer_code);
     const members = tree.map(m => ({
-      id: m.id, name: m.name, identifier: m.identifier || m.username,
+      id: m.id, name: m.name,
       plan: m.plan, avatar: m.avatar, avatar_img: m.avatar_img,
       earnings: m.earnings, referrals: [],
     }));
@@ -1256,7 +1295,7 @@ app.post('/api/admin/settings', authRequired, (req, res) => {
 });
 
 // ── Change password ──────────────────────────────────────────────────────────
-app.patch('/api/user/:id/change-password', authRequired, requireSelfOrAdmin('id'), async (req, res) => {
+app.patch('/api/user/:id/change-password', authRequired, passwordLimiter, requireSelfOrAdmin('id'), async (req, res) => {
   try {
     const userId = Number(req.params.id);
     const { currentPassword, newPassword } = req.body || {};
@@ -1318,9 +1357,30 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
   if (!['withdraw', 'deposit'].includes(type)) {
     return res.status(400).json({ error: 'Invalid type' });
   }
-  const numAmount = Number(amount);
-  if (isNaN(numAmount) || numAmount <= 0) {
+  const numAmount = Math.round(Number(amount) * 100) / 100;
+  if (isNaN(numAmount) || numAmount <= 0 || numAmount > 10_000_000) {
     return res.status(400).json({ error: 'Invalid amount' });
+  }
+  if (String(method).length > 50 || String(account).length > 200) {
+    return res.status(400).json({ error: 'Invalid request' });
+  }
+
+  // ── Min/max limits from settings ────────────────────────────────────────
+  if (type === 'withdraw') {
+    const minWd = getSettingNum('min_withdraw', 0);
+    const maxWd = getSettingNum('max_withdraw', 0);
+    if (minWd > 0 && numAmount < minWd)
+      return res.status(400).json({ error: `Minimum withdrawal is ৳${minWd.toLocaleString()}` });
+    if (maxWd > 0 && numAmount > maxWd)
+      return res.status(400).json({ error: `Maximum withdrawal is ৳${maxWd.toLocaleString()}` });
+  }
+  if (type === 'deposit') {
+    const minDep = getSettingNum('min_deposit', 0);
+    const maxDep = getSettingNum('max_deposit', 0);
+    if (minDep > 0 && numAmount < minDep)
+      return res.status(400).json({ error: `Minimum deposit is ৳${minDep.toLocaleString()}` });
+    if (maxDep > 0 && numAmount > maxDep)
+      return res.status(400).json({ error: `Maximum deposit is ৳${maxDep.toLocaleString()}` });
   }
 
   const isCrypto = method === 'crypto';
@@ -1497,8 +1557,11 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
   if (!toIdentifier || !amount) {
     return res.status(400).json({ error: 'Missing fields' });
   }
-  const numAmount = Number(amount);
-  if (isNaN(numAmount) || numAmount <= 0) {
+  if (String(toIdentifier).length > 80) {
+    return res.status(400).json({ error: 'Invalid identifier' });
+  }
+  const numAmount = Math.round(Number(amount) * 100) / 100;
+  if (isNaN(numAmount) || numAmount <= 0 || numAmount > 1_000_000) {
     return res.status(400).json({ error: 'Invalid amount' });
   }
   try {
@@ -1558,11 +1621,14 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
 });
 
 // ── Live Support Chat ──────────────────────────────────────────────────────────
-app.post('/api/support/message', supportLimiter, async (req, res) => {
+app.post('/api/support/message', authRequired, supportLimiter, async (req, res) => {
   const { sessionId, message, senderName } = req.body || {};
   if (!sessionId || !message) return res.status(400).json({ error: 'Missing fields' });
+  if (String(message).length > 1000) return res.status(400).json({ error: 'Message too long (max 1000 chars)' });
+  if (!/^[a-zA-Z0-9_\-]{4,64}$/.test(String(sessionId))) return res.status(400).json({ error: 'Invalid session' });
+  const cleanMessage = String(message).trim().substring(0, 1000);
   try {
-    stmts.insertSupportMsg.run(sessionId, 'user', message.trim());
+    stmts.insertSupportMsg.run(sessionId, 'user', cleanMessage);
 
     await telegramService.forwardSupportMessage({
       sessionId,
@@ -1585,9 +1651,11 @@ app.post('/api/support/message', supportLimiter, async (req, res) => {
   }
 });
 
-app.get('/api/support/messages/:sessionId', (req, res) => {
+app.get('/api/support/messages/:sessionId', authRequired, (req, res) => {
+  const sid = req.params.sessionId;
+  if (!/^[a-zA-Z0-9_\-]{4,64}$/.test(sid)) return res.status(400).json({ error: 'Invalid session' });
   try {
-    const msgs = stmts.getSupportMsgs.all(req.params.sessionId);
+    const msgs = stmts.getSupportMsgs.all(sid);
     res.json({ messages: msgs });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch messages' });
