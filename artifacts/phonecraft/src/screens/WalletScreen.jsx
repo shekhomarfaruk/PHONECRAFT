@@ -432,6 +432,8 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
       // Crypto Withdraw
       if (!cryptoWithdrawWallet.trim() || !cryptoAmount) { showToast(t.fill_all_fields); return; }
       const wAmt = isBn ? Number(cryptoAmount) : Math.round(Number(cryptoAmount) * usdRate);
+      if (wAmt < 300) { showToast(isBn ? 'সর্বনিম্ন উইথড্র পরিমাণ ৳300' : 'Minimum withdrawal is ৳300'); return; }
+      if (wAmt > 150000) { showToast(isBn ? 'সর্বোচ্চ উইথড্র পরিমাণ ৳1,50,000' : 'Maximum withdrawal is ৳1,50,000'); return; }
       if (wAmt > user.balance) { showToast(t.insufficient_balance); return; }
       setSubmitted(true);
       try {
@@ -467,7 +469,10 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
 
     // Fiat Withdraw
     if (!amount || !acct) { showToast(t.fill_all_fields); return; }
-    if (parseInt(amount) > user.balance) { showToast(t.insufficient_balance); return; }
+    const numAmt = parseInt(amount);
+    if (numAmt < 300) { showToast(isBn ? 'সর্বনিম্ন উইথড্র পরিমাণ ৳300' : 'Minimum withdrawal is ৳300'); return; }
+    if (numAmt > 150000) { showToast(isBn ? 'সর্বোচ্চ উইথড্র পরিমাণ ৳1,50,000' : 'Maximum withdrawal is ৳1,50,000'); return; }
+    if (numAmt > user.balance) { showToast(t.insufficient_balance); return; }
     setSubmitted(true);
     try {
       const res = await authFetch(`${API_URL}/api/withdraw`, {
@@ -709,6 +714,11 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
             <div className="input-wrap">
               <label className="input-label">{t.amount_label}</label>
               <input className="inp" type="number" placeholder={t.enter_amount} value={amount} onChange={e => setAmount(e.target.value)}/>
+              {tab === 'withdraw' && (
+                <div style={{ fontSize:11, color:'var(--text2)', marginTop:4 }}>
+                  {isBn ? 'সর্বনিম্ন ৳300 · সর্বোচ্চ ৳1,50,000' : 'Min ৳300 · Max ৳1,50,000'}
+                </div>
+              )}
             </div>
           </>
         )}
