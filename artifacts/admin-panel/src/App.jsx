@@ -348,7 +348,7 @@ export default function App() {
             </div>
           </div>
           <div className="sidebar-admin-badge">
-            <Shield size={9} /> {isMain ? 'Main Admin' : 'Sub-Admin'}
+            <Shield size={9} /> {isMain ? 'Main Admin' : 'Admin'}
           </div>
           <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
             {adminUser.name}
@@ -1620,7 +1620,7 @@ function AdminsPage({ authFetch, toast, adminUser }) {
           <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px', marginBottom: 8, borderRadius: 12, background: u.is_main_admin ? 'rgba(139,92,246,0.06)' : 'rgba(59,130,246,0.06)', border: `1px solid ${u.is_main_admin ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)'}` }}>
             <Avatar src={u.avatar_img || u.avatar} name={u.name} size={44} style={{ borderRadius: 12 }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{u.name} <span className={`badge ${u.is_main_admin ? 'badge-purple' : 'badge-blue'}`}>{u.is_main_admin ? 'Main Admin' : 'Sub-Admin'}</span></div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{u.name} {u.is_main_admin && <span className="badge badge-purple">Main Admin</span>}</div>
               <div style={{ fontSize: 11, color: 'var(--text2)' }}>{u.identifier} · {u.refer_code}</div>
             </div>
             {!u.is_main_admin && (
