@@ -624,12 +624,27 @@ app.post('/api/register', registerLimiter, (req, res) => {
 
     // ── GUSTMODE: instant guest trial account ─────────────────────────────────
     if (String(refCode).toUpperCase() === 'GUSTMODE') {
+      const clientIp = req.ip || req.socket?.remoteAddress || '';
+
+      // device_id validated first (needed for auto-login check below)
+      const safeDeviceId = String(device_id || '').trim();
+      if (!safeDeviceId || safeDeviceId.length < 8 || safeDeviceId.length > 128 || !/^[a-zA-Z0-9_\-]+$/.test(safeDeviceId))
+        return res.status(400).json({ error: biMsg('Invalid or missing device ID', 'Device ID অবৈধ বা অনুপস্থিত') });
+
+      // Device lock: existing guest on this device → auto-login regardless of toggle
+      // (toggle only prevents NEW guest registrations, not resuming existing sessions)
+      const existingGuest = db.prepare('SELECT * FROM users WHERE is_guest = 1 AND guest_device_id = ?').get(safeDeviceId);
+      if (existingGuest) {
+        const token = issueAuthToken(existingGuest);
+        return res.json({ token, user: toClientUser(existingGuest), plan: stmts.getPlan.get(existingGuest.plan_id), guest_resumed: true });
+      }
+
+      // New guest registration requires guest mode to be enabled
       const guestEnabled = getSettingStr('guest_mode_enabled', '1');
       if (guestEnabled !== '1') {
         return res.status(403).json({ error: biMsg('Guest mode is currently disabled', 'গেস্ট মোড বর্তমানে বন্ধ আছে') });
       }
 
-      const clientIp = req.ip || req.socket?.remoteAddress || '';
       const cleanName = String(name).trim();
       const cleanId = String(identifier).trim();
 
@@ -637,18 +652,6 @@ app.post('/api/register', registerLimiter, (req, res) => {
         return res.status(400).json({ error: 'Name must be 2–60 characters' });
       if (cleanId.length < 5 || cleanId.length > 80)
         return res.status(400).json({ error: 'Phone/email must be 5–80 characters' });
-
-      // device_id is required to enforce one-device/one-guest
-      const safeDeviceId = String(device_id || '').trim();
-      if (!safeDeviceId || safeDeviceId.length < 8 || safeDeviceId.length > 128 || !/^[a-zA-Z0-9_\-]+$/.test(safeDeviceId))
-        return res.status(400).json({ error: biMsg('Invalid or missing device ID', 'Device ID অবৈধ বা অনুপস্থিত') });
-
-      // Device lock: check if this device_id already has a guest account → auto-login
-      const existingGuest = db.prepare('SELECT * FROM users WHERE is_guest = 1 AND guest_device_id = ?').get(safeDeviceId);
-      if (existingGuest) {
-        const token = issueAuthToken(existingGuest);
-        return res.json({ token, user: toClientUser(existingGuest), plan: stmts.getPlan.get(existingGuest.plan_id), guest_resumed: true });
-      }
 
       // Check if identifier already taken
       if (stmts.getUserByIdentifier.get(cleanId))
