@@ -264,7 +264,7 @@ app.use(cors({
   },
 }));
 app.use(express.json({ limit: '5mb' }));
-app.set('trust proxy', true);
+app.set('trust proxy', 1); // Trust exactly one hop (Replit's proxy); req.ip returns true client IP
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 function createRateLimiter({ windowMs, max, prefix }) {
@@ -629,7 +629,7 @@ app.post('/api/register', registerLimiter, (req, res) => {
         return res.status(403).json({ error: biMsg('Guest mode is currently disabled', 'গেস্ট মোড বর্তমানে বন্ধ আছে') });
       }
 
-      const clientIp = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+      const clientIp = req.ip || req.socket?.remoteAddress || '';
       const cleanName = String(name).trim();
       const cleanId = String(identifier).trim();
 
