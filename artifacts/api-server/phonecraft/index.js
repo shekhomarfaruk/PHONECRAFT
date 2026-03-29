@@ -367,10 +367,10 @@ function authRequired(req, res, next) {
   }
   req.auth = auth;
 
-  // Guest expiry: block ALL authenticated routes with 401
+  // Guest expiry: block ALL authenticated routes with 401 (>= for exact cutoff)
   if (auth.user && auth.user.is_guest && auth.user.guest_expires_at) {
     const nowSec = Math.floor(Date.now() / 1000);
-    if (nowSec > auth.user.guest_expires_at) {
+    if (nowSec >= auth.user.guest_expires_at) {
       res.status(401).json({ error: 'guest_expired' });
       return;
     }
@@ -1047,7 +1047,7 @@ app.get('/api/user/:id/work-status', authRequired, requireSelfOrAdmin('id'), (re
     if (!user) return res.status(404).json({ error: 'User not found' });
     const plan = stmts.getPlan.get(user.plan_id);
     const GUEST_CAP = 5;
-    const dailyLimit = user.is_guest ? Math.min(plan.daily, GUEST_CAP) : plan.daily;
+    const dailyLimit = user.is_guest ? GUEST_CAP : plan.daily;
     const activeJob = stmts.getProcessingJobByUser.get(userId) || null;
     res.json({
       dailyDone,
@@ -1086,13 +1086,13 @@ const startManufactureTx = db.transaction((body) => {
         job: existingJob,
         resumed: true,
         dailyDone: user.daily_done,
-        dailyLimit: user.is_guest ? Math.min(resumePlan.daily, GUEST_CAP) : resumePlan.daily,
+        dailyLimit: user.is_guest ? GUEST_CAP : resumePlan.daily,
       },
     };
   }
 
   const plan = stmts.getPlan.get(user.plan_id);
-  const guestDailyLimit = user.is_guest ? Math.min(plan.daily, 5) : plan.daily;
+  const guestDailyLimit = user.is_guest ? GUEST_CAP : plan.daily;
   if (user.daily_done >= guestDailyLimit) {
     if (user.is_guest) {
       return { status: 400, body: { error: 'guest_task_limit', message: biMsg('Guest trial limit reached (5 tasks). Register a real account to continue.', 'গেস্ট ট্রায়াল লিমিট পৌঁছে গেছে (৫টি টাস্ক)। চালিয়ে যেতে একটি আসল অ্যাকাউন্ট খুলুন।') } };
@@ -1114,7 +1114,7 @@ const startManufactureTx = db.transaction((body) => {
     body: {
       job,
       dailyDone:  updatedUser.daily_done,
-      dailyLimit: user.is_guest ? Math.min(plan.daily, GUEST_CAP) : plan.daily,
+      dailyLimit: user.is_guest ? GUEST_CAP : plan.daily,
     },
   };
 });
