@@ -1076,10 +1076,10 @@ const startManufactureTx = db.transaction((body) => {
   if (!user) return { status: 404, body: { error: 'User not found' } };
   if (user.banned) return { status: 403, body: { error: 'Account suspended' } };
 
+  const GUEST_CAP = 5;
   const existingJob = stmts.getProcessingJobByUser.get(userId);
   if (existingJob) {
     const resumePlan = stmts.getPlan.get(user.plan_id);
-    const GUEST_CAP = 5;
     return {
       status: 200,
       body: {
