@@ -6,7 +6,7 @@ import {
   Download, Send, Lock, RefreshCw, Eye, CheckCircle, Ban, UserCheck,
   Menu, Search, Filter, FileText, Star, AlertTriangle, Reply, Trash2,
   ChevronRight, Edit, ArrowUpRight, ArrowDownRight, Activity,
-  Flag, Globe, Bell, BellOff, BellRing, Link,
+  Flag, Globe, Bell, BellOff, BellRing, Link, Zap, MessageCircle,
 } from 'lucide-react';
 
 const BASE = import.meta.env.BASE_URL || '/admin-panel/';
@@ -310,8 +310,10 @@ export default function App() {
     ...(isMain ? [{ id: 'ip-tracking', label: 'IP Tracking', icon: Globe }] : []),
     ...(isMain ? [{ id: 'live-locations', label: 'Live Locations', icon: Activity }] : []),
     { id: 'support', label: 'Support', icon: MessageSquare },
+    { id: 'admin-chat', label: 'Admin Chat', icon: MessageCircle },
     ...(isMain ? [{ id: 'admins', label: 'Admin & Roles', icon: Shield }] : []),
     { id: 'notifications', label: 'Notifications', icon: Bell },
+    ...(isMain ? [{ id: 'controls', label: 'Quick Controls', icon: Zap }] : []),
     ...(isMain ? [{ id: 'settings', label: 'Settings', icon: Settings }] : []),
   ];
 
@@ -321,7 +323,8 @@ export default function App() {
   const pageLabels = {
     dashboard: 'Dashboard', users: 'Users', finance: 'Finance', flagged: 'Flagged',
     'ip-tracking': 'IP Tracking', 'live-locations': 'Live Locations', support: 'Support',
-    admins: 'Admin & Roles', notifications: 'Notification Settings', settings: 'Settings',
+    'admin-chat': 'Admin Chat', admins: 'Admin & Roles', notifications: 'Notification Settings',
+    controls: 'Quick Controls', settings: 'Settings',
   };
 
   return (
@@ -408,8 +411,10 @@ export default function App() {
         {page === 'ip-tracking' && <IpTrackingPage authFetch={authFetch} toast={toast} />}
         {page === 'live-locations' && <LiveLocationsPage authFetch={authFetch} toast={toast} />}
         {page === 'support' && <SupportPage authFetch={authFetch} toast={toast} />}
+        {page === 'admin-chat' && <AdminChatPage authFetch={authFetch} toast={toast} adminUser={adminUser} />}
         {page === 'admins' && <AdminsPage authFetch={authFetch} toast={toast} adminUser={adminUser} />}
         {page === 'notifications' && <NotificationsPage authFetch={authFetch} toast={toast} token={token} />}
+        {page === 'controls' && <ControlsPage authFetch={authFetch} toast={toast} />}
         {page === 'settings' && <SettingsPage authFetch={authFetch} toast={toast} />}
       </main>
     </div>
@@ -1511,11 +1516,6 @@ function AdminsPage({ authFetch, toast, adminUser }) {
   const [logsLoading, setLogsLoading] = useState(true);
   const [editPerms, setEditPerms] = useState(null);
   const [perms, setPerms] = useState({});
-  const [chatMsgs, setChatMsgs] = useState([]);
-  const [chatText, setChatText] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatSending, setChatSending] = useState(false);
-  const chatEndRef = useRef(null);
   const isMain = adminUser?.is_main_admin;
 
   const loadUsers = useCallback(async () => {
@@ -1528,28 +1528,7 @@ function AdminsPage({ authFetch, toast, adminUser }) {
     finally { setLogsLoading(false); }
   }, []);
 
-  const loadChat = useCallback(async () => {
-    setChatLoading(true);
-    try { const r = await authFetch(`${API}/api/admin/group-chat`); const d = await r.json(); if (r.ok) setChatMsgs(d.messages || []); } catch {}
-    finally { setChatLoading(false); }
-  }, []);
-
-  const sendChat = async () => {
-    if (!chatText.trim() || isMain) return;
-    setChatSending(true);
-    try {
-      const r = await authFetch(`${API}/api/admin/group-chat/send`, {
-        method: 'POST',
-        body: JSON.stringify({ message: chatText.trim() }),
-      });
-      if (r.ok) { setChatText(''); loadChat(); } else { toast('Failed to send', 'error'); }
-    } catch { toast('Connection error', 'error'); }
-    setChatSending(false);
-  };
-
-  useEffect(() => { loadUsers(); loadLogs(); loadChat(); }, [loadUsers, loadLogs, loadChat]);
-  useEffect(() => { const t = setInterval(loadChat, 5000); return () => clearInterval(t); }, [loadChat]);
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMsgs]);
+  useEffect(() => { loadUsers(); loadLogs(); }, [loadUsers, loadLogs]);
 
   const loadPerms = async (adminId) => {
     try {
@@ -1677,73 +1656,6 @@ function AdminsPage({ authFetch, toast, adminUser }) {
         )}
       </div>
 
-      {/* Admin Group Chat */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>
-            <MessageSquare size={16} /> Admin Group Chat
-            {isMain && <span className="badge badge-purple" style={{ marginLeft: 8, fontSize: 9 }}>Read Only</span>}
-          </div>
-          <button className="btn btn-outline btn-sm" onClick={loadChat}><RefreshCw size={12} /> Refresh</button>
-        </div>
-        <div style={{
-          background: 'var(--bg2)', borderRadius: 12, padding: 12,
-          height: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8,
-          border: '1px solid var(--border)',
-        }}>
-          {chatLoading
-            ? <div style={{ textAlign: 'center', color: 'var(--text2)', marginTop: 40 }}>Loading messages...</div>
-            : chatMsgs.length === 0
-              ? <div style={{ textAlign: 'center', color: 'var(--text2)', marginTop: 40 }}>No messages yet</div>
-              : chatMsgs.map(m => (
-                <div key={m.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,var(--accent),var(--accent2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0, color: '#fff' }}>
-                    {(m.sender_name || 'A')[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 2 }}>
-                      {m.sender_name || 'Admin'}
-                      <span style={{ color: 'var(--text2)', fontWeight: 400, marginLeft: 8 }}>{fmtDate(m.created_at)}</span>
-                    </div>
-                    {m.message ? (
-                      <div style={{ fontSize: 13, background: 'var(--card)', padding: '7px 12px', borderRadius: '0 10px 10px 10px', border: '1px solid var(--border)' }}>
-                        {m.message}
-                      </div>
-                    ) : null}
-                    {m.media_url && m.media_type === 'image' && (
-                      <img src={m.media_url} alt="" style={{ maxWidth: 220, borderRadius: 8, marginTop: 6, display: 'block' }} />
-                    )}
-                    {m.media_url && m.media_type === 'file' && (
-                      <a href={m.media_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--accent)', marginTop: 4, display: 'block' }}>📎 Attachment</a>
-                    )}
-                  </div>
-                </div>
-              ))
-          }
-          <div ref={chatEndRef} />
-        </div>
-        {!isMain && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <input
-              className="inp"
-              style={{ flex: 1 }}
-              placeholder="Type a message to the group..."
-              value={chatText}
-              onChange={e => setChatText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat()}
-            />
-            <button className="btn btn-primary" onClick={sendChat} disabled={chatSending || !chatText.trim()}>
-              <Send size={14} /> Send
-            </button>
-          </div>
-        )}
-        {isMain && (
-          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 8, textAlign: 'center' }}>
-            Main admin can read messages. Sub-admins communicate here.
-          </div>
-        )}
-      </div>
-
       {/* Access Link — visible to main admin only */}
       {isMain && (
         <div className="card" style={{ borderColor: 'rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.04)' }}>
@@ -1760,6 +1672,316 @@ function AdminsPage({ authFetch, toast, adminUser }) {
 
       {/* ⚠️ Danger Zone — Reset Database (main admin only) */}
       {isMain && <ResetDatabaseCard authFetch={authFetch} toast={toast} />}
+    </>
+  );
+}
+
+function AdminChatPage({ authFetch, toast, adminUser }) {
+  const [chatMsgs, setChatMsgs] = useState([]);
+  const [chatText, setChatText] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const chatEndRef = useRef(null);
+  const isMain = adminUser?.is_main_admin;
+
+  const loadChat = useCallback(async () => {
+    setChatLoading(true);
+    try { const r = await authFetch(`${API}/api/admin/group-chat`); const d = await r.json(); if (r.ok) setChatMsgs(d.messages || []); } catch {}
+    finally { setChatLoading(false); }
+  }, []);
+
+  const sendChat = async () => {
+    if (!chatText.trim()) return;
+    setChatSending(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/group-chat/send`, {
+        method: 'POST',
+        body: JSON.stringify({ message: chatText.trim() }),
+      });
+      if (r.ok) { setChatText(''); loadChat(); } else { toast('Failed to send', 'error'); }
+    } catch { toast('Connection error', 'error'); }
+    setChatSending(false);
+  };
+
+  useEffect(() => { loadChat(); }, [loadChat]);
+  useEffect(() => { const t = setInterval(loadChat, 5000); return () => clearInterval(t); }, [loadChat]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMsgs]);
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1><MessageCircle size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Admin Chat</h1>
+          <div className="subtitle">Private group chat between all admins</div>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={loadChat}><RefreshCw size={12} /> Refresh</button>
+      </div>
+
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: 480 }}>
+        {/* Chat header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px',
+          borderBottom: '1px solid var(--border)', marginBottom: 0,
+          background: 'linear-gradient(90deg,rgba(59,130,246,0.07),rgba(14,203,129,0.05))',
+          borderRadius: '12px 12px 0 0',
+        }}>
+          <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg,#1E40AF,#0ECB81)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MessageCircle size={18} color="#fff" />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Admin Group Chat</div>
+            <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+              {isMain ? '👁️ Main admin — read only' : '✏️ You can send messages'}
+            </div>
+          </div>
+        </div>
+
+        {/* Messages area */}
+        <div style={{
+          flex: 1, overflowY: 'auto', padding: '14px 16px',
+          display: 'flex', flexDirection: 'column', gap: 10,
+          minHeight: 340, maxHeight: 480,
+          background: 'var(--bg2)',
+        }}>
+          {chatLoading && chatMsgs.length === 0
+            ? <div style={{ textAlign: 'center', color: 'var(--text2)', marginTop: 60 }}>Loading messages...</div>
+            : chatMsgs.length === 0
+              ? (
+                <div style={{ textAlign: 'center', marginTop: 60 }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>💬</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text2)' }}>No messages yet</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>Start the conversation below</div>
+                </div>
+              )
+              : chatMsgs.map(m => (
+                <div key={m.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: 'linear-gradient(135deg,var(--primary),var(--accent))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, fontWeight: 700, flexShrink: 0, color: '#fff',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  }}>
+                    {(m.sender_name || 'A')[0].toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>
+                      {m.sender_name || 'Admin'}
+                      <span style={{ color: 'var(--text2)', fontWeight: 400, marginLeft: 8 }}>{fmtDate(m.created_at)}</span>
+                    </div>
+                    {m.message && (
+                      <div style={{
+                        fontSize: 13, background: 'var(--card)',
+                        padding: '9px 14px', borderRadius: '0 12px 12px 12px',
+                        border: '1px solid var(--border)',
+                        lineHeight: 1.55, wordBreak: 'break-word',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                      }}>
+                        {m.message}
+                      </div>
+                    )}
+                    {m.media_url && m.media_type === 'image' && (
+                      <img src={m.media_url} alt="" style={{ maxWidth: 240, borderRadius: 10, marginTop: 6, display: 'block', border: '1px solid var(--border)' }} />
+                    )}
+                    {m.media_url && m.media_type === 'file' && (
+                      <a href={m.media_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--accent)', marginTop: 4, display: 'block' }}>📎 Attachment</a>
+                    )}
+                  </div>
+                </div>
+              ))
+          }
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Input area */}
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--card)', borderRadius: '0 0 12px 12px' }}>
+          {isMain ? (
+            <div style={{
+              fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '10px',
+              background: 'var(--bg2)', borderRadius: 8, border: '1px solid var(--border)',
+            }}>
+              👁️ Main admin has read-only access to this chat. Sub-admins use this to communicate.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                className="inp"
+                style={{ flex: 1 }}
+                placeholder="Type a message..."
+                value={chatText}
+                onChange={e => setChatText(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && !chatSending && sendChat()}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={sendChat}
+                disabled={chatSending || !chatText.trim()}
+                style={{ minWidth: 80, gap: 6 }}
+              >
+                <Send size={14} /> {chatSending ? '...' : 'Send'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ControlsPage({ authFetch, toast }) {
+  const [settings, setSettings] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await authFetch(`${API}/api/admin/settings`);
+      const d = await r.json();
+      if (r.ok && d.settings) setSettings(d.settings);
+    } catch {}
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/settings`, { method: 'POST', body: JSON.stringify({ settings }) });
+      if (r.ok) { toast('Controls saved!'); await load(); }
+      else toast('Failed to save', 'error');
+    } catch { toast('Failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const Toggle = ({ label, description, value, onChange, color = 'var(--accent)', icon }) => (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 14,
+      padding: '16px 18px', borderRadius: 12,
+      background: value ? `rgba(${color === 'var(--danger)' ? '239,68,68' : color === 'var(--success)' ? '14,203,129' : color === 'var(--primary)' ? '59,130,246' : '14,203,129'},0.06)` : 'var(--bg2)',
+      border: `1.5px solid ${value ? (color === 'var(--danger)' ? 'rgba(239,68,68,0.25)' : 'rgba(14,203,129,0.25)') : 'var(--border)'}`,
+      transition: 'all 0.2s',
+    }}>
+      <div style={{ fontSize: 22, flexShrink: 0, marginTop: 2 }}>{icon}</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{label}</div>
+        {description && <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>{description}</div>}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: value ? 'var(--success)' : 'var(--text2)' }}>
+          {value ? 'ON' : 'OFF'}
+        </span>
+        <div
+          onClick={onChange}
+          style={{
+            width: 50, height: 28, borderRadius: 14,
+            background: value ? color : 'var(--border)',
+            cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+            boxShadow: value ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+          }}
+        >
+          <div style={{
+            width: 22, height: 22, borderRadius: '50%', background: '#fff',
+            position: 'absolute', top: 3, left: value ? 25 : 3,
+            transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+          }} />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1><Zap size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />Quick Controls</h1>
+          <div className="subtitle">Main admin switch keys — real-time platform controls</div>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving ? 'Saving...' : '💾 Save Changes'}</button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* App-wide switches */}
+        <div className="card" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
+          <div className="card-title" style={{ marginBottom: 14 }}>
+            <AlertTriangle size={16} color="var(--danger)" /> App Status
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Toggle
+              icon="🔧"
+              label="Maintenance Mode"
+              description="When ON, users see a maintenance screen. Only admins can log in."
+              value={settings.maintenance_mode === 'true'}
+              onChange={() => setSettings(p => ({ ...p, maintenance_mode: p.maintenance_mode === 'true' ? 'false' : 'true' }))}
+              color="var(--danger)"
+            />
+            <Toggle
+              icon="👤"
+              label="Guest Mode (GUSTMODE Trial)"
+              description="When ON, users can register with code GUSTMODE for a free 15-min trial. Max 3 per IP/day, 5 tasks cap, no earnings."
+              value={settings.guest_mode_enabled !== '0'}
+              onChange={() => setSettings(p => ({ ...p, guest_mode_enabled: p.guest_mode_enabled === '0' ? '1' : '0' }))}
+              color="var(--success)"
+            />
+          </div>
+        </div>
+
+        {/* Work time */}
+        <div className="card">
+          <div className="card-title" style={{ marginBottom: 14 }}>
+            <Clock size={16} color="var(--primary)" /> Work Time Restriction
+          </div>
+          <Toggle
+            icon="⏰"
+            label="Restrict Work Hours"
+            description="When ON, users can only start new tasks within the set hours (Dhaka time). Active jobs can still be completed."
+            value={settings.work_time_enabled === '1'}
+            onChange={() => setSettings(p => ({ ...p, work_time_enabled: p.work_time_enabled === '1' ? '0' : '1' }))}
+            color="var(--primary)"
+          />
+          {settings.work_time_enabled === '1' && (
+            <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
+              <div style={{ flex: 1 }}>
+                <label className="input-label">Start Time (Dhaka)</label>
+                <input type="time" className="inp" value={settings.work_time_start || '09:00'}
+                  onChange={e => setSettings(p => ({ ...p, work_time_start: e.target.value }))} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="input-label">End Time (Dhaka)</label>
+                <input type="time" className="inp" value={settings.work_time_end || '22:00'}
+                  onChange={e => setSettings(p => ({ ...p, work_time_end: e.target.value }))} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Finance switches */}
+        <div className="card">
+          <div className="card-title" style={{ marginBottom: 14 }}>
+            <CreditCard size={16} /> Withdrawal Rules
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Toggle
+              icon="✅"
+              label="Require Daily Tasks Before Withdraw"
+              description="Users must complete their daily tasks before they can withdraw."
+              value={settings.require_tasks_for_withdraw === 'true'}
+              onChange={() => setSettings(p => ({ ...p, require_tasks_for_withdraw: p.require_tasks_for_withdraw === 'true' ? 'false' : 'true' }))}
+              color="var(--accent)"
+            />
+            <Toggle
+              icon="📸"
+              label="Require Withdraw Proof (Screenshot)"
+              description="Users must upload a screenshot as proof when requesting a withdrawal."
+              value={settings.require_withdraw_proof === 'true'}
+              onChange={() => setSettings(p => ({ ...p, require_withdraw_proof: p.require_withdraw_proof === 'true' ? 'false' : 'true' }))}
+              color="var(--accent)"
+            />
+          </div>
+        </div>
+
+        <button className="btn btn-primary btn-full" onClick={save} disabled={saving} style={{ marginTop: 4 }}>
+          {saving ? 'Saving...' : '💾 Save All Changes'}
+        </button>
+      </div>
     </>
   );
 }
@@ -1894,60 +2116,8 @@ function SettingsPage({ authFetch, toast }) {
 
       <div className="card" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
         <div className="card-title"><AlertTriangle size={16} color="var(--danger)" /> App Control</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Maintenance Mode</span>
-          <div onClick={() => setSettings(p => ({ ...p, maintenance_mode: p.maintenance_mode === 'true' ? 'false' : 'true' }))}
-            style={{ width: 48, height: 26, borderRadius: 13, background: settings.maintenance_mode === 'true' ? 'var(--danger)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-            <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.maintenance_mode === 'true' ? 24 : 2, transition: 'left 0.2s' }} />
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Guest Mode (GUSTMODE trial)</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: settings.guest_mode_enabled === '0' ? 'var(--danger)' : 'var(--success)' }}>
-            {settings.guest_mode_enabled === '0' ? 'OFF' : 'ON'}
-          </span>
-          <div
-            onClick={() => setSettings(p => ({ ...p, guest_mode_enabled: p.guest_mode_enabled === '0' ? '1' : '0' }))}
-            style={{ width: 48, height: 26, borderRadius: 13, background: settings.guest_mode_enabled === '0' ? 'var(--border)' : 'var(--success)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}
-          >
-            <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.guest_mode_enabled === '0' ? 2 : 24, transition: 'left 0.2s' }} />
-          </div>
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 16 }}>
-          When ON, users can try 15-min free trial by using referral code <b>GUSTMODE</b>. Max 3 per IP/day, 5 tasks cap, no earnings.
-        </div>
-        {/* Work Time Restriction */}
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginBottom: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <Clock size={14} color="var(--primary)" />
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Work Time Restriction</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: settings.work_time_enabled === '1' ? 'var(--success)' : 'var(--text2)' }}>
-              {settings.work_time_enabled === '1' ? 'ON' : 'OFF'}
-            </span>
-            <div
-              onClick={() => setSettings(p => ({ ...p, work_time_enabled: p.work_time_enabled === '1' ? '0' : '1' }))}
-              style={{ width: 48, height: 26, borderRadius: 13, background: settings.work_time_enabled === '1' ? 'var(--primary)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}
-            >
-              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.work_time_enabled === '1' ? 24 : 2, transition: 'left 0.2s' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 10 }}>
-            When ON, users can only start new tasks within the set hours (Dhaka time). Active jobs can still be completed.
-          </div>
-          {settings.work_time_enabled === '1' && (
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <label className="input-label">Start Time (Dhaka)</label>
-                <input type="time" className="inp" value={settings.work_time_start || '09:00'}
-                  onChange={e => setSettings(p => ({ ...p, work_time_start: e.target.value }))} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="input-label">End Time (Dhaka)</label>
-                <input type="time" className="inp" value={settings.work_time_end || '22:00'}
-                  onChange={e => setSettings(p => ({ ...p, work_time_end: e.target.value }))} />
-              </div>
-            </div>
-          )}
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14, padding: '8px 12px', background: 'rgba(59,130,246,0.06)', borderRadius: 8, border: '1px solid rgba(59,130,246,0.15)' }}>
+          💡 Switch keys (Maintenance, Guest Mode, Work Time, Withdraw rules) have moved to <b>Quick Controls</b> in the sidebar.
         </div>
 
         <label className="input-label">Announcement Banner</label>
@@ -2130,21 +2300,8 @@ function SettingsPage({ authFetch, toast }) {
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Require Daily Tasks Before Withdraw</span>
-            <div onClick={() => setSettings(p => ({ ...p, require_tasks_for_withdraw: p.require_tasks_for_withdraw === 'true' ? 'false' : 'true' }))}
-              style={{ width: 48, height: 26, borderRadius: 13, background: settings.require_tasks_for_withdraw === 'true' ? 'var(--accent)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.require_tasks_for_withdraw === 'true' ? 24 : 2, transition: 'left 0.2s' }} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Require Withdraw Proof (Screenshot)</span>
-            <div onClick={() => setSettings(p => ({ ...p, require_withdraw_proof: p.require_withdraw_proof === 'true' ? 'false' : 'true' }))}
-              style={{ width: 48, height: 26, borderRadius: 13, background: settings.require_withdraw_proof === 'true' ? 'var(--accent)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.require_withdraw_proof === 'true' ? 24 : 2, transition: 'left 0.2s' }} />
-            </div>
-          </div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 14, padding: '8px 12px', background: 'rgba(59,130,246,0.06)', borderRadius: 8, border: '1px solid rgba(59,130,246,0.15)' }}>
+          💡 Withdrawal toggle switches have moved to <b>Quick Controls</b> in the sidebar.
         </div>
       </div>
 

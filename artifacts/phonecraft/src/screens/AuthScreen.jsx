@@ -262,6 +262,21 @@ export default function AuthScreen({ isDark, tab, setTab, loginForm, setLoginFor
           <div className="input-wrap">
             <label className="input-label">{t.auth_refcode} <span style={{color:'var(--red)'}}>{t.auth_refcode_req}</span></label>
             <IconInput Icon={Icons.Link}><input className="inp" style={{paddingLeft:42}} placeholder={t.auth_refcode_ph} value={regForm.refCode} onChange={e=>setRegForm(p=>({...p,refCode:e.target.value}))}/></IconInput>
+            {/* GUSTMODE hint */}
+            <div style={{
+              marginTop: 8, padding: '10px 13px', borderRadius: 10,
+              background: 'linear-gradient(135deg,rgba(14,203,129,0.08),rgba(59,130,246,0.06))',
+              border: '1px solid rgba(14,203,129,0.25)',
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+            }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+              <div style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--text2)' }}>
+                {isBn
+                  ? <>ফ্রি <b style={{color:'var(--accent)'}}>১৫ মিনিটের গেস্ট ট্রায়াল</b> পেতে রেফারেল কোড হিসেবে <b style={{color:'var(--accent)',letterSpacing:1}}>GUSTMODE</b> ব্যবহার করুন। (কোনো পেমেন্ট লাগবে না, সর্বোচ্চ ৫টি টাস্ক করা যাবে)</>
+                  : <>For a free <b style={{color:'var(--accent)'}}>15-minute guest trial</b>, use referral code <b style={{color:'var(--accent)',letterSpacing:1}}>GUSTMODE</b>. (No payment needed — max 5 tasks, no earnings)</>
+                }
+              </div>
+            </div>
           </div>
           <div style={{marginBottom:14}}>
             <label className="input-label">{t.auth_select_plan}</label>
