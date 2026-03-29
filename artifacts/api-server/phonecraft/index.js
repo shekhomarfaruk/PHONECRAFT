@@ -367,15 +367,12 @@ function authRequired(req, res, next) {
   }
   req.auth = auth;
 
-  // Guest expiry enforcement (block everything except /api/me and /api/login)
+  // Guest expiry: block ALL authenticated routes with 401
   if (auth.user && auth.user.is_guest && auth.user.guest_expires_at) {
     const nowSec = Math.floor(Date.now() / 1000);
     if (nowSec > auth.user.guest_expires_at) {
-      const allowedPaths = ['/api/me', '/api/login'];
-      if (!allowedPaths.includes(req.path)) {
-        res.status(403).json({ error: 'guest_expired' });
-        return;
-      }
+      res.status(401).json({ error: 'guest_expired' });
+      return;
     }
   }
 
@@ -828,7 +825,7 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
       for (let lvl = 1; lvl <= 3; lvl++) {
         const pct = bonusLevels[lvl - 1];
         const bonus = Math.floor(pending.plan_rate * pct / 100);
-        if (bonus > 0 && currentUser) {
+        if (bonus > 0 && currentUser && !currentUser.is_guest) {
           stmts.creditBalance.run(bonus, currentUser.id);
           const logType = lvl === 1 ? 'referral_bonus' : 'team_bonus';
           stmts.insertReferralActivity.run({

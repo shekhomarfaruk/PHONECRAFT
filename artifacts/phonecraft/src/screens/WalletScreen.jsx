@@ -415,7 +415,8 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
   const submit = async () => {
     // Guest accounts cannot withdraw
     if (user?.isGuest && tab === 'withdraw') {
-      if (onShowGuestPlanModal) onShowGuestPlanModal();
+      showToast(isBn ? 'গেস্ট অ্যাকাউন্টে উইথড্র করা যায় না — আসল আয়ের জন্য একটি প্ল্যান নিন।' : 'Guest accounts cannot withdraw — upgrade to a real plan to earn.', 'error');
+      if (onShowGuestPlanModal) setTimeout(onShowGuestPlanModal, 600);
       return;
     }
 

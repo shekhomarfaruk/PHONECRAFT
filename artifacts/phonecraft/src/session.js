@@ -26,11 +26,21 @@ export function authHeaders() {
   return { 'Authorization': `Bearer ${getAuthToken()}` };
 }
 
-export function authFetch(url, options = {}) {
-  return fetch(url, {
+export async function authFetch(url, options = {}) {
+  const res = await fetch(url, {
     ...options,
     headers: { ...authHeaders(), ...options.headers },
   });
+  if (res.status === 401) {
+    const cloned = res.clone();
+    try {
+      const data = await cloned.json();
+      if (data.error === 'guest_expired') {
+        window.dispatchEvent(new CustomEvent('pc:guest_expired'));
+      }
+    } catch (_) {}
+  }
+  return res;
 }
 
 export function mapApiUser(apiUser, plan, authToken, previousUser = null) {

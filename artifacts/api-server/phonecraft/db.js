@@ -106,6 +106,8 @@ try { db.exec('ALTER TABLE users ADD COLUMN is_guest INTEGER DEFAULT 0'); } catc
 try { db.exec('ALTER TABLE users ADD COLUMN guest_device_id TEXT DEFAULT NULL'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN guest_expires_at INTEGER DEFAULT NULL'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN guest_ip TEXT DEFAULT NULL'); } catch (_) {}
+// Unique index: one guest account per device (NULL values excluded)
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_guest_device_id ON users(guest_device_id) WHERE guest_device_id IS NOT NULL'); } catch (_) {}
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`

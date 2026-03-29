@@ -243,6 +243,13 @@ export default function App() {
   const prevNotifCountRef = useRef(0);
   const { isMobile, isDesktop } = useBreakpoint();
 
+  // ── Global guest_expired API event listener ─────────────────────────────────
+  useEffect(() => {
+    const handler = () => { if (user?.isGuest) setGuestExpired(true); };
+    window.addEventListener('pc:guest_expired', handler);
+    return () => window.removeEventListener('pc:guest_expired', handler);
+  }, [user?.isGuest]);
+
   // ── Guest countdown ticker ──────────────────────────────────────────────────
   useEffect(() => {
     if (!user?.isGuest || !user?.guestExpiresAt) {
@@ -719,6 +726,16 @@ export default function App() {
                 </div>
               )}
               <div className="top-right">
+                {user?.isGuest && (
+                  <span style={{
+                    background: 'rgba(245,158,11,0.18)', border: '1px solid rgba(245,158,11,0.5)',
+                    borderRadius: 6, padding: '3px 7px', fontSize: 10, fontWeight: 900,
+                    color: '#f59e0b', letterSpacing: 1, textTransform: 'uppercase',
+                    fontFamily: 'Space Grotesk', flexShrink: 0,
+                  }}>
+                    {lang === 'bn' ? 'গেস্ট' : 'GUEST'}
+                  </span>
+                )}
                 {user?.isGuest && guestSecsLeft !== null && (
                   <button
                     onClick={() => setShowGuestPlanModal(true)}
