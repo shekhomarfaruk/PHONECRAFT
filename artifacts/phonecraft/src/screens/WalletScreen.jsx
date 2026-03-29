@@ -322,7 +322,7 @@ function SubmissionCard({ type, lang, onClose }) {
 }
 
 // ── Main WalletScreen ──────────────────────────────────────────────────────────
-function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRate = 122.80 }) {
+function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRate = 122.80, onShowGuestPlanModal }) {
   const t = I18N[lang] || I18N.en;
   const isBn = lang === 'bn';
   const cryptoEnabled = appSettings?.crypto_enabled !== 'false';
@@ -413,6 +413,12 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
 
   // ── Submit — shows payment page first for deposits ──────────────────────────
   const submit = async () => {
+    // Guest accounts cannot withdraw
+    if (user?.isGuest && tab === 'withdraw') {
+      if (onShowGuestPlanModal) onShowGuestPlanModal();
+      return;
+    }
+
     if (isCrypto) {
       if (!blockchain || !token) { showToast(isBn ? 'Blockchain ও Token বেছে নিন' : 'Select Blockchain and Token'); return; }
 

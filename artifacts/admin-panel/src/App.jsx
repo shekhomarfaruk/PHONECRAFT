@@ -1901,6 +1901,21 @@ function SettingsPage({ authFetch, toast }) {
             <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.maintenance_mode === 'true' ? 24 : 2, transition: 'left 0.2s' }} />
           </div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Guest Mode (GUSTMODE trial)</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: settings.guest_mode_enabled === '0' ? 'var(--danger)' : 'var(--success)' }}>
+            {settings.guest_mode_enabled === '0' ? 'OFF' : 'ON'}
+          </span>
+          <div
+            onClick={() => setSettings(p => ({ ...p, guest_mode_enabled: p.guest_mode_enabled === '0' ? '1' : '0' }))}
+            style={{ width: 48, height: 26, borderRadius: 13, background: settings.guest_mode_enabled === '0' ? 'var(--border)' : 'var(--success)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}
+          >
+            <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.guest_mode_enabled === '0' ? 2 : 24, transition: 'left 0.2s' }} />
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 16 }}>
+          When ON, users can try 15-min free trial by using referral code <b>GUSTMODE</b>. Max 3 per IP/day, 5 tasks cap, no earnings.
+        </div>
         <label className="input-label">Announcement Banner</label>
         <input className="inp" placeholder="Shows to all users" value={settings.announcement_banner || ''} onChange={e => setSettings(p => ({ ...p, announcement_banner: e.target.value }))} />
 

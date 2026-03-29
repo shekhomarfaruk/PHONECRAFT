@@ -366,6 +366,19 @@ function authRequired(req, res, next) {
     return;
   }
   req.auth = auth;
+
+  // Guest expiry enforcement (block everything except /api/me and /api/login)
+  if (auth.user && auth.user.is_guest && auth.user.guest_expires_at) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (nowSec > auth.user.guest_expires_at) {
+      const allowedPaths = ['/api/me', '/api/login'];
+      if (!allowedPaths.includes(req.path)) {
+        res.status(403).json({ error: 'guest_expired' });
+        return;
+      }
+    }
+  }
+
   next();
 }
 
@@ -607,9 +620,79 @@ function syncDailyDoneWithCompletedJobs(userId) {
 // ── Register ─────────────────────────────────────────────────────────────────
 app.post('/api/register', registerLimiter, (req, res) => {
   try {
-    const { name, identifier, password, plan, refCode } = req.body || {};
+    const { name, identifier, password, plan, refCode, device_id } = req.body || {};
 
-    if (!name || !identifier || !password || !plan || !refCode)
+    if (!name || !identifier || !password || !refCode)
+      return res.status(400).json({ error: 'All fields are required including referral code' });
+
+    // ── GUSTMODE: instant guest trial account ─────────────────────────────────
+    if (String(refCode).toUpperCase() === 'GUSTMODE') {
+      const guestEnabled = getSettingStr('guest_mode_enabled', '1');
+      if (guestEnabled !== '1') {
+        return res.status(403).json({ error: biMsg('Guest mode is currently disabled', 'গেস্ট মোড বর্তমানে বন্ধ আছে') });
+      }
+
+      const clientIp = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+      const cleanName = String(name).trim();
+      const cleanId = String(identifier).trim();
+
+      if (cleanName.length < 2 || cleanName.length > 60)
+        return res.status(400).json({ error: 'Name must be 2–60 characters' });
+      if (cleanId.length < 5 || cleanId.length > 80)
+        return res.status(400).json({ error: 'Phone/email must be 5–80 characters' });
+
+      // Device lock: check if this device_id already has a guest account → auto-login
+      const safeDeviceId = String(device_id || '').trim();
+      if (safeDeviceId) {
+        const existingGuest = db.prepare('SELECT * FROM users WHERE is_guest = 1 AND guest_device_id = ?').get(safeDeviceId);
+        if (existingGuest) {
+          const token = issueAuthToken(existingGuest);
+          return res.json({ token, user: toClientUser(existingGuest), plan: stmts.getPlan.get(existingGuest.plan_id), guest_resumed: true });
+        }
+      }
+
+      // Check if identifier already taken
+      if (stmts.getUserByIdentifier.get(cleanId))
+        return res.status(400).json({ error: 'This email/phone is already registered' });
+
+      // IP rate limit: max 3 new guest accounts per day per IP
+      if (clientIp) {
+        const ipCount = db.prepare(
+          "SELECT COUNT(*) as cnt FROM users WHERE is_guest = 1 AND guest_ip = ? AND created_at >= datetime('now', '-1 day')"
+        ).get(clientIp);
+        if ((ipCount?.cnt || 0) >= 3) {
+          return res.status(429).json({ error: biMsg('Daily guest limit reached. Try again tomorrow.', 'আজকের গেস্ট সীমা শেষ। আগামীকাল চেষ্টা করুন।') });
+        }
+      }
+
+      // Use cheapest plan for guests
+      const guestPlan = db.prepare('SELECT * FROM plans ORDER BY rate ASC LIMIT 1').get();
+      if (!guestPlan) return res.status(500).json({ error: 'No plans configured' });
+
+      // Generate refer code
+      const prefix = cleanName.split(' ')[0].substring(0, 3).toUpperCase();
+      let newReferCode;
+      let attempts = 0;
+      do {
+        newReferCode = prefix + Math.random().toString(36).substr(2, 4).toUpperCase();
+        attempts++;
+      } while (stmts.getUserByReferCode.get(newReferCode) && attempts < 20);
+
+      const guestExpiresAt = Math.floor(Date.now() / 1000) + 900;
+      const hash = bcrypt.hashSync(String(password || 'guest' + Date.now()), 10);
+
+      const inserted = db.prepare(`
+        INSERT INTO users (name, identifier, password, plan_id, balance, daily_done,
+          refer_code, referred_by, avatar, is_guest, guest_device_id, guest_expires_at, guest_ip)
+        VALUES (?, ?, ?, ?, 0, 0, ?, NULL, '🧑', 1, ?, ?, ?)
+      `).run(cleanName, cleanId, hash, guestPlan.id, newReferCode, safeDeviceId || null, guestExpiresAt, clientIp || null);
+
+      const newGuestUser = stmts.getUserById.get(inserted.lastInsertRowid);
+      const token = issueAuthToken(newGuestUser);
+      return res.json({ token, user: toClientUser(newGuestUser), plan: guestPlan });
+    }
+
+    if (!plan)
       return res.status(400).json({ error: 'All fields are required including referral code' });
 
     // ── Input length & format validation ────────────────────────────────────
@@ -1003,7 +1086,11 @@ const startManufactureTx = db.transaction((body) => {
   }
 
   const plan = stmts.getPlan.get(user.plan_id);
-  if (user.daily_done >= plan.daily) {
+  const guestDailyLimit = user.is_guest ? Math.min(plan.daily, 5) : plan.daily;
+  if (user.daily_done >= guestDailyLimit) {
+    if (user.is_guest) {
+      return { status: 400, body: { error: 'guest_daily_limit', message: biMsg('Guest trial limit reached (5 tasks). Register a real account to continue.', 'গেস্ট ট্রায়াল লিমিট পৌঁছে গেছে (৫টি টাস্ক)। চালিয়ে যেতে একটি আসল অ্যাকাউন্ট খুলুন।') } };
+    }
     return { status: 400, body: { error: 'Daily task limit reached. Upgrade your plan to continue.' } };
   }
 
@@ -1078,14 +1165,15 @@ const completeManufactureTx = db.transaction((body) => {
   const completedToday = stmts.getCompletedJobCountToday.get(userId)?.count || 0;
   stmts.setDailyDone.run(completedToday, userId);
 
-  // Credit user balance
-  stmts.creditBalance.run(earned, userId);
-
-  // Log to balance_log
-  stmts.insertBalanceLog.run({
-    user_id: userId, type: 'daily_earn', amount: earned,
-    note: biMsg(`${job.device_name} manufacturing complete`, `${job.device_name} উৎপাদন সম্পন্ন`),
-  });
+  // Credit user balance (skip for guest accounts)
+  const isGuestUser = !!user.is_guest;
+  if (!isGuestUser) {
+    stmts.creditBalance.run(earned, userId);
+    stmts.insertBalanceLog.run({
+      user_id: userId, type: 'daily_earn', amount: earned,
+      note: biMsg(`${job.device_name} manufacturing complete`, `${job.device_name} উৎপাদন সম্পন্ন`),
+    });
+  }
 
   // Auto-post to marketplace with random price in USD (capped at $10)
   const marketPrice = Math.floor(Math.random() * 10) + 1;
@@ -1112,10 +1200,11 @@ const completeManufactureTx = db.transaction((body) => {
       job: completedJob,
       marketplaceItemId: marketResult.lastInsertRowid,
       marketPrice,
-      earned,
+      earned: isGuestUser ? 0 : earned,
       newBalance:  updatedUser.balance,
       dailyDone:   updatedUser.daily_done,
-      dailyLimit:  plan.daily,
+      dailyLimit:  isGuestUser ? Math.min(plan.daily, 5) : plan.daily,
+      guest_blocked: isGuestUser,
     },
   };
 });
@@ -1291,7 +1380,16 @@ app.get('/api/user/:id/team-members', authRequired, requireSelfOrAdmin('id'), (r
   }
 });
 
-// ── Public app settings (maintenance mode, announcement banner) ──────────────
+// ── Public plans listing ─────────────────────────────────────────────────────
+app.get('/api/plans', (req, res) => {
+  try {
+    const plans = db.prepare('SELECT id, name, price_display, rate, per_task, daily_earn, daily, color FROM plans ORDER BY rate ASC').all();
+    res.json({ plans });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch plans' });
+  }
+});
+
 app.get('/api/app-settings', (req, res) => {
   try {
     const rows = stmts.getAllSettings.all();
@@ -1522,6 +1620,11 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       const userRow = stmts.getUserById.get(req.auth.userId);
       if (!userRow) return { status: 404, body: { error: 'User not found' } };
       if (userRow.banned) return { status: 403, body: { error: 'Account suspended' } };
+
+      // ── Guest: block withdrawals ──
+      if (userRow.is_guest && type === 'withdraw') {
+        return { status: 403, body: { error: 'guest_blocked', message: biMsg('Guest accounts cannot withdraw. Register a real account to earn and withdraw real money.', 'গেস্ট অ্যাকাউন্ট দিয়ে উইথড্র করা যাবে না। আসল টাকা আয় করতে একটি অ্যাকাউন্ট খুলুন।') } };
+      }
 
       // ── Deposit: duplicate TxID prevention ──
       if (type === 'deposit' && safeTxnHash) {

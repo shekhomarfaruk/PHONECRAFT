@@ -101,6 +101,11 @@ try { db.exec('ALTER TABLE login_logs ADD COLUMN device_id TEXT DEFAULT ""'); } 
 try { db.exec('ALTER TABLE login_logs ADD COLUMN device_name TEXT DEFAULT ""'); } catch (_) {}
 // Index for duplicate TxID prevention (non-unique to allow empty strings)
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_txn_hash ON transactions(txn_hash) WHERE txn_hash != ""'); } catch (_) {}
+// Guest mode columns
+try { db.exec('ALTER TABLE users ADD COLUMN is_guest INTEGER DEFAULT 0'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN guest_device_id TEXT DEFAULT NULL'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN guest_expires_at INTEGER DEFAULT NULL'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN guest_ip TEXT DEFAULT NULL'); } catch (_) {}
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`
@@ -270,12 +275,14 @@ const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposi
   'require_tasks_for_withdraw', 'require_withdraw_proof', 'work_blocked_countries',
   'deposit_wallet_1','deposit_wallet_2','deposit_wallet_3','deposit_wallet_4','deposit_wallet_5',
   'deposit_wallet_6','deposit_wallet_7','deposit_wallet_8','deposit_wallet_9','deposit_wallet_10',
-  'wallet_rotation_index'];
+  'wallet_rotation_index', 'guest_mode_enabled', 'crypto_enabled'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
 // Ensure withdrawal limits have sensible defaults on fresh installs
 db.prepare("UPDATE app_settings SET value='300'    WHERE key='min_withdraw' AND (value='' OR value IS NULL)").run();
 db.prepare("UPDATE app_settings SET value='150000' WHERE key='max_withdraw' AND (value='' OR value IS NULL)").run();
+// Ensure guest_mode_enabled defaults to ON
+db.prepare("UPDATE app_settings SET value='1' WHERE key='guest_mode_enabled' AND (value='' OR value IS NULL)").run();
 
 // Team chat messages (real community chat)
 db.exec(`

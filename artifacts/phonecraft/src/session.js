@@ -51,6 +51,8 @@ export function mapApiUser(apiUser, plan, authToken, previousUser = null) {
     teamMembers: previousUser?.teamMembers || [],
     isAdmin: typeof apiUser.is_admin === 'number' ? !!apiUser.is_admin : !!previousUser?.isAdmin,
     isMainAdmin: typeof apiUser.is_main_admin === 'boolean' ? apiUser.is_main_admin : !!previousUser?.isMainAdmin,
+    isGuest: typeof apiUser.is_guest === 'number' ? !!apiUser.is_guest : !!previousUser?.isGuest,
+    guestExpiresAt: typeof apiUser.guest_expires_at === 'number' ? apiUser.guest_expires_at : (previousUser?.guestExpiresAt || null),
     authToken: authToken || previousUser?.authToken || '',
   };
 }

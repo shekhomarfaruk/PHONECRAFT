@@ -113,7 +113,7 @@ function DeviceImage({ brand, model, animating = false, size = 160 }) {
   );
 }
 
-export default function WorkScreen({ user, setUser, showToast, addNotif, lang, navigate }) {
+export default function WorkScreen({ user, setUser, showToast, addNotif, lang, navigate, onShowGuestPlanModal }) {
   const t = I18N[lang] || I18N.en;
   const [phase, setPhase] = useState('config'); // 'config' | 'terminal' | 'success'
 
@@ -257,7 +257,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
         body: JSON.stringify({ userId: user.id, jobId: jobRef.current.id }),
       });
       const data = await res.json();
-      if (!res.ok) { showToast(data.error, 'error'); return; }
+      if (!res.ok) { showToast(data.error || data.message, 'error'); return; }
 
       resultRef.current = data;
       setDailyDone(data.dailyDone);
@@ -272,6 +272,11 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
       });
 
       setPhase('success');
+
+      // Guest: show upgrade prompt after task completes
+      if (data.guest_blocked && onShowGuestPlanModal) {
+        setTimeout(() => onShowGuestPlanModal(), 1200);
+      }
     } catch {
       showToast(t.toast_connection_error, 'error');
     }

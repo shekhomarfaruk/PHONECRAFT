@@ -19,10 +19,27 @@ import WorkScreen from "./screens/WorkScreen.jsx";
 import GuideScreen from "./screens/GuideScreen.jsx";
 import LandingScreen from "./screens/LandingScreen.jsx";
 import SupportWidget from "./SupportWidget.jsx";
+import GuestPlanModal from "./GuestPlanModal.jsx";
+import GuestExpiredModal from "./GuestExpiredModal.jsx";
 import { I18N } from "./i18n.js";
 import { convertCurrency, convertCurrencyText, fetchLiveRate, getLiveRate } from "./currency.js";
 import { clearStoredSession, getStoredSession, getAuthToken, authFetch, mapApiUser, saveStoredSession } from "./session.js";
 import { initPush, isPushSupported } from "./push.js";
+
+// ── Stable device UUID (stored in localStorage) ───────────────────────────────
+function getOrCreateDeviceId() {
+  const key = 'pc_device_id';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+const DEVICE_ID = getOrCreateDeviceId();
 
 // ── Custom Balance Icon ───────────────────────────────────────────────────────
 const BalanceIconImg = ({ size = 18 }) => (
@@ -220,8 +237,33 @@ export default function App() {
   const [regForm,       setRegForm      ] = useState({ name: '', identifier: '', password: '', plan: '', refCode: '' });
   const [authLoading,   setAuthLoading  ] = useState(false);
   const [pendingRegId,  setPendingRegId ] = useState(null);
+  const [showGuestPlanModal, setShowGuestPlanModal] = useState(false);
+  const [guestSecsLeft,      setGuestSecsLeft     ] = useState(null);
+  const [guestExpired,       setGuestExpired      ] = useState(false);
   const prevNotifCountRef = useRef(0);
   const { isMobile, isDesktop } = useBreakpoint();
+
+  // ── Guest countdown ticker ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user?.isGuest || !user?.guestExpiresAt) {
+      setGuestSecsLeft(null);
+      setGuestExpired(false);
+      return;
+    }
+    const tick = () => {
+      const secs = user.guestExpiresAt - Math.floor(Date.now() / 1000);
+      if (secs <= 0) {
+        setGuestSecsLeft(0);
+        setGuestExpired(true);
+      } else {
+        setGuestSecsLeft(secs);
+        setGuestExpired(false);
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [user?.isGuest, user?.guestExpiresAt]);
 
   // ── Read ?ref= URL param → auto-fill signup ────────────────────────────────
   useEffect(() => {
@@ -422,7 +464,8 @@ export default function App() {
 
   const doRegister = async () => {
     const t = I18N[lang] || I18N.en;
-    if (!regForm.name || !regForm.identifier || !regForm.password || !regForm.plan || !regForm.refCode) {
+    const isGuestMode = String(regForm.refCode).toUpperCase() === 'GUSTMODE';
+    if (!regForm.name || !regForm.identifier || !regForm.password || !regForm.refCode || (!isGuestMode && !regForm.plan)) {
       showToast('⚠️ ' + t.auth_all_required); return;
     }
     setAuthLoading(true);
@@ -430,7 +473,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(regForm),
+        body: JSON.stringify({ ...regForm, device_id: DEVICE_ID }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -604,7 +647,8 @@ export default function App() {
   );
 
   const tErr = (e) => translateServerError(e, lang);
-  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings, tErr, usdRate, teamChatUnread, setTeamChatUnread };
+  const onShowGuestPlanModal = () => setShowGuestPlanModal(true);
+  const screenProps = { user, setUser, showToast, navigate, lang, addNotif, isDark, fontSize, setFontSize, notifications, setNotifications, appSettings, tErr, usdRate, teamChatUnread, setTeamChatUnread, onShowGuestPlanModal };
 
   const t = I18N[lang] || I18N.en;
   const menuItems = getMenuItems(lang);
@@ -675,6 +719,24 @@ export default function App() {
                 </div>
               )}
               <div className="top-right">
+                {user?.isGuest && guestSecsLeft !== null && (
+                  <button
+                    onClick={() => setShowGuestPlanModal(true)}
+                    style={{
+                      background: guestSecsLeft < 120 ? 'rgba(246,70,93,0.15)' : 'rgba(245,158,11,0.15)',
+                      border: `1px solid ${guestSecsLeft < 120 ? 'rgba(246,70,93,0.4)' : 'rgba(245,158,11,0.4)'}`,
+                      borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      color: guestSecsLeft < 120 ? '#F6465D' : '#f59e0b',
+                      fontSize: 12, fontWeight: 800, fontFamily: 'Space Grotesk',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span>⏱</span>
+                    <span>{String(Math.floor(guestSecsLeft / 60)).padStart(2, '0')}:{String(guestSecsLeft % 60).padStart(2, '0')}</span>
+                    <span style={{ fontSize: 10, opacity: .8 }}>{lang === 'bn' ? 'ট্রায়াল' : 'TRIAL'}</span>
+                  </button>
+                )}
                 <div className="top-balance"><Icons.Coin size={14} />{convertCurrency(user.balance, lang, usdRate)}</div>
                 <div className="icon-btn" onClick={() => setIsDark(!isDark)} title="Toggle theme">
                   <span className="theme-icon-enter" key={isDark ? 'dark' : 'light'}>{isDark ? <Icons.Sun /> : <Icons.Moon />}</span>
@@ -812,6 +874,34 @@ export default function App() {
       </div>
 
       {toast && <ToastBox toast={toast} setToast={setToast} lang={lang} />}
+
+      {/* ── GUEST TRIAL EXPIRED MODAL (fullscreen, no dismiss) ── */}
+      {user?.isGuest && guestExpired && (
+        <GuestExpiredModal
+          lang={lang}
+          onRegister={() => {
+            setGuestExpired(false);
+            doLogout();
+            setAuthTab('register');
+            setRegForm(p => ({ ...p, refCode: '' }));
+          }}
+          onLogout={doLogout}
+        />
+      )}
+
+      {/* ── GUEST PLAN MODAL (dismissible) ── */}
+      {showGuestPlanModal && (
+        <GuestPlanModal
+          lang={lang}
+          onClose={() => setShowGuestPlanModal(false)}
+          onRegister={() => {
+            setShowGuestPlanModal(false);
+            doLogout();
+            setAuthTab('register');
+            setRegForm(p => ({ ...p, refCode: '' }));
+          }}
+        />
+      )}
     </>
   );
 }
