@@ -400,6 +400,9 @@ try {
   if (capped.changes > 0) console.log(`[Migration] Capped ${capped.changes} marketplace item price(s) to max $10`);
 } catch (_) {}
 
+// ── Block legacy /admin-panel path (static files may persist on server) ──────
+app.use('/admin-panel', (_req, res) => res.status(404).end());
+
 // ── Serve frontend build ──────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
@@ -3113,9 +3116,6 @@ app.post('/api/admin/reset-database', authRequired, (req, res) => {
     res.status(500).json({ error: 'Reset failed: ' + err.message });
   }
 });
-
-// ── Block legacy /admin-panel path ───────────────────────────────────────────
-app.use('/admin-panel', (_req, res) => res.status(404).end());
 
 // ── SPA fallback — serve index.html for non-API routes ───────────────────────
 app.get('*', (_req, res) => {
