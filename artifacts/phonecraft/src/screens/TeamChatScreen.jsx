@@ -214,10 +214,9 @@ function TeamChatScreen({ user, lang, showToast, teamChatUnread, setTeamChatUnre
       const form = new FormData();
       form.append('file', file);
       form.append('caption', '');
-      const token = (await import('../session.js')).getAuthToken();
-      const r = await fetch(`${API_URL}/api/team-chat/upload`, {
+      const { authFetch } = await import('../session.js');
+      const r = await authFetch(`${API_URL}/api/team-chat/upload`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: form,
       });
       if (r.ok) {
