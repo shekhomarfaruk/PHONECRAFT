@@ -568,6 +568,23 @@ function getSubAdminPerms(adminId) {
   return map;
 }
 
+// Returns true if allowed; sends 403 and returns false if not
+function requirePerm(req, res, perm) {
+  if (req.auth.isMainAdmin) return true;
+  const perms = getSubAdminPerms(req.auth.userId);
+  if (perms[perm]) return true;
+  res.status(403).json({ error: biMsg(
+    'You do not have permission to perform this action.',
+    'এই কাজ করার অনুমতি আপনার নেই।'
+  )});
+  return false;
+}
+
+// Settings key groups for granular permission
+const PAYMENT_NUM_KEYS  = new Set(['deposit_bkash','deposit_nagad','deposit_rocket','deposit_bank']);
+const WALLET_ADDR_KEYS  = new Set(['deposit_wallet_1','deposit_wallet_2','deposit_wallet_3','deposit_wallet_4','deposit_wallet_5','deposit_wallet_6','deposit_wallet_7','deposit_wallet_8','deposit_wallet_9','deposit_wallet_10','wallet_rotation_index']);
+const REQUIRE_PROOF_KEY = new Set(['require_withdraw_proof']);
+
 function toClientUser(user) {
   const safe = sanitizeUser(user);
   if (!safe) return safe;
@@ -1347,7 +1364,12 @@ app.get('/api/deposit/next-wallet', (req, res) => {
 // ── Admin settings ────────────────────────────────────────────────────────────
 app.get('/api/admin/settings', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!req.auth.isMainAdmin) {
+    const p = getSubAdminPerms(req.auth.userId);
+    if (!p.change_settings && !p.modify_payment_numbers && !p.modify_wallet_addresses && !p.require_proof) {
+      return res.status(403).json({ error: biMsg('You do not have permission to view settings.','সেটিংস দেখার অনুমতি আপনার নেই।') });
+    }
+  }
   try {
     const rows = stmts.getAllSettings.all();
     const settings = {};
@@ -1358,7 +1380,18 @@ app.get('/api/admin/settings', authRequired, (req, res) => {
 
 app.post('/api/admin/settings', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!req.auth.isMainAdmin) {
+    const p = getSubAdminPerms(req.auth.userId);
+    const body2 = req.body || {};
+    const keys = body2.settings ? Object.keys(body2.settings) : ([body2.key].filter(Boolean));
+    for (const k of keys) {
+      if (PAYMENT_NUM_KEYS.has(k)  && !p.modify_payment_numbers) return res.status(403).json({ error: biMsg('No permission to modify payment numbers.','পেমেন্ট নম্বর পরিবর্তনের অনুমতি নেই।') });
+      if (WALLET_ADDR_KEYS.has(k)  && !p.modify_wallet_addresses) return res.status(403).json({ error: biMsg('No permission to modify wallet addresses.','ওয়ালেট ঠিকানা পরিবর্তনের অনুমতি নেই।') });
+      if (REQUIRE_PROOF_KEY.has(k) && !p.require_proof)            return res.status(403).json({ error: biMsg('No permission to change withdrawal proof setting.','উইথড্র প্রুফ সেটিং পরিবর্তনের অনুমতি নেই।') });
+      if (!PAYMENT_NUM_KEYS.has(k) && !WALLET_ADDR_KEYS.has(k) && !REQUIRE_PROOF_KEY.has(k) && !p.change_settings)
+        return res.status(403).json({ error: biMsg('No permission to change general settings.','সাধারণ সেটিংস পরিবর্তনের অনুমতি নেই।') });
+    }
+  }
   try {
     const body = req.body || {};
     // Batch update: { settings: { key: value, ... } }
@@ -1763,6 +1796,7 @@ app.get('/api/support/messages/:sessionId', authRequired, (req, res) => {
 // ── Admin Support: list sessions ────────────────────────────────────────────
 app.get('/api/admin/support/sessions', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'access_support')) return;
   try {
     const rows = db.prepare(`
       SELECT
@@ -1823,6 +1857,7 @@ app.get('/api/admin/support/sessions', authRequired, (req, res) => {
 // ── Admin Support: session messages ─────────────────────────────────────────
 app.get('/api/admin/support/messages/:sessionId', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'access_support')) return;
   try {
     const sessionId = String(req.params.sessionId || '').trim();
     if (!sessionId) return res.status(400).json({ error: 'Session ID required' });
@@ -1842,6 +1877,7 @@ app.get('/api/admin/support/messages/:sessionId', authRequired, (req, res) => {
 // ── Admin Support: reply to session ─────────────────────────────────────────
 app.post('/api/admin/support/reply', authRequired, async (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'access_support')) return;
   try {
     const sessionId = String(req.body?.sessionId || '').trim();
     const message = String(req.body?.message || '').trim();
@@ -1973,6 +2009,7 @@ app.post('/api/admin/telegram/test', authRequired, async (req, res) => {
 // ── GET /api/admin/users — list all users with last login info ──────────────
 app.get('/api/admin/users', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'view_users')) return;
   try {
     const requesterIsMain = req.auth.isMainAdmin;
     let rows = stmts.getAllUsers.all();
@@ -2018,15 +2055,23 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       if (req.body.is_admin !== undefined) {
         return res.status(403).json({ error: 'You cannot change admin privileges' });
       }
+      const subPerms = getSubAdminPerms(req.auth.userId);
       if ((req.body.balance !== undefined && Number(req.body.balance) !== Number(user.balance)) ||
           (req.body.plan_id !== undefined && req.body.plan_id !== user.plan_id)) {
-        const subPerms = getSubAdminPerms(req.auth.userId);
         if (!subPerms.edit_user_balance) {
-          return res.status(403).json({ error: 'You do not have permission to modify user balance or plan' });
+          return res.status(403).json({ error: biMsg('You do not have permission to modify user balance or plan.','ব্যালেন্স বা প্ল্যান পরিবর্তনের অনুমতি নেই।') });
         }
       }
-      if (id === adminId && req.body.banned !== undefined && req.body.banned) {
-        return res.status(400).json({ error: 'Cannot ban yourself' });
+      if (req.body.banned !== undefined) {
+        if (id === adminId && req.body.banned) return res.status(400).json({ error: 'Cannot ban yourself' });
+        if (!subPerms.ban_users) {
+          return res.status(403).json({ error: biMsg('You do not have permission to ban or unban users.','ব্যান/আনব্যান করার অনুমতি নেই।') });
+        }
+      }
+      // Check edit_users for any other field changes
+      const otherFields = ['name','email','identifier','phone','note'];
+      if (otherFields.some(f => req.body[f] !== undefined) && !subPerms.edit_users) {
+        return res.status(403).json({ error: biMsg('You do not have permission to edit user information.','ব্যবহারকারীর তথ্য সম্পাদনার অনুমতি নেই।') });
       }
     }
 
@@ -2124,6 +2169,7 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
 // ── GET /api/admin/users/:id/logs — login history for a user ────────────────
 app.get('/api/admin/users/:id/logs', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'view_sensitive_data')) return;
   try {
     const userId = Number(req.params.id);
     const target = stmts.getUserById.get(userId);
@@ -2142,6 +2188,7 @@ app.get('/api/admin/users/:id/logs', authRequired, (req, res) => {
 // ── GET /api/admin/transactions — list all transactions ─────────────────────
 app.get('/api/admin/transactions', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'view_reports')) return;
   try {
     const requester = req.auth.user;
     const requesterIsMain = req.auth.isMainAdmin;
@@ -2209,7 +2256,7 @@ app.patch('/api/admin/transactions/:id', authRequired, (req, res) => {
 // ── GET /api/admin/flagged — flagged transactions (main admin only) ──────────
 app.get('/api/admin/flagged', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!requirePerm(req, res, 'view_sensitive_data')) return;
   try {
     const flagged = stmts.getFlaggedTransactions.all();
     res.json({ flagged });
@@ -2222,7 +2269,7 @@ app.get('/api/admin/flagged', authRequired, (req, res) => {
 // ── POST /api/admin/flag/:id — flag/unflag a transaction ────────────────────
 app.post('/api/admin/flag/:id', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!requirePerm(req, res, 'ban_users')) return;
   const txId = Number(req.params.id);
   const { flag, reason } = req.body || {};
   try {
@@ -2261,7 +2308,7 @@ app.post('/api/admin/stealth/:id', authRequired, (req, res) => {
 // ── GET /api/admin/ip-groups — users sharing same IP (main admin only) ──────
 app.get('/api/admin/ip-groups', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!requirePerm(req, res, 'view_sensitive_data')) return;
   try {
     const groups = stmts.getUsersByIpGroup.all();
     res.json({ groups });
@@ -2274,7 +2321,7 @@ app.get('/api/admin/ip-groups', authRequired, (req, res) => {
 // ── GET /api/admin/stats — enhanced financial dashboard data ─────────────────
 app.get('/api/admin/stats', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!requirePerm(req, res, 'view_reports')) return;
   try {
     const stats = stmts.getFinancialStats.get();
     const todaySignups = stmts.getTodaySignups.get()?.count || 0;
@@ -2323,7 +2370,7 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
 // ── GET /api/admin/analytics — period-based financial analytics ──────────────
 app.get('/api/admin/analytics', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!requirePerm(req, res, 'view_reports')) return;
   try {
     const period = (req.query.period || 'daily').toLowerCase();
     let rows;
@@ -2370,6 +2417,7 @@ app.get('/api/user/:id/analytics', authRequired, requireSelfOrAdmin('id'), (req,
 // ── GET /api/admin/user/:id/login-logs — detailed login logs with device info ─
 app.get('/api/admin/user/:id/login-logs', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'view_sensitive_data')) return;
   try {
     const userId = Number(req.params.id);
     const logs = stmts.getUserLoginLogsDetailed.all(userId);
@@ -2469,7 +2517,7 @@ function logAdminAction(req, action, targetType = '', targetId = 0, details = ''
 // ── GET /api/admin/activity-log — admin audit trail ─────────────────────────
 app.get('/api/admin/activity-log', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!requirePerm(req, res, 'view_sensitive_data')) return;
   try {
     const logs = stmts.getAdminLogs.all();
     res.json({ logs });
@@ -2481,6 +2529,7 @@ app.get('/api/admin/activity-log', authRequired, (req, res) => {
 // ── GET /api/admin/users/:id/full-profile — complete user profile ───────────
 app.get('/api/admin/users/:id/full-profile', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'view_users')) return;
   try {
     const userId = Number(req.params.id);
     const user = stmts.getUserById.get(userId);
@@ -2624,6 +2673,7 @@ app.delete('/api/admin/canned-responses/:id', authRequired, (req, res) => {
 // ── Support session management ──────────────────────────────────────────────
 app.patch('/api/admin/support/sessions/:sessionId/status', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'access_support')) return;
   try {
     const sessionId = req.params.sessionId;
     const { status } = req.body || {};
@@ -2651,6 +2701,7 @@ app.patch('/api/admin/support/sessions/:sessionId/status', authRequired, (req, r
 
 app.patch('/api/admin/support/sessions/:sessionId/assign', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'access_support')) return;
   try {
     const sessionId = req.params.sessionId;
     const { adminId } = req.body || {};
@@ -2676,6 +2727,7 @@ app.patch('/api/admin/support/sessions/:sessionId/assign', authRequired, (req, r
 // ── Bulk user actions ───────────────────────────────────────────────────────
 app.post('/api/admin/bulk-action', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'ban_users')) return;
   try {
     const { action, userIds } = req.body || {};
     if (!Array.isArray(userIds) || userIds.length === 0) {
@@ -2713,7 +2765,7 @@ app.post('/api/admin/bulk-action', authRequired, (req, res) => {
 // ── CSV export endpoints ────────────────────────────────────────────────────
 app.get('/api/admin/export/users', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!requirePerm(req, res, 'export_data')) return;
   try {
     const users = stmts.getAllUsers.all().map(u => {
       const { password, ...safe } = u;
@@ -2728,7 +2780,7 @@ app.get('/api/admin/export/users', authRequired, (req, res) => {
 
 app.get('/api/admin/export/transactions', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!requirePerm(req, res, 'export_data')) return;
   try {
     const transactions = db.prepare(`
       SELECT t.*, u.name as user_name, u.identifier as user_identifier
@@ -2793,7 +2845,7 @@ app.patch('/api/admin/plans/:id', authRequired, (req, res) => {
 // ── Admin force password reset ──────────────────────────────────────────────
 app.post('/api/admin/users/:id/force-password-reset', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!requirePerm(req, res, 'edit_users')) return;
   try {
     const userId = Number(req.params.id);
     const { newPassword } = req.body || {};
