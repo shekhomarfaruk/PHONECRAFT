@@ -1519,7 +1519,7 @@ function AdminsPage({ authFetch, toast, adminUser }) {
   const isMain = adminUser?.is_main_admin;
 
   const loadUsers = useCallback(async () => {
-    try { const r = await authFetch(`${API}/api/admin/users`); const d = await r.json(); if (r.ok) setUsers((d.users || []).filter(u => u.is_admin)); } catch {}
+    try { const r = await authFetch(`${API}/api/admin/users`); const d = await r.json(); if (r.ok) setUsers((d.users || []).filter(u => u.is_admin && !u.is_main_admin)); } catch {}
   }, []);
 
   const loadLogs = useCallback(async () => {
