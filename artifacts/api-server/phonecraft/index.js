@@ -1108,7 +1108,6 @@ const startManufactureTx = db.transaction((body) => {
   const job = stmts.getJobById.get(result.lastInsertRowid);
   const updatedUser = stmts.getUserById.get(userId);
 
-  const GUEST_CAP = 5;
   return {
     status: 201,
     body: {
