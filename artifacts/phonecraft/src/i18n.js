@@ -578,6 +578,7 @@ export const I18N = {
     supp_typing:            'Support is typing...',
     supp_msg_ph:            'Type a message...',
     supp_label:             'Support',
+    supp_welcome:           'Hello! 👋 Welcome to PhoneCraft Support. Please describe your issue and our team will assist you as soon as possible.',
 
     // ── Team Chat ────────────────────────────────────────────────────────────
     team_msg_ph:            'Message your team...',
@@ -1242,6 +1243,7 @@ export const I18N = {
     supp_typing:            'সাপোর্ট টিম টাইপ করছে...',
     supp_msg_ph:            'মেসেজ লিখুন...',
     supp_label:             'সাপোর্ট',
+    supp_welcome:           'হ্যালো! 👋 PhoneCraft সাপোর্টে স্বাগতম। আপনার সমস্যা জানান, আমাদের টিম যত দ্রুত সম্ভব সাহায্য করবে।',
 
     // ── Team Chat ────────────────────────────────────────────────────────────
     team_msg_ph:            'টিমকে মেসেজ করুন...',
