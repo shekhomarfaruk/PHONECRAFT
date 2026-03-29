@@ -3114,6 +3114,9 @@ app.post('/api/admin/reset-database', authRequired, (req, res) => {
   }
 });
 
+// ── Block legacy /admin-panel path ───────────────────────────────────────────
+app.use('/admin-panel', (_req, res) => res.status(404).end());
+
 // ── SPA fallback — serve index.html for non-API routes ───────────────────────
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
