@@ -62,7 +62,7 @@ export default function Slide1({ base = '/' }: { base?: string }) {
 
       <div style={{ position: 'absolute', bottom: '3vh', left: '5vw', right: '5vw', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: '1vw', color: 'rgba(136,146,164,0.5)', fontFamily: 'Inter, sans-serif' }}>phonecraft.tech</span>
-        <span style={{ fontSize: '1vw', color: 'rgba(136,146,164,0.5)', fontFamily: 'Inter, sans-serif' }}>1 / 8</span>
+        <span style={{ fontSize: '1vw', color: 'rgba(136,146,164,0.5)', fontFamily: 'Inter, sans-serif' }}>1 / 10</span>
       </div>
     </div>
   );

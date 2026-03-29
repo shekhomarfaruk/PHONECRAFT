@@ -1,58 +1,42 @@
 import React from 'react';
 
+const screens = [
+  { file: 'screen-home.jpg',   label: 'Dashboard',    sub: 'Balance, plan & quick actions',  color: '#00d4aa' },
+  { file: 'screen-work.jpg',   label: 'Work Screen',  sub: 'Daily manufacturing tasks',       color: '#a855f7' },
+  { file: 'screen-wallet.jpg', label: 'Wallet',       sub: 'Withdraw to bKash / Crypto',      color: '#60a5fa' },
+  { file: 'screen-refer.jpg',  label: 'Referral',     sub: 'QR code & commission levels',     color: '#f97316' },
+];
+
 export default function Slide7({ base = '/' }: { base?: string }) {
   return (
     <div className="slide-root" style={{ background: '#06091a', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 100% 60% at 50% 100%, rgba(0,212,170,0.05) 0%, transparent 70%)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,212,170,0.06) 0%, transparent 60%)' }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(to right, transparent, #00d4aa, transparent)' }} />
 
-      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', height: '100%', padding: '5vh 5vw' }}>
-        <div style={{ textAlign: 'center', marginBottom: '4vh' }}>
-          <div style={{ fontSize: '1.1vw', color: '#00d4aa', letterSpacing: '0.15em', fontWeight: 600, marginBottom: '1vh', fontFamily: 'Space Grotesk, sans-serif' }}>ACTUAL APP SCREENS</div>
-          <h2 style={{ fontSize: '3.8vw', fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.02em', fontFamily: 'Space Grotesk, sans-serif', lineHeight: 1.1 }}>
-            App <span style={{ color: '#00d4aa' }}>Screenshots</span>
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', height: '100%', padding: '4vh 5vw 3vh' }}>
+        <div style={{ textAlign: 'center', marginBottom: '3.5vh' }}>
+          <div style={{ fontSize: '1.05vw', color: '#00d4aa', letterSpacing: '0.15em', fontWeight: 600, marginBottom: '0.8vh', fontFamily: 'Space Grotesk, sans-serif' }}>APP SCREENSHOTS — PART 1 / 3</div>
+          <h2 style={{ fontSize: '3.5vw', fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.02em', fontFamily: 'Space Grotesk, sans-serif', lineHeight: 1.1 }}>
+            Core <span style={{ color: '#00d4aa' }}>Screens</span>
           </h2>
         </div>
 
-        <div style={{ flex: 1, display: 'flex', gap: '3vw', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2vh' }}>
-            <div style={{ width: '20vw', borderRadius: '2vw', overflow: 'hidden', boxShadow: '0 0 50px rgba(0,212,170,0.22), 0 25px 50px rgba(0,0,0,0.6)', border: '2px solid rgba(0,212,170,0.25)' }}>
-              <img src={`${base}ss-dashboard.jpg`} alt="Dashboard Screen" style={{ width: '100%', display: 'block' }} />
+        <div style={{ flex: 1, display: 'flex', gap: '3vw', alignItems: 'flex-start', justifyContent: 'center' }}>
+          {screens.map((s) => (
+            <div key={s.file} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.8vh', flex: '0 0 auto' }}>
+              <div style={{ width: '16vw', borderRadius: '1.5vw', overflow: 'hidden', boxShadow: `0 0 40px ${s.color}33, 0 20px 40px rgba(0,0,0,0.7)`, border: `2px solid ${s.color}44` }}>
+                <img src={`${base}${s.file}`} alt={s.label} style={{ width: '100%', display: 'block' }} />
+              </div>
+              <div style={{ background: 'rgba(13,20,48,0.9)', border: `1px solid ${s.color}33`, borderRadius: '10px', padding: '1.2vh 1.4vw', textAlign: 'center', width: '16vw' }}>
+                <div style={{ fontSize: '1.15vw', fontWeight: 700, color: s.color, fontFamily: 'Space Grotesk, sans-serif' }}>{s.label}</div>
+                <div style={{ fontSize: '0.95vw', color: '#8892a4', marginTop: '0.3vh', lineHeight: 1.4 }}>{s.sub}</div>
+              </div>
             </div>
-            <div style={{ background: 'rgba(13,20,48,0.8)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: '10px', padding: '1.2vh 1.8vw', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.2vw', fontWeight: 700, color: '#00d4aa', fontFamily: 'Space Grotesk, sans-serif' }}>Dashboard</div>
-              <div style={{ fontSize: '1vw', color: '#8892a4', marginTop: '0.3vh' }}>Balance, plan info & quick actions</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2vh', marginTop: '-6vh' }}>
-            <div style={{ width: '20vw', borderRadius: '2vw', overflow: 'hidden', boxShadow: '0 0 50px rgba(124,58,237,0.22), 0 25px 50px rgba(0,0,0,0.6)', border: '2px solid rgba(124,58,237,0.25)' }}>
-              <img src={`${base}ss-work.jpg`} alt="Work Screen" style={{ width: '100%', display: 'block' }} />
-            </div>
-            <div style={{ background: 'rgba(13,20,48,0.8)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: '10px', padding: '1.2vh 1.8vw', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.2vw', fontWeight: 700, color: '#a855f7', fontFamily: 'Space Grotesk, sans-serif' }}>Work Screen</div>
-              <div style={{ fontSize: '1vw', color: '#8892a4', marginTop: '0.3vh' }}>Manufacturing tasks (9 AM–10 PM BD)</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2vh' }}>
-            <div style={{ width: '20vw', borderRadius: '2vw', overflow: 'hidden', boxShadow: '0 0 50px rgba(0,184,145,0.22), 0 25px 50px rgba(0,0,0,0.6)', border: '2px solid rgba(0,184,145,0.25)' }}>
-              <img src={`${base}ss-wallet.jpg`} alt="Wallet Screen" style={{ width: '100%', display: 'block' }} />
-            </div>
-            <div style={{ background: 'rgba(13,20,48,0.8)', border: '1px solid rgba(0,184,145,0.2)', borderRadius: '10px', padding: '1.2vh 1.8vw', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.2vw', fontWeight: 700, color: '#00b891', fontFamily: 'Space Grotesk, sans-serif' }}>Wallet</div>
-              <div style={{ fontSize: '1vw', color: '#8892a4', marginTop: '0.3vh' }}>Withdraw to bKash, Nagad, Crypto & more</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: '2.5vh' }}>
-          <p style={{ fontSize: '1.2vw', color: '#8892a4' }}>
-            Available as a Progressive Web App (PWA) — install on Android and iPhone, works offline
-          </p>
+          ))}
         </div>
       </div>
 
-      <div style={{ position: 'absolute', bottom: '2.5vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>7 / 8</div>
+      <div style={{ position: 'absolute', bottom: '2.5vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>7 / 10</div>
     </div>
   );
 }

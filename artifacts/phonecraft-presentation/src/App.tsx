@@ -8,8 +8,10 @@ import Slide5 from './pages/slides/Slide5';
 import Slide6 from './pages/slides/Slide6';
 import Slide7 from './pages/slides/Slide7';
 import Slide8 from './pages/slides/Slide8';
+import Slide9 from './pages/slides/Slide9';
+import Slide10 from './pages/slides/Slide10';
 
-const SLIDES = [Slide1, Slide2, Slide3, Slide4, Slide5, Slide6, Slide7, Slide8];
+const SLIDES = [Slide1, Slide2, Slide3, Slide4, Slide5, Slide6, Slide7, Slide8, Slide9, Slide10];
 const TOTAL = SLIDES.length;
 
 function AllSlides() {
@@ -26,7 +28,6 @@ function AllSlides() {
 }
 
 function SlideViewer() {
-  const navigate = useNavigate();
   const location = useLocation();
   const base = import.meta.env.BASE_URL;
 
@@ -35,8 +36,10 @@ function SlideViewer() {
   const SlideComp = SLIDES[current - 1];
 
   const go = useCallback((n: number) => {
-    if (n >= 1 && n <= TOTAL) navigate(`slide${n}`);
-  }, [navigate]);
+    if (n >= 1 && n <= TOTAL) {
+      window.location.href = base + `slide${n}`;
+    }
+  }, [base]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -49,9 +52,7 @@ function SlideViewer() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#000' }}>
-      <div className="w-screen h-screen overflow-hidden relative">
-        <SlideComp base={base} />
-      </div>
+      <SlideComp base={base} />
       <nav className="slide-nav">
         <button onClick={() => go(current - 1)} disabled={current === 1}>&#8592;</button>
         <div className="dot-row">

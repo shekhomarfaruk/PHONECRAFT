@@ -39,7 +39,7 @@ export default function Slide5({ base = '/' }: { base?: string }) {
         </div>
       </div>
 
-      <div style={{ position: 'absolute', bottom: '2vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>5 / 8</div>
+      <div style={{ position: 'absolute', bottom: '2vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>5 / 10</div>
     </div>
   );
 }

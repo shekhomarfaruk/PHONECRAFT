@@ -72,7 +72,7 @@ export default function Slide4({ base = '/' }: { base?: string }) {
         </div>
       </div>
 
-      <div style={{ position: 'absolute', bottom: '2.5vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>4 / 8</div>
+      <div style={{ position: 'absolute', bottom: '2.5vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>4 / 10</div>
     </div>
   );
 }

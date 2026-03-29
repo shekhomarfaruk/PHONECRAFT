@@ -1,23 +1,23 @@
 import React from 'react';
 
 const screens = [
-  { file: 'screen-profile.jpg',     label: 'Profile',        sub: 'Account details & plan info',    color: '#f472b6' },
-  { file: 'screen-notif.jpg',       label: 'Notifications',  sub: 'Real-time activity alerts',      color: '#fbbf24' },
-  { file: 'screen-support.jpg',     label: 'Live Support',   sub: '24/7 chat with admin agents',    color: '#f87171' },
-  { file: 'screen-marketplace.jpg', label: 'Marketplace',    sub: 'Buy & sell manufactured phones', color: '#fb923c' },
+  { file: 'screen-balance.jpg',  label: 'Balance',      sub: 'Earnings breakdown & 7-day chart', color: '#34d399' },
+  { file: 'screen-guide.jpg',    label: 'User Guide',   sub: 'Step-by-step help for every screen', color: '#38bdf8' },
+  { file: 'screen-settings.jpg', label: 'Settings',     sub: 'Language, font size, notifications', color: '#94a3b8' },
+  { file: 'screen-teamchat.jpg', label: 'Team Chat',    sub: 'Chat & members with your referrals',  color: '#2dd4bf' },
 ];
 
-export default function Slide8({ base = '/' }: { base?: string }) {
+export default function Slide9({ base = '/' }: { base?: string }) {
   return (
     <div className="slide-root" style={{ background: '#06091a', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(124,58,237,0.07) 0%, transparent 60%)' }} />
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(to right, transparent, #a855f7, transparent)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(52,211,153,0.06) 0%, transparent 60%)' }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(to right, transparent, #34d399, transparent)' }} />
 
       <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', height: '100%', padding: '4vh 5vw 3vh' }}>
         <div style={{ textAlign: 'center', marginBottom: '3.5vh' }}>
-          <div style={{ fontSize: '1.05vw', color: '#a855f7', letterSpacing: '0.15em', fontWeight: 600, marginBottom: '0.8vh', fontFamily: 'Space Grotesk, sans-serif' }}>APP SCREENSHOTS — PART 2 / 3</div>
+          <div style={{ fontSize: '1.05vw', color: '#34d399', letterSpacing: '0.15em', fontWeight: 600, marginBottom: '0.8vh', fontFamily: 'Space Grotesk, sans-serif' }}>APP SCREENSHOTS — PART 3 / 3</div>
           <h2 style={{ fontSize: '3.5vw', fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.02em', fontFamily: 'Space Grotesk, sans-serif', lineHeight: 1.1 }}>
-            User <span style={{ color: '#a855f7' }}>Features</span>
+            Additional <span style={{ color: '#34d399' }}>Screens</span>
           </h2>
         </div>
 
@@ -36,7 +36,7 @@ export default function Slide8({ base = '/' }: { base?: string }) {
         </div>
       </div>
 
-      <div style={{ position: 'absolute', bottom: '2.5vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>8 / 10</div>
+      <div style={{ position: 'absolute', bottom: '2.5vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>9 / 10</div>
     </div>
   );
 }

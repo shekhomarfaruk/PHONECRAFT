@@ -50,7 +50,7 @@ export default function Slide6({ base = '/' }: { base?: string }) {
         </div>
       </div>
 
-      <div style={{ position: 'absolute', bottom: '2.5vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>6 / 8</div>
+      <div style={{ position: 'absolute', bottom: '2.5vh', right: '5vw', fontSize: '1vw', color: 'rgba(136,146,164,0.5)' }}>6 / 10</div>
     </div>
   );
 }
