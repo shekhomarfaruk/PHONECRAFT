@@ -129,6 +129,10 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
   const [dailyDone, setDailyDone]   = useState(user.dailyDone || 0);
   const [dailyLimit, setDailyLimit] = useState(user.dailyLimit || 10);
   const [perTask, setPerTask]       = useState(0);
+  const [isWorkOpen, setIsWorkOpen]         = useState(true);
+  const [workTimeStart, setWorkTimeStart]   = useState('09:00');
+  const [workTimeEnd, setWorkTimeEnd]       = useState('22:00');
+  const [workTimeEnabled, setWorkTimeEnabled] = useState(false);
 
   // Terminal state
   const [lines, setLines]       = useState([]);
@@ -150,6 +154,10 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
         if (data.dailyDone !== undefined) setDailyDone(data.dailyDone);
         if (data.dailyLimit !== undefined) setDailyLimit(data.dailyLimit);
         if (data.perTask !== undefined) setPerTask(data.perTask);
+        if (data.workTimeEnabled !== undefined) setWorkTimeEnabled(data.workTimeEnabled);
+        if (data.workTimeStart)   setWorkTimeStart(data.workTimeStart);
+        if (data.workTimeEnd)     setWorkTimeEnd(data.workTimeEnd);
+        if (data.isWorkOpen !== undefined) setIsWorkOpen(data.isWorkOpen);
         if (data.activeJob) {
           jobRef.current = data.activeJob;
           setDeviceName(data.activeJob.device_name || '');
@@ -202,6 +210,11 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
             ? 'আপনি এই ট্রায়ালের টাস্ক লিমিটে পৌঁছেছেন।'
             : "You've reached the task limit for this trial.", 'error');
           setTimeout(() => onShowGuestPlanModal(), 600);
+        } else if (data.error === 'work_time_closed') {
+          setIsWorkOpen(false);
+          if (data.workTimeStart) setWorkTimeStart(data.workTimeStart);
+          if (data.workTimeEnd)   setWorkTimeEnd(data.workTimeEnd);
+          setWorkTimeEnabled(true);
         } else {
           showToast(data.message || data.error, 'error');
         }
@@ -318,9 +331,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
   const brandModels = brand ? (BRAND_MODELS[brand] || []) : [];
 
   // ── Time gate: 9 AM – 10 PM Bangladesh time (UTC+6) ─────────────────────────
-  const nowBDT  = new Date(new Date().getTime() + 6 * 60 * 60 * 1000);
-  const bdtHour = nowBDT.getUTCHours();
-  const isWorkHour = bdtHour >= 9 && bdtHour < 22;
+  const nowBDT = new Date(new Date().getTime() + 6 * 60 * 60 * 1000);
 
   // ── Country access check ──────────────────────────────────────────────────
   const [countryAccess, setCountryAccess] = useState({ loading: false, blocked: false });
@@ -361,7 +372,12 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
     );
   }
 
-  if (!isWorkHour) {
+  if (workTimeEnabled && !isWorkOpen) {
+    const fmt12 = (t) => {
+      const [h, m] = t.split(':').map(Number);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      return `${((h % 12) || 12)}:${m.toString().padStart(2,'0')} ${ampm}`;
+    };
     return (
       <>
         <div className="screen-title"><Icons.Work size={18}/> {t.nav_work}</div>
@@ -370,7 +386,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
           <div style={{fontFamily:'Space Grotesk',fontSize:22,fontWeight:800}}>{t.work_time_over}</div>
           <div style={{fontSize:14,color:'var(--text2)',maxWidth:280,lineHeight:1.7}}>
             {t.work_time_msg_line1}<br/>
-            <b style={{color:'var(--accent)'}}>{t.work_time_range}</b><br/>
+            <b style={{color:'var(--accent)'}}>{fmt12(workTimeStart)} – {fmt12(workTimeEnd)}</b><br/>
             {t.work_time_msg_line2}
           </div>
           <div style={{fontSize:12,color:'var(--text2)',opacity:.6}}>

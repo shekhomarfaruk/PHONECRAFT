@@ -317,6 +317,15 @@ function getSettingStr(key, fallback = '') {
   return (row && row.value) ? row.value : fallback;
 }
 
+function isWorkTimeOpen() {
+  if (getSettingStr('work_time_enabled', '0') !== '1') return true;
+  const startStr = getSettingStr('work_time_start', '09:00');
+  const endStr   = getSettingStr('work_time_end',   '22:00');
+  const dhaka    = new Date(Date.now() + 6 * 60 * 60 * 1000);
+  const cur      = dhaka.getUTCHours().toString().padStart(2, '0') + ':' + dhaka.getUTCMinutes().toString().padStart(2, '0');
+  return cur >= startStr && cur < endStr;
+}
+
 function signTokenPayload(encodedPayload) {
   return crypto.createHmac('sha256', AUTH_SECRET).update(encodedPayload).digest('base64url');
 }
@@ -1049,12 +1058,19 @@ app.get('/api/user/:id/work-status', authRequired, requireSelfOrAdmin('id'), (re
     const GUEST_CAP = 5;
     const dailyLimit = user.is_guest ? GUEST_CAP : plan.daily;
     const activeJob = stmts.getProcessingJobByUser.get(userId) || null;
+    const wtEnabled = getSettingStr('work_time_enabled', '0') === '1';
+    const wtStart   = getSettingStr('work_time_start', '09:00');
+    const wtEnd     = getSettingStr('work_time_end', '22:00');
     res.json({
       dailyDone,
       dailyLimit,
-      canWork:  dailyDone < dailyLimit,
-      perTask:  plan.per_task,
+      canWork:          dailyDone < dailyLimit,
+      perTask:          plan.per_task,
       activeJob,
+      workTimeEnabled:  wtEnabled,
+      workTimeStart:    wtStart,
+      workTimeEnd:      wtEnd,
+      isWorkOpen:       isWorkTimeOpen(),
     });
   } catch (err) {
     console.error('Work status error:', err.message);
@@ -1120,6 +1136,17 @@ const startManufactureTx = db.transaction((body) => {
 
 app.post('/api/manufacture/start', authRequired, manufactureLimiter, (req, res) => {
   try {
+    // Block new task starts outside work hours (allow resume of existing job)
+    if (!isWorkTimeOpen()) {
+      const existingJob = stmts.getProcessingJobByUser.get(req.auth.userId);
+      if (!existingJob) {
+        return res.status(403).json({
+          error: 'work_time_closed',
+          workTimeStart: getSettingStr('work_time_start', '09:00'),
+          workTimeEnd:   getSettingStr('work_time_end', '22:00'),
+        });
+      }
+    }
     const result = startManufactureTx({ ...(req.body || {}), userId: req.auth.userId });
     res.status(result.status).json(result.body);
   } catch (err) {

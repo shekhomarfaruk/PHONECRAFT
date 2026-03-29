@@ -1916,6 +1916,40 @@ function SettingsPage({ authFetch, toast }) {
         <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 16 }}>
           When ON, users can try 15-min free trial by using referral code <b>GUSTMODE</b>. Max 3 per IP/day, 5 tasks cap, no earnings.
         </div>
+        {/* Work Time Restriction */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <Clock size={14} color="var(--primary)" />
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Work Time Restriction</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: settings.work_time_enabled === '1' ? 'var(--success)' : 'var(--text2)' }}>
+              {settings.work_time_enabled === '1' ? 'ON' : 'OFF'}
+            </span>
+            <div
+              onClick={() => setSettings(p => ({ ...p, work_time_enabled: p.work_time_enabled === '1' ? '0' : '1' }))}
+              style={{ width: 48, height: 26, borderRadius: 13, background: settings.work_time_enabled === '1' ? 'var(--primary)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}
+            >
+              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.work_time_enabled === '1' ? 24 : 2, transition: 'left 0.2s' }} />
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 10 }}>
+            When ON, users can only start new tasks within the set hours (Dhaka time). Active jobs can still be completed.
+          </div>
+          {settings.work_time_enabled === '1' && (
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="input-label">Start Time (Dhaka)</label>
+                <input type="time" className="inp" value={settings.work_time_start || '09:00'}
+                  onChange={e => setSettings(p => ({ ...p, work_time_start: e.target.value }))} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="input-label">End Time (Dhaka)</label>
+                <input type="time" className="inp" value={settings.work_time_end || '22:00'}
+                  onChange={e => setSettings(p => ({ ...p, work_time_end: e.target.value }))} />
+              </div>
+            </div>
+          )}
+        </div>
+
         <label className="input-label">Announcement Banner</label>
         <input className="inp" placeholder="Shows to all users" value={settings.announcement_banner || ''} onChange={e => setSettings(p => ({ ...p, announcement_banner: e.target.value }))} />
 
