@@ -1105,12 +1105,13 @@ const startManufactureTx = db.transaction((body) => {
   const job = stmts.getJobById.get(result.lastInsertRowid);
   const updatedUser = stmts.getUserById.get(userId);
 
+  const GUEST_CAP = 5;
   return {
     status: 201,
     body: {
       job,
       dailyDone:  updatedUser.daily_done,
-      dailyLimit: plan.daily,
+      dailyLimit: user.is_guest ? Math.min(plan.daily, GUEST_CAP) : plan.daily,
     },
   };
 });
