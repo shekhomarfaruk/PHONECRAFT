@@ -360,13 +360,23 @@ export default function App() {
   const translateServerError = (errStr, l) => {
     const t = I18N[l] || I18N.en;
     if (!errStr) return t.toast_connection_error;
-    // Handle bilingual JSON error messages from server
-    if (typeof errStr === 'string' && errStr.startsWith('{') && errStr.includes('"en"')) {
-      try {
-        const parsed = JSON.parse(errStr);
-        return (l === 'bn' ? parsed.bn : parsed.en) || errStr;
-      } catch (_) {}
+    // Handle bilingual error as object {en, bn}
+    if (typeof errStr === 'object' && errStr !== null) {
+      return (l === 'bn' ? errStr.bn : errStr.en) || JSON.stringify(errStr);
     }
+    // Handle bilingual JSON error messages from server (string form)
+    if (typeof errStr === 'string') {
+      const s = errStr.trim();
+      if (s.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(s);
+          if (parsed && (parsed.en || parsed.bn)) {
+            return (l === 'bn' ? parsed.bn : parsed.en) || s;
+          }
+        } catch (_) {}
+      }
+    }
+    const s = typeof errStr === 'string' ? errStr : String(errStr);
     const map = {
       'Invalid credentials':                   t.err_invalid_credentials,
       'This email/phone is already registered':t.err_email_phone_taken,
@@ -378,11 +388,11 @@ export default function App() {
       'Insufficient balance':                  t.err_insufficient_balance,
       'This Transaction ID has already been used': t.err_duplicate_txid,
     };
-    if (errStr.startsWith('Withdraw cooldown')) return t.err_withdraw_cooldown;
-    if (errStr.startsWith('Complete') && errStr.includes('daily tasks')) return t.err_tasks_incomplete;
-    if (errStr.startsWith('Daily transfer limit')) return t.err_daily_limit;
-    if (errStr.startsWith('Must keep minimum')) return t.err_min_balance;
-    return map[errStr] || errStr;
+    if (s.startsWith('Withdraw cooldown')) return t.err_withdraw_cooldown;
+    if (s.startsWith('Complete') && s.includes('daily tasks')) return t.err_tasks_incomplete;
+    if (s.startsWith('Daily transfer limit')) return t.err_daily_limit;
+    if (s.startsWith('Must keep minimum')) return t.err_min_balance;
+    return map[s] || s;
   };
 
   const doLogin = async () => {
