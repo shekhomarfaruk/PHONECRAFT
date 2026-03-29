@@ -347,17 +347,29 @@ function SupportScreen({ user, showToast, lang }) {
           {/* Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 6px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-            {messages.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--text2)' }}>
-                <div style={{ marginBottom: 8 }}><Icons.Chat size={36} /></div>
-                <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 15 }}>
-                  {t.supp_greeting}
-                </div>
-                <div style={{ fontSize: 12 }}>
-                  {t.supp_subgreeting}
-                </div>
+            {/* Welcome message — always visible */}
+            <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', gap: 6 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                background: 'linear-gradient(135deg,#00b894,#00cec9)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icons.Headset size={13} color="#fff" />
               </div>
-            )}
+              <div style={{
+                maxWidth: '72%',
+                background: 'var(--input-bg)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: '18px 18px 18px 4px',
+                padding: '9px 13px', fontSize: 13, lineHeight: 1.5, wordBreak: 'break-word',
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 3, opacity: .65, textTransform: 'uppercase', letterSpacing: .3 }}>
+                  {t.supp_label}
+                </div>
+                {t.supp_welcome}
+              </div>
+            </div>
 
             {messages.map((msg) => {
               const isUser  = msg.sender === 'user';
