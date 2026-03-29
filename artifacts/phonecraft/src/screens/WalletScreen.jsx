@@ -605,6 +605,27 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
           </div>
         </div>
 
+        {/* Guest withdraw info box */}
+        {user?.isGuest && tab === 'withdraw' && (
+          <div style={{
+            background: 'rgba(246,70,93,0.08)', border: '1px solid rgba(246,70,93,0.3)',
+            borderRadius: 12, padding: '12px 14px', marginBottom: 14,
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+          }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>🔒</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#F6465D', marginBottom: 3 }}>
+                {isBn ? 'গেস্ট অ্যাকাউন্টে উইথড্র সীমাবদ্ধ' : 'Withdrawals unavailable for guest accounts'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>
+                {isBn
+                  ? 'আসল টাকা আয় ও উইথড্র করতে একটি অ্যাকাউন্ট খুলুন।'
+                  : 'Create a real account to earn and withdraw actual money.'}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Non-crypto deposit instruction */}
         {!isCrypto && tab === 'deposit' && depositNumber && (
           <div style={{ background:'rgba(0,210,180,.07)', border:'1px solid rgba(0,210,180,.25)', borderRadius:10, padding:'12px 14px', marginBottom:14 }}>

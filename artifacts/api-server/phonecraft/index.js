@@ -1191,6 +1191,9 @@ const completeManufactureTx = db.transaction((body) => {
   const completedJob = stmts.getJobById.get(jobId);
   const updatedUser = stmts.getUserById.get(userId);
 
+  const GUEST_CAP = 5;
+  const guestHitCap = isGuestUser && completedToday >= GUEST_CAP;
+
   return {
     status: 200,
     body: {
@@ -1200,8 +1203,9 @@ const completeManufactureTx = db.transaction((body) => {
       earned: isGuestUser ? 0 : earned,
       newBalance:  updatedUser.balance,
       dailyDone:   updatedUser.daily_done,
-      dailyLimit:  isGuestUser ? Math.min(plan.daily, 5) : plan.daily,
+      dailyLimit:  isGuestUser ? GUEST_CAP : plan.daily,
       guest_blocked: isGuestUser,
+      guest_task_limit: guestHitCap,
     },
   };
 });

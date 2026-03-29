@@ -273,8 +273,14 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
 
       setPhase('success');
 
-      // Guest: show upgrade prompt after task completes
-      if (data.guest_blocked && onShowGuestPlanModal) {
+      // Guest: show task-limit message + upgrade prompt when cap hit
+      if (data.guest_task_limit && onShowGuestPlanModal) {
+        showToast(lang === 'bn'
+          ? 'আপনি এই ট্রায়ালের টাস্ক লিমিটে পৌঁছেছেন।'
+          : "You've reached the task limit for this trial.", 'error');
+        setTimeout(() => onShowGuestPlanModal(), 1200);
+      } else if (data.guest_blocked && onShowGuestPlanModal) {
+        // Guest completed a task but hasn't hit cap yet — still nudge
         setTimeout(() => onShowGuestPlanModal(), 1200);
       }
     } catch {
