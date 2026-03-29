@@ -1043,12 +1043,14 @@ app.get('/api/user/:id/work-status', authRequired, requireSelfOrAdmin('id'), (re
     const user = stmts.getUserById.get(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     const plan = stmts.getPlan.get(user.plan_id);
+    const GUEST_CAP = 5;
+    const dailyLimit = user.is_guest ? Math.min(plan.daily, GUEST_CAP) : plan.daily;
     const activeJob = stmts.getProcessingJobByUser.get(userId) || null;
     res.json({
       dailyDone,
-      dailyLimit: plan.daily,
-      canWork:    dailyDone < plan.daily,
-      perTask:    plan.per_task,
+      dailyLimit,
+      canWork:  dailyDone < dailyLimit,
+      perTask:  plan.per_task,
       activeJob,
     });
   } catch (err) {
