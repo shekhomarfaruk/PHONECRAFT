@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Slide1 from './pages/slides/Slide1';
 import Slide2 from './pages/slides/Slide2';
 import Slide3 from './pages/slides/Slide3';
@@ -14,32 +14,23 @@ import Slide10 from './pages/slides/Slide10';
 const SLIDES = [Slide1, Slide2, Slide3, Slide4, Slide5, Slide6, Slide7, Slide8, Slide9, Slide10];
 const TOTAL = SLIDES.length;
 
-function AllSlides() {
-  const base = import.meta.env.BASE_URL;
-  return (
-    <div style={{ background: '#000', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      {SLIDES.map((SlideComp, i) => (
-        <div key={i} style={{ width: '1920px', height: '1080px', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
-          <SlideComp base={base} />
-        </div>
-      ))}
-    </div>
-  );
+function getInitialSlide(): number {
+  const match = window.location.pathname.match(/slide(\d+)/);
+  if (match) {
+    const n = parseInt(match[1]);
+    if (n >= 1 && n <= TOTAL) return n;
+  }
+  return 1;
 }
 
-function SlideViewer() {
-  const location = useLocation();
+function Presentation() {
   const base = import.meta.env.BASE_URL;
-
-  const match = location.pathname.match(/\/slide(\d+)/);
-  const current = match ? Math.min(Math.max(parseInt(match[1]), 1), TOTAL) : 1;
+  const [current, setCurrent] = useState(getInitialSlide);
   const SlideComp = SLIDES[current - 1];
 
   const go = useCallback((n: number) => {
-    if (n >= 1 && n <= TOTAL) {
-      window.location.href = base + `slide${n}`;
-    }
-  }, [base]);
+    if (n >= 1 && n <= TOTAL) setCurrent(n);
+  }, []);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -54,14 +45,27 @@ function SlideViewer() {
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#000' }}>
       <SlideComp base={base} />
       <nav className="slide-nav">
-        <button onClick={() => go(current - 1)} disabled={current === 1}>&#8592;</button>
+        <button
+          onClick={() => go(current - 1)}
+          disabled={current === 1}
+          style={{ cursor: current === 1 ? 'not-allowed' : 'pointer' }}
+        >&#8592;</button>
         <div className="dot-row">
           {Array.from({ length: TOTAL }, (_, i) => (
-            <div key={i} className={`dot${current === i + 1 ? ' active' : ''}`} onClick={() => go(i + 1)} style={{ cursor: 'pointer' }} />
+            <div
+              key={i}
+              className={`dot${current === i + 1 ? ' active' : ''}`}
+              onClick={() => go(i + 1)}
+              style={{ cursor: 'pointer' }}
+            />
           ))}
         </div>
         <span className="counter">{current} / {TOTAL}</span>
-        <button onClick={() => go(current + 1)} disabled={current === TOTAL}>&#8594;</button>
+        <button
+          onClick={() => go(current + 1)}
+          disabled={current === TOTAL}
+          style={{ cursor: current === TOTAL ? 'not-allowed' : 'pointer' }}
+        >&#8594;</button>
       </nav>
     </div>
   );
@@ -72,12 +76,7 @@ export default function App() {
   return (
     <BrowserRouter basename={basename}>
       <Routes>
-        <Route path="/" element={<Navigate to="slide1" replace />} />
-        <Route path="allslides" element={<AllSlides />} />
-        {Array.from({ length: TOTAL }, (_, i) => (
-          <Route key={i} path={`slide${i + 1}`} element={<SlideViewer />} />
-        ))}
-        <Route path="*" element={<Navigate to="slide1" replace />} />
+        <Route path="*" element={<Presentation />} />
       </Routes>
     </BrowserRouter>
   );
