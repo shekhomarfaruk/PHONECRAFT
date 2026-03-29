@@ -1,4 +1,4 @@
-import { getAuthToken } from './session.js';
+import { authFetch } from './session.js';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const SW_PATH = '/sw.js';
@@ -47,13 +47,12 @@ export async function initPush(userId) {
 
 async function sendSubToServer(userId, sub) {
   try {
-    const token = getAuthToken();
-    if (!token || !userId) return;
+    if (!userId) return;
 
     const subJson = sub.toJSON();
-    await fetch(`${API_URL}/api/push/subscribe`, {
+    await authFetch(`${API_URL}/api/push/subscribe`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         endpoint: subJson.endpoint,
         p256dh: subJson.keys?.p256dh,
@@ -68,11 +67,10 @@ export async function unsubscribePush(userId) {
   try {
     const sub = await _registration.pushManager.getSubscription();
     if (sub) {
-      const token = getAuthToken();
-      if (token && userId) {
-        await fetch(`${API_URL}/api/push/unsubscribe`, {
+      if (userId) {
+        await authFetch(`${API_URL}/api/push/unsubscribe`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ endpoint: sub.endpoint }),
         });
       }
