@@ -638,14 +638,16 @@ app.post('/api/register', registerLimiter, (req, res) => {
       if (cleanId.length < 5 || cleanId.length > 80)
         return res.status(400).json({ error: 'Phone/email must be 5–80 characters' });
 
-      // Device lock: check if this device_id already has a guest account → auto-login
+      // device_id is required to enforce one-device/one-guest
       const safeDeviceId = String(device_id || '').trim();
-      if (safeDeviceId) {
-        const existingGuest = db.prepare('SELECT * FROM users WHERE is_guest = 1 AND guest_device_id = ?').get(safeDeviceId);
-        if (existingGuest) {
-          const token = issueAuthToken(existingGuest);
-          return res.json({ token, user: toClientUser(existingGuest), plan: stmts.getPlan.get(existingGuest.plan_id), guest_resumed: true });
-        }
+      if (!safeDeviceId)
+        return res.status(400).json({ error: biMsg('Device ID is required for guest trial', 'গেস্ট ট্রায়ালের জন্য Device ID প্রয়োজন') });
+
+      // Device lock: check if this device_id already has a guest account → auto-login
+      const existingGuest = db.prepare('SELECT * FROM users WHERE is_guest = 1 AND guest_device_id = ?').get(safeDeviceId);
+      if (existingGuest) {
+        const token = issueAuthToken(existingGuest);
+        return res.json({ token, user: toClientUser(existingGuest), plan: stmts.getPlan.get(existingGuest.plan_id), guest_resumed: true });
       }
 
       // Check if identifier already taken
@@ -1086,7 +1088,7 @@ const startManufactureTx = db.transaction((body) => {
   const guestDailyLimit = user.is_guest ? Math.min(plan.daily, 5) : plan.daily;
   if (user.daily_done >= guestDailyLimit) {
     if (user.is_guest) {
-      return { status: 400, body: { error: 'guest_daily_limit', message: biMsg('Guest trial limit reached (5 tasks). Register a real account to continue.', 'গেস্ট ট্রায়াল লিমিট পৌঁছে গেছে (৫টি টাস্ক)। চালিয়ে যেতে একটি আসল অ্যাকাউন্ট খুলুন।') } };
+      return { status: 400, body: { error: 'guest_task_limit', message: biMsg('Guest trial limit reached (5 tasks). Register a real account to continue.', 'গেস্ট ট্রায়াল লিমিট পৌঁছে গেছে (৫টি টাস্ক)। চালিয়ে যেতে একটি আসল অ্যাকাউন্ট খুলুন।') } };
     }
     return { status: 400, body: { error: 'Daily task limit reached. Upgrade your plan to continue.' } };
   }
@@ -1624,7 +1626,7 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
 
       // ── Guest: block withdrawals ──
       if (userRow.is_guest && type === 'withdraw') {
-        return { status: 403, body: { error: 'guest_blocked', message: biMsg('Guest accounts cannot withdraw. Register a real account to earn and withdraw real money.', 'গেস্ট অ্যাকাউন্ট দিয়ে উইথড্র করা যাবে না। আসল টাকা আয় করতে একটি অ্যাকাউন্ট খুলুন।') } };
+        return { status: 403, body: { error: 'guest_mode', message: biMsg('Guest accounts cannot withdraw. Register a real account to earn and withdraw real money.', 'গেস্ট অ্যাকাউন্ট দিয়ে উইথড্র করা যাবে না। আসল টাকা আয় করতে একটি অ্যাকাউন্ট খুলুন।') } };
       }
 
       // ── Deposit: duplicate TxID prevention ──

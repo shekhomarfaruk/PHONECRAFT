@@ -196,7 +196,18 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
         }),
       });
       const data = await res.json();
-      if (!res.ok) { showToast(data.error, 'error'); setStarting(false); return; }
+      if (!res.ok) {
+        if (data.error === 'guest_task_limit' && onShowGuestPlanModal) {
+          showToast(lang === 'bn'
+            ? 'আপনি এই ট্রায়ালের টাস্ক লিমিটে পৌঁছেছেন।'
+            : "You've reached the task limit for this trial.", 'error');
+          setTimeout(() => onShowGuestPlanModal(), 600);
+        } else {
+          showToast(data.message || data.error, 'error');
+        }
+        setStarting(false);
+        return;
+      }
 
       jobRef.current = data.job;
       resumeElapsedRef.current = 0;
