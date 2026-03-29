@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/phonecraft-presentation/"
+title = "PhoneCraft Presentation"
+version = "1.0.0"
+id = "artifacts/phonecraft-presentation"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/phonecraft-presentation/" ]
+localPort = 5173
+
+[services.development]
+run = "pnpm --filter @workspace/phonecraft-presentation run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/phonecraft-presentation", "run", "build" ]
+publicDir = "artifacts/phonecraft-presentation/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "5173"
+BASE_PATH = "/phonecraft-presentation/"

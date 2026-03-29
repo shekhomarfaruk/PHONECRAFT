@@ -24,6 +24,14 @@ pnpm workspace monorepo. The primary product is **PhoneCraft** — a virtual pho
 - **Auth**: JWT signed with `AUTH_SECRET` secret (stored in Replit Secrets, NOT env vars)
 - **DB file**: `artifacts/api-server/phonecraft/phonecraft.db` (gitignored)
 
+### PhoneCraft Presentation (`artifacts/phonecraft-presentation`)
+- **Framework**: React + Vite (TypeScript) — slides-style app
+- **Preview path**: `/phonecraft-presentation/` (port 5173 in dev)
+- **Dev command**: `pnpm --filter @workspace/phonecraft-presentation run dev`
+- 8 slides: Hero, Overview, How It Works, How to Earn, All Features, Login/Signup, App Screenshots, Closing
+- Uses Space Grotesk + Inter fonts, dark teal/purple brand palette
+- Screenshots stored in `public/` (ss-home.jpg, ss-login.jpg, ss-register.jpg)
+
 ### Admin Panel (`artifacts/admin-panel`)
 - **Framework**: React + Vite (JSX)
 - **Preview path**: `/admin-panel/` (port 24480 in dev)

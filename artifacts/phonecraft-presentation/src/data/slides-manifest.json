@@ -1,0 +1,10 @@
+[
+  {"id":"slide-001","position":1,"filepath":"src/pages/slides/Slide1.tsx","title":"PhoneCraft — Hero","description":"Title slide with hero visual and key stats","speakerNotes":""},
+  {"id":"slide-002","position":2,"filepath":"src/pages/slides/Slide2.tsx","title":"What is PhoneCraft?","description":"App overview and description","speakerNotes":""},
+  {"id":"slide-003","position":3,"filepath":"src/pages/slides/Slide3.tsx","title":"How It Works","description":"Step-by-step workflow","speakerNotes":""},
+  {"id":"slide-004","position":4,"filepath":"src/pages/slides/Slide4.tsx","title":"How to Earn Money","description":"Three earning methods","speakerNotes":""},
+  {"id":"slide-005","position":5,"filepath":"src/pages/slides/Slide5.tsx","title":"All Features","description":"Full feature overview","speakerNotes":""},
+  {"id":"slide-006","position":6,"filepath":"src/pages/slides/Slide6.tsx","title":"Login & Sign Up","description":"Registration and onboarding flow","speakerNotes":""},
+  {"id":"slide-007","position":7,"filepath":"src/pages/slides/Slide7.tsx","title":"App Screenshots","description":"Key screens from the PhoneCraft app","speakerNotes":""},
+  {"id":"slide-008","position":8,"filepath":"src/pages/slides/Slide8.tsx","title":"Join PhoneCraft","description":"Closing slide with call to action","speakerNotes":""}
+]
