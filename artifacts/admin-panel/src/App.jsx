@@ -1538,7 +1538,7 @@ function AdminsPage({ authFetch, toast, adminUser }) {
     if (!chatText.trim() || isMain) return;
     setChatSending(true);
     try {
-      const r = await authFetch(`${API}/api/admin/group-chat`, {
+      const r = await authFetch(`${API}/api/admin/group-chat/send`, {
         method: 'POST',
         body: JSON.stringify({ message: chatText.trim() }),
       });
@@ -1548,6 +1548,7 @@ function AdminsPage({ authFetch, toast, adminUser }) {
   };
 
   useEffect(() => { loadUsers(); loadLogs(); loadChat(); }, [loadUsers, loadLogs, loadChat]);
+  useEffect(() => { const t = setInterval(loadChat, 5000); return () => clearInterval(t); }, [loadChat]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMsgs]);
 
   const loadPerms = async (adminId) => {
@@ -1697,17 +1698,24 @@ function AdminsPage({ authFetch, toast, adminUser }) {
               : chatMsgs.map(m => (
                 <div key={m.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,var(--accent),var(--accent2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0, color: '#fff' }}>
-                    {(m.admin_name || 'A')[0].toUpperCase()}
+                    {(m.sender_name || 'A')[0].toUpperCase()}
                   </div>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 2 }}>
-                      {m.admin_name || 'Admin'}
+                      {m.sender_name || 'Admin'}
                       <span style={{ color: 'var(--text2)', fontWeight: 400, marginLeft: 8 }}>{fmtDate(m.created_at)}</span>
                     </div>
-                    <div style={{ fontSize: 13, background: 'var(--card)', padding: '7px 12px', borderRadius: '0 10px 10px 10px', border: '1px solid var(--border)' }}>
-                      {m.message}
-                    </div>
-                    {m.image_url && <img src={m.image_url} alt="" style={{ maxWidth: 220, borderRadius: 8, marginTop: 6, display: 'block' }} />}
+                    {m.message ? (
+                      <div style={{ fontSize: 13, background: 'var(--card)', padding: '7px 12px', borderRadius: '0 10px 10px 10px', border: '1px solid var(--border)' }}>
+                        {m.message}
+                      </div>
+                    ) : null}
+                    {m.media_url && m.media_type === 'image' && (
+                      <img src={m.media_url} alt="" style={{ maxWidth: 220, borderRadius: 8, marginTop: 6, display: 'block' }} />
+                    )}
+                    {m.media_url && m.media_type === 'file' && (
+                      <a href={m.media_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--accent)', marginTop: 4, display: 'block' }}>📎 Attachment</a>
+                    )}
                   </div>
                 </div>
               ))
