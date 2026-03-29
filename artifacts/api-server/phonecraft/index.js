@@ -660,7 +660,7 @@ app.post('/api/register', registerLimiter, (req, res) => {
       // IP rate limit: max 3 new guest accounts per day per IP
       if (clientIp) {
         const ipCount = db.prepare(
-          "SELECT COUNT(*) as cnt FROM users WHERE is_guest = 1 AND guest_ip = ? AND created_at >= datetime('now', '-1 day')"
+          "SELECT COUNT(*) as cnt FROM users WHERE is_guest = 1 AND guest_ip = ? AND date(created_at, '+6 hours') >= date('now', '+6 hours')"
         ).get(clientIp);
         if ((ipCount?.cnt || 0) >= 3) {
           return res.status(429).json({ error: biMsg('Daily guest limit reached. Try again tomorrow.', 'আজকের গেস্ট সীমা শেষ। আগামীকাল চেষ্টা করুন।') });
@@ -1523,6 +1523,29 @@ app.post('/api/admin/settings', authRequired, (req, res) => {
     if (!key) return res.status(400).json({ error: 'key required' });
     stmts.setSetting.run(key, value ?? '');
     res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Failed' }); }
+});
+
+// ── Dedicated guest-mode toggle ───────────────────────────────────────────────
+app.get('/api/admin/settings/guest-mode', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const enabled = getSettingStr('guest_mode_enabled', '1') === '1';
+    res.json({ guest_mode_enabled: enabled });
+  } catch (err) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.put('/api/admin/settings/guest-mode', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) {
+    const p = getSubAdminPerms(req.auth.userId);
+    if (!p.change_settings) return res.status(403).json({ error: biMsg('No permission to change general settings.','সাধারণ সেটিংস পরিবর্তনের অনুমতি নেই।') });
+  }
+  try {
+    const { enabled } = req.body || {};
+    if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) required' });
+    stmts.setSetting.run('guest_mode_enabled', enabled ? '1' : '0');
+    res.json({ ok: true, guest_mode_enabled: enabled });
   } catch (err) { res.status(500).json({ error: 'Failed' }); }
 });
 
