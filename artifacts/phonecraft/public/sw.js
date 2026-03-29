@@ -12,6 +12,10 @@ self.addEventListener('push', (event) => {
     data = { title: 'PhoneCraft', body: event.data.text() };
   }
 
+  // Admin-only notifications must not appear in the user app.
+  // They are handled exclusively by the admin panel service worker.
+  if (data.adminOnly === true) return;
+
   const title = data.title || 'PhoneCraft';
   const options = {
     body: data.body || '',
@@ -27,10 +31,13 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Handle notification click — open the app
+// Handle notification click — open the user app only
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url || '/';
+
+  // Never navigate to admin panel from user app
+  const safeUrl = url.includes('xpc-ctrl') ? '/' : url;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
@@ -38,12 +45,12 @@ self.addEventListener('notificationclick', (event) => {
       for (const client of clients) {
         if ('focus' in client) {
           client.focus();
-          if (client.navigate) client.navigate(url);
+          if (client.navigate) client.navigate(safeUrl);
           return;
         }
       }
       // Otherwise open new tab
-      if (self.clients.openWindow) return self.clients.openWindow(url);
+      if (self.clients.openWindow) return self.clients.openWindow(safeUrl);
     })
   );
 });

@@ -39,6 +39,8 @@ async function sendPush(userId, payload) {
 // Send push to all admin users (main admin + subadmins)
 async function notifyAdmins(payload) {
   try {
+    // Mark as admin-only so user-app SW can silently ignore it
+    const adminPayload = { ...payload, adminOnly: true };
     const adminIds = stmts.getAdminUsers.all().map(r => r.id);
     for (const adminId of adminIds) {
       const subs = stmts.getPushSubscriptions.all(adminId);
@@ -46,7 +48,7 @@ async function notifyAdmins(payload) {
         try {
           await webPush.sendNotification(
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-            JSON.stringify(payload)
+            JSON.stringify(adminPayload)
           );
         } catch (e) {
           if (e.statusCode === 410 || e.statusCode === 404) {
