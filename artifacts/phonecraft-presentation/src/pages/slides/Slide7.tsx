@@ -16,31 +16,31 @@ export default function Slide7({ base = '/' }: { base?: string }) {
         <div style={{ flex: 1, display: 'flex', gap: '3vw', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2vh' }}>
             <div style={{ width: '20vw', borderRadius: '2vw', overflow: 'hidden', boxShadow: '0 0 50px rgba(0,212,170,0.22), 0 25px 50px rgba(0,0,0,0.6)', border: '2px solid rgba(0,212,170,0.25)' }}>
-              <img src={`${base}ss-home.jpg`} alt="Home Screen" style={{ width: '100%', display: 'block' }} />
+              <img src={`${base}ss-dashboard.jpg`} alt="Dashboard Screen" style={{ width: '100%', display: 'block' }} />
             </div>
             <div style={{ background: 'rgba(13,20,48,0.8)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: '10px', padding: '1.2vh 1.8vw', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.2vw', fontWeight: 700, color: '#00d4aa', fontFamily: 'Space Grotesk, sans-serif' }}>Home / Landing</div>
-              <div style={{ fontSize: '1vw', color: '#8892a4', marginTop: '0.3vh' }}>Hero screen with live stats</div>
+              <div style={{ fontSize: '1.2vw', fontWeight: 700, color: '#00d4aa', fontFamily: 'Space Grotesk, sans-serif' }}>Dashboard</div>
+              <div style={{ fontSize: '1vw', color: '#8892a4', marginTop: '0.3vh' }}>Balance, plan info & quick actions</div>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2vh', marginTop: '-6vh' }}>
             <div style={{ width: '20vw', borderRadius: '2vw', overflow: 'hidden', boxShadow: '0 0 50px rgba(124,58,237,0.22), 0 25px 50px rgba(0,0,0,0.6)', border: '2px solid rgba(124,58,237,0.25)' }}>
-              <img src={`${base}ss-register.jpg`} alt="Register Screen" style={{ width: '100%', display: 'block' }} />
+              <img src={`${base}ss-work.jpg`} alt="Work Screen" style={{ width: '100%', display: 'block' }} />
             </div>
             <div style={{ background: 'rgba(13,20,48,0.8)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: '10px', padding: '1.2vh 1.8vw', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.2vw', fontWeight: 700, color: '#a855f7', fontFamily: 'Space Grotesk, sans-serif' }}>Registration</div>
-              <div style={{ fontSize: '1vw', color: '#8892a4', marginTop: '0.3vh' }}>Simple sign-up process</div>
+              <div style={{ fontSize: '1.2vw', fontWeight: 700, color: '#a855f7', fontFamily: 'Space Grotesk, sans-serif' }}>Work Screen</div>
+              <div style={{ fontSize: '1vw', color: '#8892a4', marginTop: '0.3vh' }}>Manufacturing tasks (9 AM–10 PM BD)</div>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2vh' }}>
             <div style={{ width: '20vw', borderRadius: '2vw', overflow: 'hidden', boxShadow: '0 0 50px rgba(0,184,145,0.22), 0 25px 50px rgba(0,0,0,0.6)', border: '2px solid rgba(0,184,145,0.25)' }}>
-              <img src={`${base}ss-login.jpg`} alt="Login Screen" style={{ width: '100%', display: 'block' }} />
+              <img src={`${base}ss-wallet.jpg`} alt="Wallet Screen" style={{ width: '100%', display: 'block' }} />
             </div>
             <div style={{ background: 'rgba(13,20,48,0.8)', border: '1px solid rgba(0,184,145,0.2)', borderRadius: '10px', padding: '1.2vh 1.8vw', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.2vw', fontWeight: 700, color: '#00b891', fontFamily: 'Space Grotesk, sans-serif' }}>Login</div>
-              <div style={{ fontSize: '1vw', color: '#8892a4', marginTop: '0.3vh' }}>Secure account access</div>
+              <div style={{ fontSize: '1.2vw', fontWeight: 700, color: '#00b891', fontFamily: 'Space Grotesk, sans-serif' }}>Wallet</div>
+              <div style={{ fontSize: '1vw', color: '#8892a4', marginTop: '0.3vh' }}>Withdraw to bKash, Nagad, Crypto & more</div>
             </div>
           </div>
         </div>

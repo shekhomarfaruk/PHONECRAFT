@@ -185,6 +185,9 @@ export default function App() {
           setUser(u);
           setAuth(true);
           setShowLanding(false);
+          // Check URL hash for initial screen (used for screenshot navigation)
+          const hash = window.location.hash.replace('#', '');
+          if (hash) setScreen(hash);
           // Reinit push after session restore
           if (isPushSupported()) initPush(u.id);
       } else if (u?.id) {
