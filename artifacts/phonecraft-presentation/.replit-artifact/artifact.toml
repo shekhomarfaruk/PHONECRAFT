@@ -12,7 +12,7 @@ version = "1.0.0"
 [[services]]
 name = "web"
 paths = [ "/phonecraft-presentation/" ]
-localPort = 5173
+localPort = 6000
 
 [services.development]
 run = "pnpm --filter @workspace/phonecraft-presentation run dev"
@@ -27,5 +27,5 @@ from = "/*"
 to = "/index.html"
 
 [services.env]
-PORT = "5173"
+PORT = "6000"
 BASE_PATH = "/phonecraft-presentation/"

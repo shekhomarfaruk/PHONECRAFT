@@ -10,6 +10,7 @@ import Slide7 from './pages/slides/Slide7';
 import Slide8 from './pages/slides/Slide8';
 import Slide9 from './pages/slides/Slide9';
 import Slide10 from './pages/slides/Slide10';
+import AllSlides from './pages/AllSlides';
 
 const SLIDES = [Slide1, Slide2, Slide3, Slide4, Slide5, Slide6, Slide7, Slide8, Slide9, Slide10];
 const TOTAL = SLIDES.length;
@@ -76,6 +77,7 @@ export default function App() {
   return (
     <BrowserRouter basename={basename}>
       <Routes>
+        <Route path="/allslides" element={<AllSlides />} />
         <Route path="*" element={<Presentation />} />
       </Routes>
     </BrowserRouter>
