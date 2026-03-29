@@ -31,11 +31,11 @@ export const DEVICE_IMAGES = {
   'iPhone 15':           `${GSM}/apple/apple-iphone-15-1.jpg`,
   'iPhone 14 Pro':       `${GSM}/apple/apple-iphone-14-pro-1.jpg`,
   // Samsung
-  'Galaxy S24 Ultra':    `${GSM}/samsung/samsung-galaxy-s24-ultra-1.jpg`,
-  'Galaxy S24+':         `${GSM}/samsung/samsung-galaxy-s24plus-1.jpg`,
-  'Galaxy S24':          `${GSM}/samsung/samsung-galaxy-s24-1.jpg`,
-  'Galaxy S23 Ultra':    `${GSM}/samsung/samsung-galaxy-s23-ultra-1.jpg`,
-  'Galaxy A54':          `${GSM}/samsung/samsung-galaxy-a54-1.jpg`,
+  'Galaxy S24 Ultra':    `${GSM}/samsung/samsung-galaxy-s24-ultra-5g-sm-s928-1.jpg`,
+  'Galaxy S24+':         `${GSM}/samsung/samsung-galaxy-s24-plus-5g-sm-s926-1.jpg`,
+  'Galaxy S24':          `${GSM}/samsung/samsung-galaxy-s24-5g-sm-s921-1.jpg`,
+  'Galaxy S23 Ultra':    `${GSM}/samsung/samsung-galaxy-s23-ultra-5g-1.jpg`,
+  'Galaxy A54':          'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-a54.jpg',
   // Google
   'Pixel 8 Pro':         `${GSM}/google/google-pixel-8-pro-1.jpg`,
   'Pixel 8':             `${GSM}/google/google-pixel-8-1.jpg`,
