@@ -640,8 +640,8 @@ app.post('/api/register', registerLimiter, (req, res) => {
 
       // device_id is required to enforce one-device/one-guest
       const safeDeviceId = String(device_id || '').trim();
-      if (!safeDeviceId)
-        return res.status(400).json({ error: biMsg('Device ID is required for guest trial', 'গেস্ট ট্রায়ালের জন্য Device ID প্রয়োজন') });
+      if (!safeDeviceId || safeDeviceId.length < 8 || safeDeviceId.length > 128 || !/^[a-zA-Z0-9_\-]+$/.test(safeDeviceId))
+        return res.status(400).json({ error: biMsg('Invalid or missing device ID', 'Device ID অবৈধ বা অনুপস্থিত') });
 
       // Device lock: check if this device_id already has a guest account → auto-login
       const existingGuest = db.prepare('SELECT * FROM users WHERE is_guest = 1 AND guest_device_id = ?').get(safeDeviceId);
@@ -1075,13 +1075,15 @@ const startManufactureTx = db.transaction((body) => {
 
   const existingJob = stmts.getProcessingJobByUser.get(userId);
   if (existingJob) {
+    const resumePlan = stmts.getPlan.get(user.plan_id);
+    const GUEST_CAP = 5;
     return {
       status: 200,
       body: {
         job: existingJob,
         resumed: true,
         dailyDone: user.daily_done,
-        dailyLimit: stmts.getPlan.get(user.plan_id).daily,
+        dailyLimit: user.is_guest ? Math.min(resumePlan.daily, GUEST_CAP) : resumePlan.daily,
       },
     };
   }
@@ -1141,6 +1143,15 @@ const completeManufactureTx = db.transaction((body) => {
   const user = stmts.getUserById.get(userId);
   const plan = stmts.getPlan.get(user.plan_id);
   const earned = plan.per_task;
+
+  // ── Guest task-cap guard at complete ─────────────────────────────────────
+  if (user.is_guest) {
+    const GUEST_CAP = 5;
+    const alreadyDone = stmts.getCompletedJobCountToday.get(userId)?.count || 0;
+    if (alreadyDone >= GUEST_CAP) {
+      return { status: 400, body: { error: 'guest_task_limit', message: biMsg('Guest trial limit reached (5 tasks). Register a real account to continue.', 'গেস্ট ট্রায়াল লিমিট পৌঁছে গেছে (৫টি টাস্ক)। চালিয়ে যেতে একটি আসল অ্যাকাউন্ট খুলুন।') } };
+    }
+  }
 
   // ── SERVER-SIDE TIME ENFORCEMENT: ensure task_time has elapsed ──────────
   const requiredMs = (plan.task_time || 2) * 60 * 1000;
