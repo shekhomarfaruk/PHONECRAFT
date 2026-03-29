@@ -273,6 +273,9 @@ const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposi
   'wallet_rotation_index'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
+// Ensure withdrawal limits have sensible defaults on fresh installs
+db.prepare("UPDATE app_settings SET value='300'    WHERE key='min_withdraw' AND (value='' OR value IS NULL)").run();
+db.prepare("UPDATE app_settings SET value='150000' WHERE key='max_withdraw' AND (value='' OR value IS NULL)").run();
 
 // Team chat messages (real community chat)
 db.exec(`
