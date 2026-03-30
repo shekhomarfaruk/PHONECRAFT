@@ -1,0 +1,70 @@
+Create a high-quality, modern promotional video (30–45 seconds) for my mobile app.
+
+App Name: PhoneCraft
+
+About the App:
+PhoneCraft is a virtual phone manufacturing and earning platform where users can build virtual phones, sell them in a marketplace, and earn real money. The app also includes deposit/withdraw system, referral tree, live support, and real-time notifications.
+
+Target Audience:
+Young users in Bangladesh who are interested in online earning and mobile-based income platforms.
+
+Video Requirements:
+- Duration: 30–45 seconds
+- Style: Modern, clean, tech-inspired, slightly futuristic
+- Format: Vertical (9:16) for social media (TikTok, Facebook Reels)
+
+Scenes to Include:
+
+1. Hook (First 3 seconds)
+- Show a user bored with no income
+- Text: "Still not earning online?"
+
+2. App Introduction
+- Show PhoneCraft logo with smooth animation
+- Text: "Welcome to PhoneCraft"
+
+3. Core Feature 1 (Manufacturing)
+- Show user building a virtual phone
+- Animation of assembling parts
+- Text: "Build Your Own Virtual Phones"
+
+4. Core Feature 2 (Marketplace)
+- Show phones being sold with dollar signs
+- Real-time sale notification popup
+- Text: "Sell & Earn Instantly 💰"
+
+5. Core Feature 3 (Earning System)
+- Show balance increasing (USD)
+- Text: "Earn Real Money Anytime"
+
+6. Core Feature 4 (Referral System)
+- Show network tree growing
+- Text: "Invite Friends & Earn More"
+
+7. Core Feature 5 (Deposit & Withdraw)
+- Show smooth transaction UI
+- Text: "Easy Deposit & Fast Withdraw"
+
+8. Trust & Support
+- Show live chat/support icon
+- Text: "24/7 Live Support"
+
+9. Final CTA (Call to Action)
+- Show app interface + logo
+- Text: "Start Earning Today!"
+- Button style: "Download Now"
+
+Audio:
+- Upbeat, motivational background music
+- Add subtle UI sound effects (click, notification)
+
+Color Theme:
+- Dark + Neon Blue / Purple tech theme
+
+Output:
+- Smooth animated video with transitions
+- Include subtitles for all key texts
+- Make it engaging and scroll-stopping
+
+Goal:
+Create a video that makes users instantly want to download the app and start earning.
