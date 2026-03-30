@@ -1,0 +1,28 @@
+Promo Video with Real Screen Animations
+What & Why
+Create a 30–45 second vertical (9:16) promotional video for PhoneCraft using real app screenshots captured by logging into the live app with the provided credentials (email: PHONECRAFT@gmail.com, password: PHONECRAFT). The video follows the detailed scene-by-scene brief provided by the user and targets young Bangladeshi users interested in online earning.
+
+Done looks like
+A new video artifact (or video component in the presentation) plays a 30–45 second animated promo
+Each scene from the brief is represented: hook, logo intro, manufacturing, marketplace, earning, referral, deposit/withdraw, support, and CTA
+Real PhoneCraft app screens (captured from the live app using the given credentials) appear inside a realistic phone frame with smooth animations
+Dark + neon blue/purple color theme throughout
+All key text lines appear as animated subtitles/overlays
+Upbeat, tech-inspired background music and subtle UI sound effects are included
+Video is vertical 9:16 format suitable for TikTok and Facebook Reels
+Out of scope
+Actual video recording of a physical device
+Voiceover narration
+Changes to the main PhoneCraft web app or API
+Tasks
+Capture real app screens — Log into the live PhoneCraft app at the production URL using credentials (PHONECRAFT@gmail.com / PHONECRAFT) and take screenshots of all key screens: Home dashboard, Work/Manufacturing, Wallet, Referral tree, Marketplace, and Support chat.
+
+Build video artifact — Create a new video artifact using React + Framer Motion / GSAP that plays automatically as a 30–45 second vertical (9:16) animation following the scene order in the brief. Each scene should transition smoothly into the next.
+
+Assemble scenes with real screens — Place each captured real app screenshot inside an animated phone frame mockup. Animate the phone sliding in, screens scrolling, and UI interactions (balance incrementing, notification popups, referral tree expanding) to make them feel live and realistic.
+
+Add text overlays, music, and effects — Add all subtitle text lines from the brief with animated entrance effects. Include upbeat background music and subtle UI click/notification sound effects. Apply the dark + neon blue/purple color theme to all scene transitions and overlays.
+
+Relevant files
+artifacts/phonecraft/src
+artifacts/phonecraft-presentation/src
