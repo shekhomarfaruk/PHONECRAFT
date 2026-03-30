@@ -844,24 +844,26 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           </p>
 
           {/* CTA buttons */}
-          <div className="ld-fade ld-fade-3" style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
+          <div className="ld-fade ld-fade-3" style={{ display:'flex', flexDirection:'column', gap:12, alignItems:'center', width:'100%', maxWidth:400, margin:'0 auto' }}>
             <button
               onClick={onGetStarted}
               style={{
-                padding:'14px 36px', borderRadius:12, border:'none',
-                background:'linear-gradient(135deg,#23AF91,#1a8f75)',
+                width:'100%', padding:'15px 36px', borderRadius:12, border:'none',
+                background:'#23AF91',
                 color:'#fff', fontFamily:'Space Grotesk', fontWeight:700, fontSize:16,
                 cursor:'pointer', boxShadow:'0 4px 20px rgba(35,175,145,.35)',
                 transition:'transform .18s, box-shadow .18s',
               }}
-              onMouseEnter={e=>{ e.target.style.transform='translateY(-2px)'; e.target.style.boxShadow='0 6px 24px rgba(35,175,145,.45)'; }}
-              onMouseLeave={e=>{ e.target.style.transform='none'; e.target.style.boxShadow='0 4px 20px rgba(35,175,145,.35)'; }}
+              onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 6px 24px rgba(35,175,145,.45)'; }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 20px rgba(35,175,145,.35)'; }}
             >
               {t.cta_start}
             </button>
             <button
               onClick={onLogin}
-              style={{ padding:'14px 32px', borderRadius:12, border:'1px solid rgba(35,175,145,.3)', background:'rgba(35,175,145,.05)', color:'#23AF91', fontFamily:'Space Grotesk', fontWeight:600, fontSize:16, cursor:'pointer', transition:'all .18s' }}
+              style={{ width:'100%', padding:'15px 32px', borderRadius:12, border:'1px solid rgba(35,175,145,.4)', background:'transparent', color:'#23AF91', fontFamily:'Space Grotesk', fontWeight:600, fontSize:16, cursor:'pointer', transition:'all .18s' }}
+              onMouseEnter={e=>{ e.currentTarget.style.background='rgba(35,175,145,.08)'; }}
+              onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; }}
             >
               {t.cta_member}
             </button>
@@ -869,21 +871,25 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
 
           {/* Stats row */}
           <div className="ld-fade ld-fade-4 ld-stats-row">
-            {[
-              { val:84000, suffix:'+', label: t.stat_members },
-              { val:20, prefix:'৳', suffix:'–৳100', label: t.stat_task },
-              { val:20, suffix: lang==='bn' ? '+' : ' Countries', label: t.stat_world },
-            ].map((s, i) => (
-              <div key={i} style={{ textAlign:'center' }}>
-                <div style={{ fontFamily:'Space Grotesk', fontSize:'clamp(22px,3vw,36px)', fontWeight:900, color:'#23AF91' }}>
-                  {i === 1
-                    ? <>{convertCurrency(20, lang)}–{convertCurrency(100, lang)}</>
-                    : <Counter target={s.val} suffix={s.suffix} prefix={s.prefix||''} />
-                  }
-                </div>
-                <div style={{ fontSize:12, color:'#707A8A', marginTop:2, letterSpacing:.5 }}>{s.label}</div>
+            <div style={{ textAlign:'center' }}>
+              <div style={{ fontFamily:'Space Grotesk', fontSize:'clamp(22px,3vw,36px)', fontWeight:900, color:'#EAECEF' }}>
+                <Counter target={84000} suffix="+" />
               </div>
-            ))}
+              <div style={{ fontSize:12, color:'#707A8A', marginTop:2, letterSpacing:.5 }}>{t.stat_members}</div>
+            </div>
+            <div style={{ textAlign:'center' }}>
+              <div style={{ fontFamily:'Space Grotesk', fontSize:'clamp(22px,3vw,36px)', fontWeight:900, color:'#EAECEF' }}>
+                {lang === 'bn' ? <>{convertCurrency(0.16, lang)}–{convertCurrency(0.81, lang)}</> : '$0.16–$0.81'}
+              </div>
+              <div style={{ fontSize:12, color:'#707A8A', marginTop:2, letterSpacing:.5 }}>{t.stat_task}</div>
+            </div>
+            <div style={{ textAlign:'center' }}>
+              <div style={{ fontFamily:'Space Grotesk', fontSize:'clamp(22px,3vw,36px)', fontWeight:900, color:'#EAECEF' }}>
+                {lang === 'bn' ? '২০ দেশ' : '20 Countries'}
+              </div>
+              <div style={{ fontSize:12, color:'#707A8A', marginTop:2, letterSpacing:.5 }}>{t.stat_world}</div>
+            </div>
+
           </div>
           </div>{/* end ld-wrap */}
         </div>
