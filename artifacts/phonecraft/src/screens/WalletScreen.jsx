@@ -327,10 +327,11 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
   const isBn = lang === 'bn';
   const cryptoEnabled = appSettings?.crypto_enabled !== 'false';
 
-  const minWithdraw = Number(appSettings?.min_withdraw) || 300;
-  const maxWithdraw = Number(appSettings?.max_withdraw) || 150000;
-  const minDeposit  = Number(appSettings?.min_deposit)  || 0;
-  const maxDeposit  = Number(appSettings?.max_deposit)  || 0;
+  const _toNum = (val, def) => (val !== undefined && val !== '' && val !== null) ? Number(val) : def;
+  const minWithdraw = _toNum(appSettings?.min_withdraw, 300);
+  const maxWithdraw = _toNum(appSettings?.max_withdraw, 150000);
+  const minDeposit  = _toNum(appSettings?.min_deposit,  0);
+  const maxDeposit  = _toNum(appSettings?.max_deposit,  0);
 
   const [tab,        setTab      ] = useState('withdraw');
   const [amount,     setAmount   ] = useState('');
@@ -750,11 +751,11 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
             <div className="input-wrap">
               <label className="input-label">{t.amount_label}</label>
               <input className="inp" type="number" placeholder={t.enter_amount} value={amount} onChange={e => setAmount(e.target.value)}/>
-              {tab === 'withdraw' && (
+              {tab === 'withdraw' && (minWithdraw > 0 || maxWithdraw > 0) && (
                 <div style={{ fontSize:11, color:'var(--text2)', marginTop:4 }}>
                   {isBn
-                    ? `সর্বনিম্ন ৳${minWithdraw.toLocaleString()}${maxWithdraw > 0 ? ` · সর্বোচ্চ ৳${maxWithdraw.toLocaleString()}` : ''}`
-                    : `Min ৳${minWithdraw.toLocaleString()}${maxWithdraw > 0 ? ` · Max ৳${maxWithdraw.toLocaleString()}` : ''}`}
+                    ? [minWithdraw > 0 ? `সর্বনিম্ন ৳${minWithdraw.toLocaleString()}` : '', maxWithdraw > 0 ? `সর্বোচ্চ ৳${maxWithdraw.toLocaleString()}` : ''].filter(Boolean).join(' · ')
+                    : [minWithdraw > 0 ? `Min ৳${minWithdraw.toLocaleString()}` : '', maxWithdraw > 0 ? `Max ৳${maxWithdraw.toLocaleString()}` : ''].filter(Boolean).join(' · ')}
                 </div>
               )}
             </div>

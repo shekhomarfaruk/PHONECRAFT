@@ -28,10 +28,6 @@ args = "artifacts/phonecraft-presentation: web"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "artifacts/api-server: phonecraft"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "artifacts/phonecraft: web"
 
 [[workflows.workflow.tasks]]
@@ -49,18 +45,6 @@ waitForPort = 5173
 
 [workflows.workflow.metadata]
 outputType = "webview"
-
-[[workflows.workflow]]
-name = "artifacts/api-server: phonecraft"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "export PORT=8080 NODE_ENV=development && node artifacts/api-server/phonecraft/index.js"
-waitForPort = 8080
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[workflows.workflow]]
 name = "artifacts/phonecraft: web"
