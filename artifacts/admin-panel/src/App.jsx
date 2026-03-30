@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { playNotifSound } from './sounds.js';
 import {
-  LayoutDashboard, Users, CreditCard, MessageSquare, Shield, Settings,
+  LayoutDashboard, Users, CreditCard, MessageSquare, Shield, ShieldOff, Settings,
   LogOut, TrendingUp, Clock, Trophy, BarChart2, User, X, ChevronDown,
   Download, Send, Lock, RefreshCw, Eye, CheckCircle, Ban, UserCheck,
   Menu, Search, Filter, FileText, Star, AlertTriangle, Reply, Trash2,
@@ -223,6 +223,7 @@ function urlBase64ToUint8Array(base64String) {
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('admin_token') || '');
   const [adminUser, setAdminUser] = useState(null);
+  const [adminPerms, setAdminPerms] = useState({});
   const [page, setPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -251,6 +252,13 @@ export default function App() {
       if (d.user && d.user.is_admin) {
         setAdminUser(d.user);
         initAdminPush(token);
+        if (!d.user.is_main_admin) {
+          authFetch(`${API}/api/admin/my-permissions`).then(r => r.json()).then(pd => {
+            if (pd.permissions) setAdminPerms(pd.permissions);
+          }).catch(() => {});
+        } else {
+          setAdminPerms({ _isMain: true });
+        }
       } else {
         localStorage.removeItem('admin_token');
         setToken('');
@@ -302,6 +310,7 @@ export default function App() {
   if (!token || !adminUser) return <LoginScreen onLogin={(t, u) => { setToken(t); setAdminUser(u); localStorage.setItem('admin_token', t); initAdminPush(t); }} />;
 
   const isMain = !!adminUser.is_main_admin;
+  const canPayment = isMain || adminPerms.modify_payment_numbers || adminPerms.modify_wallet_addresses;
   const navItems = [
     ...(isMain ? [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }] : []),
     { id: 'users', label: 'Users', icon: Users },
@@ -315,6 +324,7 @@ export default function App() {
     { id: 'notifications', label: 'Notifications', icon: Bell },
     ...(isMain ? [{ id: 'controls', label: 'Quick Controls', icon: Zap }] : []),
     ...(isMain ? [{ id: 'settings', label: 'Settings', icon: Settings }] : []),
+    ...(!isMain && canPayment ? [{ id: 'payment-settings', label: 'Payment Settings', icon: CreditCard }] : []),
   ];
 
   const activePage = navItems.find(n => n.id === page) ? page : navItems[0]?.id || 'users';
@@ -324,7 +334,7 @@ export default function App() {
     dashboard: 'Dashboard', users: 'Users', finance: 'Finance', flagged: 'Flagged',
     'ip-tracking': 'IP Tracking', 'live-locations': 'Live Locations', support: 'Support',
     'admin-chat': 'Admin Chat', admins: 'Admin & Roles', notifications: 'Notification Settings',
-    controls: 'Quick Controls', settings: 'Settings',
+    controls: 'Quick Controls', settings: 'Settings', 'payment-settings': 'Payment Settings',
   };
 
   return (
@@ -405,8 +415,8 @@ export default function App() {
         </div>
 
         {page === 'dashboard' && <DashboardPage authFetch={authFetch} toast={toast} isMain={isMain} treasuryBalance={treasuryBalance} refreshTreasury={refreshTreasury} />}
-        {page === 'users' && <UsersPage authFetch={authFetch} toast={toast} isMain={isMain} adminUser={adminUser} />}
-        {page === 'finance' && <FinancePage authFetch={authFetch} toast={toast} isMain={isMain} />}
+        {page === 'users' && <UsersPage authFetch={authFetch} toast={toast} isMain={isMain} adminUser={adminUser} adminPerms={adminPerms} />}
+        {page === 'finance' && <FinancePage authFetch={authFetch} toast={toast} isMain={isMain} adminPerms={adminPerms} />}
         {page === 'flagged' && <FlaggedPage authFetch={authFetch} toast={toast} />}
         {page === 'ip-tracking' && <IpTrackingPage authFetch={authFetch} toast={toast} />}
         {page === 'live-locations' && <LiveLocationsPage authFetch={authFetch} toast={toast} />}
@@ -416,6 +426,7 @@ export default function App() {
         {page === 'notifications' && <NotificationsPage authFetch={authFetch} toast={toast} token={token} />}
         {page === 'controls' && <ControlsPage authFetch={authFetch} toast={toast} />}
         {page === 'settings' && <SettingsPage authFetch={authFetch} toast={toast} />}
+        {page === 'payment-settings' && <PaymentSettingsPage authFetch={authFetch} toast={toast} adminPerms={adminPerms} />}
       </main>
     </div>
   );
@@ -750,7 +761,7 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
   );
 }
 
-function UsersPage({ authFetch, toast, isMain, adminUser }) {
+function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -956,6 +967,7 @@ function UsersPage({ authFetch, toast, isMain, adminUser }) {
               {selected.referred_by && <span className="badge badge-blue">By: {selected.referred_by}</span>}
               <span className={`badge ${selected.banned ? 'badge-red' : 'badge-green'}`}>{selected.banned ? 'Banned' : 'Active'}</span>
               {selected.is_admin && <span className="badge badge-purple">Admin</span>}
+              {selected.is_guest && <span className="badge badge-yellow">Guest</span>}
             </div>
 
             <div className="filter-bar">
@@ -988,7 +1000,23 @@ function UsersPage({ authFetch, toast, isMain, adminUser }) {
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {isMain && <button className="btn btn-primary btn-sm" onClick={saveUser} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>}
-                  <button className={`btn btn-sm ${selected.banned ? 'btn-success' : 'btn-danger'}`} onClick={() => toggleBan(selected)}>{selected.banned ? 'Unban' : 'Ban'}</button>
+                  {(isMain || adminPerms?.ban_users) && <button className={`btn btn-sm ${selected.banned ? 'btn-success' : 'btn-danger'}`} onClick={() => toggleBan(selected)}>{selected.banned ? 'Unban' : 'Ban'}</button>}
+                  {isMain && !selected.is_admin && !selected.is_guest && (
+                    <button className="btn btn-outline btn-sm" style={{ borderColor: 'rgba(139,92,246,0.5)', color: '#8B5CF6' }} onClick={async () => {
+                      if (!confirm(`Promote "${selected.name}" to sub-admin? Their balance will be reset to 0.`)) return;
+                      const r = await authFetch(`${API}/api/admin/users/${selected.id}`, { method: 'PATCH', body: JSON.stringify({ is_admin: true }) });
+                      if (r.ok) { toast('User promoted to sub-admin'); load(); setSelected(null); }
+                      else toast((await r.json()).error || 'Failed', 'error');
+                    }}><Shield size={14} /> Make Admin</button>
+                  )}
+                  {isMain && selected.is_admin && !selected.is_main_admin && (
+                    <button className="btn btn-danger btn-sm" onClick={async () => {
+                      if (!confirm(`Remove admin privileges from "${selected.name}"?`)) return;
+                      const r = await authFetch(`${API}/api/admin/users/${selected.id}`, { method: 'PATCH', body: JSON.stringify({ is_admin: false }) });
+                      if (r.ok) { toast('Admin privileges removed'); load(); setSelected(null); }
+                      else toast((await r.json()).error || 'Failed', 'error');
+                    }}><ShieldOff size={14} /> Remove Admin</button>
+                  )}
                   {isMain && <button className="btn btn-outline btn-sm" onClick={() => resetPw(selected.id)}><Lock size={14} /> Reset Password</button>}
                 </div>
               </>
@@ -1085,7 +1113,7 @@ function UsersPage({ authFetch, toast, isMain, adminUser }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => selectUser(u)}>
                       <Avatar src={u.avatar_img || u.avatar} name={u.name} size={36} />
                       <div>
-                        <div style={{ fontWeight: 700 }}>{u.name} {u.is_admin && <span className="badge badge-purple" style={{ fontSize: 8 }}>Admin</span>}</div>
+                        <div style={{ fontWeight: 700 }}>{u.name} {u.is_admin && <span className="badge badge-purple" style={{ fontSize: 8 }}>Admin</span>}{u.is_guest && <span className="badge badge-yellow" style={{ fontSize: 8, marginLeft: 3 }}>Guest</span>}</div>
                         <div style={{ fontSize: 11, color: 'var(--text2)' }}>{u.identifier} · {u.refer_code}</div>
                       </div>
                     </div>
@@ -1097,7 +1125,7 @@ function UsersPage({ authFetch, toast, isMain, adminUser }) {
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-outline btn-sm" onClick={() => selectUser(u)}><Eye size={14} /></button>
-                      <button className={`btn btn-sm ${u.banned ? 'btn-success' : 'btn-danger'}`} onClick={() => toggleBan(u)}>{u.banned ? <UserCheck size={14} /> : <Ban size={14} />}</button>
+                      {(isMain || adminPerms?.ban_users) && <button className={`btn btn-sm ${u.banned ? 'btn-success' : 'btn-danger'}`} onClick={() => toggleBan(u)}>{u.banned ? <UserCheck size={14} /> : <Ban size={14} />}</button>}
                     </div>
                   </td>
                 </tr>
@@ -1110,7 +1138,7 @@ function UsersPage({ authFetch, toast, isMain, adminUser }) {
   );
 }
 
-function FinancePage({ authFetch, toast, isMain }) {
+function FinancePage({ authFetch, toast, isMain, adminPerms }) {
   const [transactions, setTx] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('pending');
@@ -1228,20 +1256,25 @@ function FinancePage({ authFetch, toast, isMain }) {
                   <td><span className={`badge ${tx.status === 'approved' ? 'badge-green' : tx.status === 'rejected' ? 'badge-red' : 'badge-yellow'}`}>{tx.status}</span></td>
                   <td style={{ fontSize: 11, color: 'var(--text2)' }}>{fmtDate(tx.created_at)}</td>
                   <td>
-                    {tx.status === 'pending' ? (
-                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                        <input className="inp" style={{ width: 100, marginBottom: 0, fontSize: 11, padding: '4px 8px' }} placeholder="Note..."
-                          value={processing === tx.id ? note : ''}
-                          onFocus={() => { setProcessing(tx.id); setNote(''); }}
-                          onChange={e => setNote(e.target.value)} />
-                        <button className="btn btn-success btn-sm" disabled={processing !== null && processing !== tx.id} onClick={() => handleTx(tx.id, 'approved')}>
-                          <CheckCircle size={14} />
-                        </button>
-                        <button className="btn btn-danger btn-sm" disabled={processing !== null && processing !== tx.id} onClick={() => handleTx(tx.id, 'rejected')}>
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ) : (
+                    {tx.status === 'pending' ? (() => {
+                      const canApprove = isMain || (tx.type === 'deposit' ? adminPerms?.approve_deposits : adminPerms?.approve_withdrawals);
+                      return canApprove ? (
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                          <input className="inp" style={{ width: 100, marginBottom: 0, fontSize: 11, padding: '4px 8px' }} placeholder="Note..."
+                            value={processing === tx.id ? note : ''}
+                            onFocus={() => { setProcessing(tx.id); setNote(''); }}
+                            onChange={e => setNote(e.target.value)} />
+                          <button className="btn btn-success btn-sm" disabled={processing !== null && processing !== tx.id} onClick={() => handleTx(tx.id, 'approved')}>
+                            <CheckCircle size={14} />
+                          </button>
+                          <button className="btn btn-danger btn-sm" disabled={processing !== null && processing !== tx.id} onClick={() => handleTx(tx.id, 'rejected')}>
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 11, color: 'var(--text2)' }}>Pending — no permission</span>
+                      );
+                    })() : (
                       <span style={{ fontSize: 11, color: 'var(--text2)' }}>{tx.admin_note || '—'}</span>
                     )}
                   </td>
@@ -2630,6 +2663,106 @@ function IpTrackingPage({ authFetch, toast }) {
             );
           })}
         </div>
+      )}
+    </>
+  );
+}
+
+function PaymentSettingsPage({ authFetch, toast, adminPerms }) {
+  const [settings, setSettings] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await authFetch(`${API}/api/admin/settings`);
+      const d = await r.json();
+      if (r.ok && d.settings) setSettings(d.settings);
+    } catch {}
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/settings`, { method: 'POST', body: JSON.stringify({ settings }) });
+      if (r.ok) { toast('Payment settings saved'); await load(); }
+      else { const d = await r.json(); toast(d.error || 'Failed to save', 'error'); }
+    } catch { toast('Failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <>
+      <div className="page-header">
+        <div><h1>Payment Settings</h1><div className="subtitle">Manage payment numbers and wallet addresses</div></div>
+        <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
+      </div>
+
+      {adminPerms?.modify_payment_numbers && (
+        <div className="card">
+          <div className="card-title"><CreditCard size={16} /> Payment Account Numbers</div>
+          <div className="grid-2">
+            {['bkash', 'nagad', 'rocket'].map(m => (
+              <div key={m}>
+                <label className="input-label">{m.charAt(0).toUpperCase() + m.slice(1)} Number</label>
+                <input className="inp" value={settings[`deposit_${m}`] || ''} onChange={e => setSettings(p => ({ ...p, [`deposit_${m}`]: e.target.value }))} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {adminPerms?.modify_wallet_addresses && (
+        <>
+          <div className="card">
+            <div className="card-title" style={{ color: 'var(--accent)' }}>💎 Crypto Wallet Addresses</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>
+              Enter wallet addresses per blockchain and token.
+            </div>
+            {[
+              { chain: 'eth', label: 'Ethereum' },
+              { chain: 'op', label: 'Optimism (OP)' },
+              { chain: 'base', label: 'Base' },
+              { chain: 'polygon', label: 'Polygon' },
+              { chain: 'arbitrum', label: 'Arbitrum' },
+            ].map(({ chain, label }) => (
+              <div key={chain} style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 10, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 10, textTransform: 'uppercase' }}>⛓ {label}</div>
+                <div className="grid-2">
+                  {['usdt', 'usdc'].map(tok => (
+                    <div key={tok}>
+                      <label className="input-label">{tok.toUpperCase()} Address</label>
+                      <input className="inp" placeholder="0x..." value={settings[`crypto_${chain}_${tok}`] || ''} onChange={e => setSettings(p => ({ ...p, [`crypto_${chain}_${tok}`]: e.target.value }))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="card">
+            <div className="card-title" style={{ color: '#f59e0b' }}>🔄 Rotating Deposit Wallets (10 slots)</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.6 }}>
+              Set up to 10 deposit wallet addresses. Each user visit will show the next address in rotation (Round-Robin).<br/>
+              <span style={{ color: '#f59e0b' }}>⚡ Empty slots will be skipped automatically.</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[1,2,3,4,5,6,7,8,9,10].map(i => {
+                const key = `deposit_wallet_${i}`;
+                const val = settings[key] || '';
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: val ? 'rgba(0,210,180,.15)' : 'var(--bg2)', border: `1px solid ${val ? 'var(--accent)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: val ? 'var(--accent)' : 'var(--text2)' }}>
+                      {i}
+                    </div>
+                    <input className="inp" style={{ marginBottom: 0 }} placeholder={`Wallet address #${i}...`} value={val} onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
     </>
   );

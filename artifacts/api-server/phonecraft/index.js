@@ -2808,6 +2808,20 @@ const ALL_PERMISSIONS = [
   'view_sensitive_data',
 ];
 
+// ── GET /api/admin/my-permissions — returns the current sub-admin's own perms ─
+app.get('/api/admin/my-permissions', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (req.auth.isMainAdmin) return res.json({ isMain: true, permissions: Object.fromEntries(ALL_PERMISSIONS.map(p => [p, true])) });
+  try {
+    const perms = getSubAdminPerms(req.auth.userId);
+    const permMap = {};
+    ALL_PERMISSIONS.forEach(p => { permMap[p] = !!perms[p]; });
+    res.json({ isMain: false, permissions: permMap });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch permissions' });
+  }
+});
+
 app.get('/api/admin/permissions/:adminId', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
