@@ -1757,10 +1757,16 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
           const plan = stmts.getPlan.get(userRow.plan_id);
           const today = todayDate();
           if (userRow.last_task_reset !== today) {
-            return { status: 400, body: { error: 'Complete your daily tasks before withdrawing' } };
+            return { status: 400, body: { error: biMsg(
+              'Complete your daily tasks before withdrawing',
+              'উইথড্র করার আগে আজকের সব ডেইলি টাস্ক সম্পন্ন করুন'
+            ) } };
           }
           if (plan && userRow.daily_done < plan.daily) {
-            return { status: 400, body: { error: `Complete all ${plan.daily} daily tasks before withdrawing (done: ${userRow.daily_done})` } };
+            return { status: 400, body: { error: biMsg(
+              `Complete all ${plan.daily} daily tasks before withdrawing (done: ${userRow.daily_done}/${plan.daily})`,
+              `উইথড্র করার আগে সব ${plan.daily}টি ডেইলি টাস্ক করুন (সম্পন্ন: ${userRow.daily_done}/${plan.daily})`
+            ) } };
           }
         }
 
@@ -1918,7 +1924,8 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       }
 
       const receiver = stmts.getUserByIdentifier.get(toIdentifier);
-      if (!receiver || receiver.is_admin) return { status: 404, body: { error: 'Receiver not found' } };
+      if (!receiver || receiver.is_admin || receiver.is_guest) return { status: 404, body: { error: 'Receiver not found' } };
+      if (receiver.banned) return { status: 400, body: { error: biMsg('Cannot transfer to a suspended account', 'স্থগিত অ্যাকাউন্টে ট্রান্সফার করা যাবে না') } };
       if (receiver.id === sender.id) return { status: 400, body: { error: 'Cannot transfer to yourself' } };
 
       stmts.deductBalance.run(numAmount, sender.id, numAmount);
