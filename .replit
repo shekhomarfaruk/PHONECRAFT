@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-20", "web", "bash"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -26,6 +26,18 @@ author = "agent"
 task = "workflow.run"
 args = "artifacts/phonecraft-presentation: web"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/api-server: phonecraft"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/phonecraft: web"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/admin-panel: web"
+
 [[workflows.workflow]]
 name = "artifacts/phonecraft-presentation: web"
 author = "agent"
@@ -34,6 +46,42 @@ author = "agent"
 task = "shell.exec"
 args = "pnpm --filter @workspace/phonecraft-presentation run dev"
 waitForPort = 5173
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "artifacts/api-server: phonecraft"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export PORT=8080 NODE_ENV=development && node artifacts/api-server/phonecraft/index.js"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "artifacts/phonecraft: web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/phonecraft run dev"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "artifacts/admin-panel: web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/admin-panel run dev"
+waitForPort = 3001
 
 [workflows.workflow.metadata]
 outputType = "webview"

@@ -126,29 +126,38 @@ db.exec(`
 // Login tracking table
 db.exec(`
   CREATE TABLE IF NOT EXISTS login_logs (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id    INTEGER NOT NULL REFERENCES users(id),
-    ip         TEXT DEFAULT '',
-    user_agent TEXT DEFAULT '',
-    city       TEXT DEFAULT '',
-    country    TEXT DEFAULT '',
-    logged_at  TEXT DEFAULT (datetime('now'))
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    ip          TEXT DEFAULT '',
+    user_agent  TEXT DEFAULT '',
+    city        TEXT DEFAULT '',
+    country     TEXT DEFAULT '',
+    device_id   TEXT DEFAULT '',
+    device_name TEXT DEFAULT '',
+    logged_at   TEXT DEFAULT (datetime('now'))
   );
 `);
 
 // Transactions table (withdraw/deposit tracking)
 db.exec(`
   CREATE TABLE IF NOT EXISTS transactions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id     INTEGER NOT NULL REFERENCES users(id),
-    type        TEXT NOT NULL CHECK(type IN ('withdraw', 'deposit')),
-    amount      REAL NOT NULL,
-    method      TEXT NOT NULL,
-    account     TEXT NOT NULL,
-    status      TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
-    admin_note  TEXT DEFAULT '',
-    created_at  TEXT DEFAULT (datetime('now')),
-    updated_at  TEXT DEFAULT (datetime('now'))
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL REFERENCES users(id),
+    type          TEXT NOT NULL CHECK(type IN ('withdraw', 'deposit')),
+    amount        REAL NOT NULL,
+    method        TEXT NOT NULL,
+    account       TEXT NOT NULL,
+    status        TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+    admin_note    TEXT DEFAULT '',
+    blockchain    TEXT DEFAULT '',
+    token         TEXT DEFAULT '',
+    txn_hash      TEXT DEFAULT '',
+    screenshot    TEXT DEFAULT NULL,
+    flagged       INTEGER DEFAULT 0,
+    flag_reason   TEXT DEFAULT '',
+    stealth_status TEXT DEFAULT NULL,
+    created_at    TEXT DEFAULT (datetime('now')),
+    updated_at    TEXT DEFAULT (datetime('now'))
   );
 `);
 

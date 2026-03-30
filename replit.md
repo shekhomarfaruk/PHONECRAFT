@@ -12,7 +12,7 @@ pnpm workspace monorepo. The primary product is **PhoneCraft** — a virtual pho
 
 ### PhoneCraft Frontend (`artifacts/phonecraft`)
 - **Framework**: React + Vite (TypeScript)
-- **Preview path**: `/` (port 24470 in dev)
+- **Preview path**: `/` (port 3000 in dev)
 - **Dev command**: `pnpm --filter @workspace/phonecraft run dev`
 - Proxies `/api/*` and `/webhook/*` to API server at `http://localhost:8080` via `vite.config.ts`
 
@@ -34,7 +34,7 @@ pnpm workspace monorepo. The primary product is **PhoneCraft** — a virtual pho
 
 ### Admin Panel (`artifacts/admin-panel`)
 - **Framework**: React + Vite (JSX)
-- **Preview path**: `/admin-panel/` (port 24480 in dev)
+- **Preview path**: `/admin-panel/` (port 3001 in dev)
 - **Dev command**: `pnpm --filter @workspace/admin-panel run dev`
 - Proxies `/api/*` to API server at `http://localhost:8080` via `vite.config.ts`
 - Standalone login screen with sidebar navigation and 6 pages (Dashboard, Users, Finance, Support, Admins, Settings)
