@@ -15,6 +15,9 @@ const { TelegramService } = require('./services/telegramService');
 // ── Web Push VAPID setup ─────────────────────────────────────────────────────
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || 'BMzqYPuk_-UyWtAuChDOHBT8vOnpBsYSWnFe6dPI6FHzsKPXaakfvfSWCz-etkDPn8p8gJ502QFYax6gyVLzgBg';
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || 'TYZRvv8BQmxFfQ6YQA8hie5sBOTTetrNstQGIIpwyMk';
+if (!process.env.VAPID_PRIVATE_KEY && process.env.NODE_ENV === 'production') {
+  console.warn('[SECURITY] VAPID_PRIVATE_KEY env var is not set — using insecure hardcoded fallback. Set this in production!');
+}
 webPush.setVapidDetails('mailto:admin@phonecraft.tech', VAPID_PUBLIC, VAPID_PRIVATE);
 
 // Send push notification to a specific user (non-blocking)
@@ -923,6 +926,9 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     const { identifier, password } = req.body || {};
     if (!identifier || !password) {
       return res.status(400).json({ error: 'Email/phone and password are required' });
+    }
+    if (String(identifier).length > 200 || String(password).length > 200) {
+      return res.status(400).json({ error: 'Invalid credentials' });
     }
 
     const user = stmts.getUserByIdentifier.get(identifier.trim());
@@ -1893,6 +1899,7 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
       const sender = stmts.getUserById.get(req.auth.userId);
       if (!sender) return { status: 404, body: { error: 'Sender not found' } };
       if (sender.banned) return { status: 403, body: { error: 'Account suspended' } };
+      if (sender.is_guest) return { status: 403, body: { error: biMsg('Guest accounts cannot transfer balance. Register a real account.', 'গেস্ট অ্যাকাউন্ট দিয়ে ট্রান্সফার করা যাবে না। একটি আসল অ্যাকাউন্ট খুলুন।') } };
       if (sender.balance < numAmount) return { status: 400, body: { error: 'Insufficient balance' } };
 
       // ── Minimum balance after transfer ──
@@ -2673,7 +2680,10 @@ app.post('/api/admin/messages', authRequired, (req, res) => {
     }
 
     const senderName = req.auth.user?.name || 'Admin';
-    const payload = `📢 Admin Message from ${senderName}: ${text}`;
+    const payload = biMsg(
+      `📢 Admin Message from ${senderName}: ${text}`,
+      `📢 অ্যাডমিন বার্তা ${senderName} থেকে: ${text}`
+    );
 
     db.transaction(() => {
       for (const r of recipients) {
@@ -3328,7 +3338,8 @@ app.post('/api/reset-password', (req, res) => {
 
 // ── Reset Database (main admin only) ─────────────────────────────────────────
 app.post('/api/admin/reset-database', authRequired, (req, res) => {
-  if (!req.auth?.isMainAdmin) return res.status(403).json({ error: 'Main admin only' });
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin only' });
   const { confirmPhrase } = req.body || {};
   if (confirmPhrase !== 'RESET CONFIRM') return res.status(400).json({ error: 'Confirmation phrase required' });
 

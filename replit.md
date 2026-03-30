@@ -21,7 +21,7 @@ pnpm workspace monorepo. The primary product is **PhoneCraft** — a virtual pho
 - **Entry**: `artifacts/api-server/phonecraft/index.js`
 - **Dev command**: `export PORT=8080 NODE_ENV=development && node phonecraft/index.js`
 - **Database**: SQLite via `better-sqlite3` v12.8.0 (requires Python3 for build)
-- **Auth**: JWT signed with `AUTH_SECRET` secret (stored in Replit Secrets, NOT env vars)
+- **Auth**: Custom HMAC-SHA256 token (NOT JWT) signed with `AUTH_SECRET`. `authRequired` middleware sets `req.auth = {userId, isAdmin, user}`. `requireAdmin()` additionally sets `req.auth.isMainAdmin`. Always call both in admin routes that need isMainAdmin.
 - **DB file**: `artifacts/api-server/phonecraft/phonecraft.db` (gitignored)
 
 ### PhoneCraft Presentation (`artifacts/phonecraft-presentation`)
@@ -180,3 +180,8 @@ Two-tier role hierarchy:
 - **IP grouping**: Admin can view users sharing the same IP address
 - **Rate limiting**: Login, register, finance, and support endpoints are rate-limited
 - **Security headers**: Helmet, CORS, bcrypt password hashing, HMAC token signing
+- **Login input validation**: Identifier and password capped at 200 chars at login to prevent DB abuse
+- **Guest transfer block**: Guest accounts explicitly blocked from `/api/transfer`
+- **Admin broadcast i18n**: Admin message notifications are stored as bilingual JSON via biMsg()
+- **VAPID key warning**: Production warning logged if VAPID_PRIVATE_KEY env var is not set
+- **DB reset auth**: `/api/admin/reset-database` requires both `authRequired` + `requireAdmin()` so `isMainAdmin` is properly set
