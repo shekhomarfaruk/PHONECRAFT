@@ -1444,9 +1444,16 @@ app.get('/api/app-settings', (req, res) => {
     const info = {};
     rows.forEach(r => { info[r.key] = r.value; });
     res.json({
-      maintenance_mode:     info.maintenance_mode     || 'false',
-      announcement_banner:  info.announcement_banner  || '',
-      crypto_enabled:       info.crypto_enabled !== 'false' ? 'true' : 'false',
+      maintenance_mode:       info.maintenance_mode       || 'false',
+      announcement_banner:    info.announcement_banner    || '',
+      crypto_enabled:         info.crypto_enabled !== 'false' ? 'true' : 'false',
+      min_withdraw:           info.min_withdraw           || '300',
+      max_withdraw:           info.max_withdraw           || '150000',
+      min_deposit:            info.min_deposit            || '0',
+      max_deposit:            info.max_deposit            || '0',
+      daily_withdraw_limit:   info.daily_withdraw_limit   || '0',
+      work_blocked_countries: info.work_blocked_countries || '',
+      guest_mode_enabled:     info.guest_mode_enabled !== '0' ? 'true' : 'false',
     });
   } catch (e) {
     res.json({ maintenance_mode: 'false', announcement_banner: '', crypto_enabled: 'true' });
