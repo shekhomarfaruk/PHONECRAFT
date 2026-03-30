@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Auto Login</title></head>
+<body>
+<script>
+(function() {
+  const params = new URLSearchParams(location.search);
+  const screen = params.get('screen') || 'home';
+  const session = {
+    "id": 1,
+    "name": "Admin",
+    "identifier": "admin",
+    "plan": "platinum",
+    "balance": 10000000,
+    "dailyDone": 0,
+    "dailyLimit": 16,
+    "referCode": "ADMIN01",
+    "devices": [],
+    "avatar": "\ud83e\uddd1",
+    "avatarImg": null,
+    "teamMembers": [],
+    "isAdmin": true,
+    "isMainAdmin": true,
+    "isGuest": false,
+    "guestExpiresAt": null,
+    "authToken": "eyJ1aWQiOjEsImV4cCI6MTc3NTQ4OTE4NjA3MiwidiI6MX0.jBo6dD5xwKmGCkESOoBPTR-tArlk4mLCqMDfZBwmmvE"
+  };
+  localStorage.setItem('pc_session', JSON.stringify(session));
+  localStorage.setItem('app-theme', 'dark');
+  location.replace('/#' + screen);
+})();
+</script>
+<p>Logging in...</p>
+</body>
+</html>

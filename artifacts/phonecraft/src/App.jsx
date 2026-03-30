@@ -111,9 +111,9 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function App() {
   const [isDark,        setIsDark       ] = useState(() => localStorage.getItem('app-theme') !== 'light');
-  const [showLanding,   setShowLanding  ] = useState(true);
+  const [showLanding,   setShowLanding  ] = useState(() => !localStorage.getItem('pc_skip_landing'));
   const [auth,          setAuth         ] = useState(null);
-  const [authTab,       setAuthTab      ] = useState('login');
+  const [authTab,       setAuthTab      ] = useState(() => localStorage.getItem('pc_auth_tab') || 'login');
   const [screen,        setScreen       ] = useState('home');
   const [menuOpen,      setMenuOpen     ] = useState(false);
   const [toast,         setToast        ] = useState(null);

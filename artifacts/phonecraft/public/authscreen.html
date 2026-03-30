@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Auth Screen</title></head>
+<body>
+<script>
+(function() {
+  const params = new URLSearchParams(location.search);
+  const tab = params.get('tab') || 'register';
+  localStorage.removeItem('pc_session');
+  localStorage.setItem('pc_skip_landing', '1');
+  localStorage.setItem('pc_auth_tab', tab);
+  localStorage.setItem('app-theme', 'dark');
+  location.replace('/');
+})();
+</script>
+<p>Loading auth screen...</p>
+</body>
+</html>

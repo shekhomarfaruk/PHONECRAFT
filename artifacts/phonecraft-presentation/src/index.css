@@ -1,14 +1,19 @@
 :root {
-  --bg-deep: #06091a;
-  --bg-card: #0d1430;
-  --bg-card2: #111827;
-  --primary: #00d4aa;
-  --primary-dim: rgba(0, 212, 170, 0.15);
-  --accent: #7c3aed;
-  --accent2: #a855f7;
-  --text: #f0f4ff;
-  --muted: #8892a4;
-  --border: rgba(0, 212, 170, 0.18);
+  --bg-deep: #f0f4f8;
+  --bg-card: #ffffff;
+  --bg-card2: #f8fafc;
+  --primary: #0ea5e9;
+  --primary-dim: rgba(14, 165, 233, 0.12);
+  --primary-dark: #0284c7;
+  --accent: #6366f1;
+  --accent2: #8b5cf6;
+  --text: #1e293b;
+  --text-heading: #0f172a;
+  --muted: #64748b;
+  --muted-light: #94a3b8;
+  --border: rgba(14, 165, 233, 0.2);
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --surface: rgba(255, 255, 255, 0.85);
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
 }
@@ -31,12 +36,13 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 1.2vw;
-  background: rgba(13,20,48,0.85);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(14, 165, 233, 0.2);
   border-radius: 999px;
   padding: 0.6vh 1.5vw;
   z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .slide-nav button {
@@ -68,7 +74,7 @@ html, body, #root {
 .dot {
   width: 0.5vw; height: 0.5vw;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--muted-light);
   transition: background 0.2s, transform 0.2s;
 }
 .dot.active { background: var(--primary); transform: scale(1.4); }
