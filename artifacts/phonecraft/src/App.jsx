@@ -138,16 +138,15 @@ export default function App() {
   // Persist language to localStorage + sync to server when logged in
   useEffect(() => {
     localStorage.setItem('app-lang', lang);
-    const tok = auth?.token;
     const uid = user?.id;
-    if (tok && uid) {
-      fetch(`${API_URL}/api/user/${uid}/lang`, {
+    if (uid && auth) {
+      authFetch(`${API_URL}/api/user/${uid}/lang`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lang }),
       }).catch(() => {});
     }
-  }, [lang, user?.id, auth?.token]);
+  }, [lang, user?.id, auth]);
 
   // Persist theme to localStorage
   useEffect(() => { localStorage.setItem('app-theme', isDark ? 'dark' : 'light'); }, [isDark]);
@@ -171,10 +170,10 @@ export default function App() {
 
   // Auto-logout non-main-admin users when maintenance mode turns on
   useEffect(() => {
-    if (appSettings.maintenance_mode === 'true' && user && !user.is_main_admin) {
+    if (appSettings.maintenance_mode === 'true' && user && !user.isMainAdmin) {
       doLogout();
     }
-  }, [appSettings.maintenance_mode, user?.is_main_admin]);
+  }, [appSettings.maintenance_mode, user?.isMainAdmin]);
 
   // Fetch & cache live USD→BDT rate (every 7 minutes)
   useEffect(() => {
@@ -582,7 +581,7 @@ export default function App() {
   );
 
   // ── Maintenance mode gate (blocks landing, login, and app for non-main-admin) ──
-  if (appSettings.maintenance_mode === 'true' && !user?.is_main_admin) return (
+  if (appSettings.maintenance_mode === 'true' && !user?.isMainAdmin) return (
     <>
       <GlobalStyles isDark={isDark} fontSize={fontSize} />
       <PhoneCraftBackground isDark={isDark} />

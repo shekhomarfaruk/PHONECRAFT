@@ -509,20 +509,25 @@ const stmts = {
   `),
   getReferralTreeMembers: db.prepare(`
     WITH RECURSIVE referral_tree AS (
-      SELECT id, name, refer_code, referred_by, 1 AS level, created_at
+      SELECT id, name, refer_code, referred_by, plan_id, avatar, avatar_img, 1 AS level, created_at
       FROM users
       WHERE referred_by = ?
 
       UNION ALL
 
-      SELECT u.id, u.name, u.refer_code, u.referred_by, referral_tree.level + 1, u.created_at
+      SELECT u.id, u.name, u.refer_code, u.referred_by, u.plan_id, u.avatar, u.avatar_img, referral_tree.level + 1, u.created_at
       FROM users u
       JOIN referral_tree ON u.referred_by = referral_tree.refer_code
       WHERE referral_tree.level < 3
     )
-    SELECT id, name, refer_code, referred_by, level, created_at
-    FROM referral_tree
-    ORDER BY level ASC, id ASC
+    SELECT rt.id, rt.name, rt.refer_code, rt.referred_by, rt.plan_id AS plan,
+           rt.avatar, rt.avatar_img, rt.level, rt.created_at,
+           COALESCE((
+             SELECT SUM(bl.amount) FROM balance_log bl
+             WHERE bl.user_id = rt.id AND bl.type = 'daily_earn'
+           ), 0) AS earnings
+    FROM referral_tree rt
+    ORDER BY rt.level ASC, rt.id ASC
   `),
 
   // Unified balance log
@@ -766,6 +771,14 @@ const stmts = {
     SELECT COALESCE(SUM(ABS(amount)), 0) as total
     FROM balance_log
     WHERE user_id = ? AND type = 'transfer_sent'
+      AND date(created_at, '+6 hours') = date('now', '+6 hours')
+  `),
+
+  // Security: daily withdraw total (pending + approved today)
+  getDailyWithdrawTotal: db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) as total
+    FROM transactions
+    WHERE user_id = ? AND type = 'withdraw' AND status != 'rejected'
       AND date(created_at, '+6 hours') = date('now', '+6 hours')
   `),
 

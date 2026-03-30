@@ -1231,7 +1231,10 @@ const completeManufactureTx = db.transaction((body) => {
   // Create notification
   stmts.insertNotification.run(
     userId,
-    `Your ${job.device_name} has been manufactured and posted to Marketplace for $${marketPrice}!`,
+    biMsg(
+      `Your ${job.device_name} has been manufactured and posted to Marketplace for $${marketPrice}!`,
+      `আপনার ${job.device_name} তৈরি সম্পন্ন এবং Marketplace-এ $${marketPrice}-এ তালিকাভুক্ত হয়েছে!`
+    ),
     'success'
   );
 
@@ -1727,6 +1730,18 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
               const remaining = Math.ceil(cooldownHours - elapsed);
               return { status: 400, body: { error: `Withdraw cooldown active. Try again in ${remaining}h` } };
             }
+          }
+        }
+
+        // ── Withdraw: daily total limit ──
+        const dailyWdLimit = getSettingNum('daily_withdraw_limit', 0);
+        if (dailyWdLimit > 0) {
+          const todayWd = stmts.getDailyWithdrawTotal.get(userRow.id);
+          if ((todayWd.total + numAmount) > dailyWdLimit) {
+            return { status: 400, body: { error: biMsg(
+              `Daily withdrawal limit ${fmtAmt(dailyWdLimit, 'en')} exceeded`,
+              `দৈনিক উইথড্র সীমা ${fmtAmt(dailyWdLimit, 'bn')} অতিক্রান্ত হয়েছে`
+            ) } };
           }
         }
 
