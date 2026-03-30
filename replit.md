@@ -178,10 +178,13 @@ Two-tier role hierarchy:
 - **Stealth approval**: Main admin can set stealth status (hold / silent reject) on transactions — sub-admins see "approved" but real status is controlled by main admin
 - **Device fingerprint tracking**: Login logs include device_id for tracking
 - **IP grouping**: Admin can view users sharing the same IP address
-- **Rate limiting**: Login, register, finance, and support endpoints are rate-limited
-- **Security headers**: Helmet, CORS, bcrypt password hashing, HMAC token signing
-- **Login input validation**: Identifier and password capped at 200 chars at login to prevent DB abuse
+- **Rate limiting**: Login, register, finance, support, forgot-password (5/hour), and reset-password (10/15min) endpoints are rate-limited
+- **Security headers**: Helmet, CORS, bcrypt password hashing, HMAC token signing, Content-Security-Policy header set on all responses
+- **Login input validation**: Identifier and password capped at 200 chars at all login/change-password endpoints to prevent bcrypt DoS
+- **Password max length**: reset-password and change-password endpoints reject passwords over 128 chars
+- **Password reset token**: 8-digit token (up from 6), expires in 15 minutes; previous unused tokens for same user are invalidated before issuing a new one
+- **Admin login logging**: Failed admin login attempts are logged to console (with IP) and written to admin_activity_log
 - **Guest transfer block**: Guest accounts explicitly blocked from `/api/transfer`
 - **Admin broadcast i18n**: Admin message notifications are stored as bilingual JSON via biMsg()
 - **VAPID key warning**: Production warning logged if VAPID_PRIVATE_KEY env var is not set
-- **DB reset auth**: `/api/admin/reset-database` requires both `authRequired` + `requireAdmin()` so `isMainAdmin` is properly set
+- **DB reset auth**: `/api/admin/reset-database` requires both `authRequired` + `requireAdmin()` so `isMainAdmin` is properly set; error responses do not leak internal err.message

@@ -248,9 +248,9 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=()');
-  res.setHeader('X-Powered-By', '');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.removeHeader('X-Powered-By');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none';");
   if (req.path.startsWith('/api/admin')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
@@ -311,6 +311,8 @@ const financeLimiter = createRateLimiter({ windowMs: 5 * 60_000, max: 10, prefix
 const supportLimiter = createRateLimiter({ windowMs: 60_000, max: 10, prefix: 'support' });
 const manufactureLimiter = createRateLimiter({ windowMs: 60_000, max: 20, prefix: 'manufacture' });
 const passwordLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 5, prefix: 'password' });
+const forgotPasswordLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 5, prefix: 'forgotpw' });
+const resetPasswordLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10, prefix: 'resetpw' });
 
 function getSettingNum(key, fallback) {
   const row = stmts.getSetting.get(key);
@@ -1023,11 +1025,18 @@ app.post('/api/admin/login', adminLoginLimiter, async (req, res) => {
     if (!identifier || !password) {
       return res.status(400).json({ error: 'Credentials required' });
     }
+    if (String(identifier).length > 200 || String(password).length > 200) {
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
     const user = stmts.getUserByIdentifier.get(identifier.trim());
     if (!user || !user.is_admin) {
+      console.warn(`[Security] Admin login failed (not found): ${identifier.trim()} from ${ip}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     if (!bcrypt.compareSync(password, user.password)) {
+      console.warn(`[Security] Admin login failed (wrong password): ${identifier.trim()} from ${ip}`);
+      try { stmts.insertAdminLog.run({ admin_id: user.id, action: 'admin_login_failed', target_type: 'user', target_id: user.id, details: `Failed login attempt from ${ip}`, ip }); } catch (_) {}
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     if (user.banned) {
@@ -1035,7 +1044,6 @@ app.post('/api/admin/login', adminLoginLimiter, async (req, res) => {
     }
     const token = issueAuthToken(user);
     try {
-      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
       stmts.insertAdminLog.run({ admin_id: user.id, action: 'admin_login', target_type: 'user', target_id: user.id, details: 'Admin panel login', ip });
     } catch (_) {}
     res.json({ token, user: toClientUser(user) });
@@ -1601,6 +1609,8 @@ app.patch('/api/user/:id/change-password', authRequired, passwordLimiter, requir
     const { currentPassword, newPassword } = req.body || {};
     if (!currentPassword || !newPassword)
       return res.status(400).json({ error: 'Both passwords are required' });
+    if (String(currentPassword).length > 200 || String(newPassword).length > 200)
+      return res.status(400).json({ error: 'Invalid credentials' });
     if (newPassword.length < 6)
       return res.status(400).json({ error: 'New password must be at least 6 characters' });
 
@@ -3325,15 +3335,17 @@ app.post('/api/admin/group-chat/upload', authRequired, upload.single('file'), (r
 });
 
 // ── Forgot Password ───────────────────────────────────────────────────────────
-app.post('/api/forgot-password', (req, res) => {
+app.post('/api/forgot-password', forgotPasswordLimiter, (req, res) => {
   const { identifier } = req.body || {};
-  if (!identifier) return res.status(400).json({ error: 'Identifier required' });
+  if (!identifier || String(identifier).length > 200) return res.status(400).json({ error: 'Identifier required' });
   const user = db.prepare("SELECT * FROM users WHERE identifier = ? AND is_admin = 0 AND banned = 0").get(String(identifier).trim());
   // Always return success (don't reveal if account exists)
   if (!user) return res.status(200).json({ ok: true });
-  // Generate 6-digit token
-  const token = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+  // Invalidate any existing unused tokens for this user first
+  try { db.prepare("UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0").run(user.id); } catch (_) {}
+  // Generate 8-digit token (more secure than 6-digit)
+  const token = Math.floor(10000000 + Math.random() * 90000000).toString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
   try { stmts.insertPasswordReset.run(user.id, token, expiresAt); } catch (_) {}
   // Notify main admin via system notification
   const mainAdmin = db.prepare("SELECT id FROM users WHERE refer_code=? AND is_admin=1 LIMIT 1").get(MAIN_ADMIN_REFER_CODE);
@@ -3344,16 +3356,19 @@ app.post('/api/forgot-password', (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/reset-password', (req, res) => {
+app.post('/api/reset-password', resetPasswordLimiter, (req, res) => {
   const { token, newPassword } = req.body || {};
   if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
-  if (String(newPassword).length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
-  const reset = stmts.getPasswordReset.get(String(token).trim());
+  const pwStr = String(newPassword);
+  if (pwStr.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (pwStr.length > 128) return res.status(400).json({ error: 'Password too long (max 128 characters)' });
+  const tokenStr = String(token).trim();
+  if (tokenStr.length > 20) return res.status(400).json({ error: 'Invalid reset code' });
+  const reset = stmts.getPasswordReset.get(tokenStr);
   if (!reset) return res.status(400).json({ error: 'Invalid or expired reset code' });
-  const bcrypt = require('bcryptjs');
-  const hash = bcrypt.hashSync(String(newPassword), 10);
+  const hash = bcrypt.hashSync(pwStr, 10);
   stmts.updateUserPassword.run(hash, reset.user_id);
-  stmts.markPasswordResetUsed.run(token);
+  stmts.markPasswordResetUsed.run(tokenStr);
   res.json({ ok: true, msg: 'Password reset successfully. You can now log in.' });
 });
 
@@ -3389,11 +3404,11 @@ app.post('/api/admin/reset-database', authRequired, (req, res) => {
       try { db.prepare("DELETE FROM sqlite_sequence WHERE name != 'plans' AND name != 'app_settings' AND name != 'canned_responses'").run(); } catch (_) {}
     })();
 
-    console.log(`[Admin] Database reset by main admin (${req.auth.identifier}) at ${new Date().toISOString()}`);
+    console.log(`[Admin] Database reset by main admin at ${new Date().toISOString()}`);
     res.json({ ok: true, message: 'Database reset complete. All user data has been cleared.' });
   } catch (err) {
-    console.error('[Reset DB]', err);
-    res.status(500).json({ error: 'Reset failed: ' + err.message });
+    console.error('[Reset DB]', err.message);
+    res.status(500).json({ error: 'Reset failed. Please check server logs.' });
   }
 });
 

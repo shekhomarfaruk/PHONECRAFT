@@ -1,0 +1,72 @@
+You are a senior penetration tester, backend engineer, and QA specialist.
+
+Analyze this admin panel system:
+URL: https://phonecraft.tech/admin-panel/
+
+Perform a deep audit step by step:
+
+1. **Admin Panel Access & Authentication**
+
+* Check login system security (brute force, weak validation, default credentials).
+* Detect if there is any bypass (unauthorized access without login).
+* Test session handling and token security.
+
+2. **Admin Features Testing**
+
+* After login, list all admin features/modules.
+* Verify each feature is working correctly (CRUD, settings, user management).
+* Detect broken buttons, non-functional actions, or missing backend connection.
+
+3. **API & Server Connection**
+
+* Inspect all API calls from admin panel.
+* Identify endpoints that are not responding or improperly configured.
+* Check if any API is exposed without authentication.
+
+4. **Role & Permission System**
+
+* Verify admin vs sub-admin access control.
+* Test if sub-admin can access restricted routes.
+* Detect privilege escalation vulnerabilities.
+
+5. **Security Vulnerability Scan**
+
+* Test for:
+
+  * SQL Injection
+  * XSS (Cross Site Scripting)
+  * CSRF
+  * Insecure file upload
+* Check if sensitive data is exposed in frontend or API responses.
+
+6. **Hidden & Unused Routes**
+
+* Try to discover hidden admin routes (/dashboard, /api/admin, /config, etc.)
+* Identify any unused or unprotected endpoints.
+
+7. **Database Interaction**
+
+* Check if forms properly validate input before sending to server.
+* Detect missing validation or direct DB exposure.
+
+8. **Error Handling**
+
+* Trigger errors intentionally and check:
+
+  * Are stack traces visible?
+  * Are sensitive paths or server info exposed?
+
+9. **Performance & Stability**
+
+* Check loading speed of admin panel.
+* Detect slow API or heavy queries.
+
+10. **Final Report**
+    Provide:
+
+* All vulnerabilities found
+* Broken features list
+* Security risks (high/medium/low)
+* Recommended fixes with code-level suggestions
+
+Work ethically and simulate testing without damaging the system.
