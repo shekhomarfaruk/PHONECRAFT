@@ -642,12 +642,54 @@ function EarningCalculator({ lang, onGetStarted }) {
 
 // ── Testimonials ─────────────────────────────────────────────────────────────
 const TESTIMONIALS = [
-  { name:'মোঃ রহিম উদ্দিন', area:'ঢাকা, মিরপুর', plan:'GOLD', days:45, earned:'৪০,৫০০৳', rating:5, text:'আমি প্রথমে বিশ্বাস করিনি, কিন্তু ৪৫ দিনে ৪০,৫০০ টাকা আয় করেছি। এখন আমার পরিবার ভালো আছে। GOLD প্ল্যান নিয়েছিলাম, প্রতিদিন সকালে ২০-২৫ মিনিট কাজ করি।', avatar:'👨' },
-  { name:'সুমাইয়া আক্তার', area:'চট্টগ্রাম, পাহাড়তলী', plan:'PREMIUM', days:60, earned:'২৫,২০০৳', rating:5, text:'গৃহিণী হিসেবে ঘরে বসে আয় করতে পারছি — এটাই সবচেয়ে বড় পাওয়া। PREMIUM প্ল্যানে প্রতি মাসে ১২,৬০০+ টাকা পাচ্ছি। bKash-এ সরাসরি পাই।', avatar:'👩' },
-  { name:'তানভীর হোসেন', area:'সিলেট, জালালাবাদ', plan:'PLATINUM', days:30, earned:'৪৮,০০০৳', rating:5, text:'PLATINUM নিয়েছি, মাত্র ৩০ দিনে ৪৮,০০০ টাকা আয় করেছি। রেফারেল থেকেও অতিরিক্ত ১৫,০০০+ টাকা পেয়েছি। এটি সত্যিই সেরা প্ল্যাটফর্ম।', avatar:'👨' },
-  { name:'নাজমা বেগম', area:'রাজশাহী, বোয়ালিয়া', plan:'BASIC', days:90, earned:'১৮,০০০৳', rating:4, text:'প্রথমে ছোট BASIC দিয়ে শুরু করেছিলাম। ৩ মাসে ১৮,০০০ টাকা আয় হয়েছে। এখন GOLD-এ আপগ্রেড করার কথা ভাবছি।', avatar:'👩' },
-  { name:'আরিফ হাসান', area:'বরিশাল, বন্দর', plan:'GOLD', days:55, earned:'৪৯,৫০০৳', rating:5, text:'৫৫ দিনে বিনিয়োগ তুলে এসেছে এবং ৪৯,৫০০ টাকা আয়। আমার বন্ধুদের রেফার করেছি, তারাও উপকৃত হচ্ছে। সত্যিই ভরসার জায়গা।', avatar:'👨' },
-  { name:'রিতু মণি দাস', area:'খুলনা, সোনাডাঙ্গা', plan:'PREMIUM', days:75, earned:'৩১,৫০০৳', rating:5, text:'বেকারত্ব থেকে মুক্তি পেয়েছি। ৭৫ দিনে ৩১,৫০০ টাকা আয় হয়েছে। প্রতিটি উইথড্র সময়মতো পেয়েছি। PhoneCraft-কে ধন্যবাদ।', avatar:'👩' },
+  {
+    name:'মোঃ রহিম উদ্দিন', area:'ঢাকা, মিরপুর', plan:'GOLD', days:45,
+    earned:'৳40,500', rating:5, avatar:'👨',
+    textEn:"Wasn't sure at first, honestly. But 45 days later I've made BDT 40,500 — just 20 minutes a day before work. Life at home is genuinely better now.",
+    textBn:'শুরুতে একটু সন্দেহ ছিল। কিন্তু ৪৫ দিনে ৪০,৫০০ টাকা পেয়েছি — দিনে মাত্র ২০ মিনিট। পরিবার এখন অনেক ভালো আছে।',
+  },
+  {
+    name:'Rahul Sharma', area:'🇮🇳 Mumbai, India', plan:'GOLD', days:38,
+    earned:'$370', rating:5, avatar:'👨',
+    textEn:"Joined on a friend's recommendation. Didn't believe it at first, but earnings have been consistent. Tasks are quick and I don't need to think too hard.",
+    textBn:'বন্ধুর রেফারেলে যোগ দিয়েছিলাম। প্রথমে বিশ্বাস হয়নি, কিন্তু আয় নিয়মিত আসছে।',
+  },
+  {
+    name:'সুমাইয়া আক্তার', area:'চট্টগ্রাম, পাহাড়তলী', plan:'PREMIUM', days:60,
+    earned:'৳25,200', rating:5, avatar:'👩',
+    textEn:"I'm a homemaker. Earning from home without going anywhere — that's the biggest win for me. Over BDT 12,600 a month and it goes straight to bKash.",
+    textBn:'গৃহিণী হয়েও ঘরে বসেই আয় করছি — এটাই সবচেয়ে বড় ব্যাপার। PREMIUM-এ মাসে ১২,৬০০+ আসে। bKash-এ সরাসরি, কোনো ঝামেলা নেই।',
+  },
+  {
+    name:'Ahmad Al-Rashid', area:'🇦🇪 Dubai, UAE', plan:'PLATINUM', days:28,
+    earned:'$440', rating:5, avatar:'👨',
+    textEn:"I do the tasks during my lunch break in Dubai. Crypto withdrawal works perfectly from here — no bank complications. Solid and steady earnings.",
+    textBn:'দুবাইতে লাঞ্চ ব্রেকে কাজ করি। ক্রিপ্টো উইথড্র এখানে অনেক সুবিধাজনক। আয় নিয়মিত।',
+  },
+  {
+    name:'রিতু মণি দাস', area:'খুলনা, সোনাডাঙ্গা', plan:'PREMIUM', days:75,
+    earned:'৳31,500', rating:5, avatar:'👩',
+    textEn:"Was unemployed for months. In 75 days I've made BDT 31,500. Every single withdrawal came on time. Referred a few friends — they're doing well too.",
+    textBn:'মাসের পর মাস বেকার ছিলাম। ৭৫ দিনে ৩১,৫০০ টাকা আয় হয়েছে। প্রতিটি পেমেন্ট ঠিকসময়ে এসেছে। বন্ধুদের রেফার করেছি — তারাও ভালো করছে।',
+  },
+  {
+    name:'Wei Lin', area:'🇲🇾 Kuala Lumpur, Malaysia', plan:'PREMIUM', days:50,
+    earned:'$230', rating:5, avatar:'👩',
+    textEn:"Found this through a community group. Tasks are simple and the crypto withdrawal works without issues from Malaysia. Always paid on time.",
+    textBn:'কমিউনিটি গ্রুপে দেখে যোগ দিয়েছি। কাজ সহজ, ক্রিপ্টো উইথড্র ঝামেলামুক্ত। পেমেন্ট সবসময় সময়মতো।',
+  },
+  {
+    name:'আরিফ হাসান', area:'বরিশাল, বন্দর', plan:'GOLD', days:55,
+    earned:'৳49,500', rating:5, avatar:'👨',
+    textEn:"Got my investment back within 55 days and been in profit since. Referred several friends — every one of them is earning. Genuinely trustworthy.",
+    textBn:'৫৫ দিনেই বিনিয়োগ ফেরত এসেছে, তারপর থেকে লাভে আছি। অনেক বন্ধুকে রেফার করেছি — সবাই আয় করছে। সত্যিই বিশ্বাসযোগ্য।',
+  },
+  {
+    name:'James Okafor', area:'🇳🇬 Lagos, Nigeria', plan:'BASIC', days:90,
+    earned:'$165', rating:4, avatar:'👨',
+    textEn:"Started with BASIC just to see if it's real. Steady returns, nothing shady. Planning to upgrade to GOLD next month — the math makes sense.",
+    textBn:'BASIC দিয়ে শুধু পরীক্ষা করতে শুরু করেছিলাম। আয় নিয়মিত, কোনো সন্দেহজনক কিছু নেই। পরের মাসে GOLD-এ যাওয়ার পরিকল্পনা।',
+  },
 ];
 
 const PLAN_COLORS = { BASIC:'#23AF91', PREMIUM:'#818CF8', GOLD:'#FCD535', PLATINUM:'#F97316' };
@@ -785,7 +827,7 @@ function TestimonialsSection({ lang }) {
                 <div style={{ position:'relative', paddingLeft:16 }}>
                   <div style={{ position:'absolute', left:0, top:0, bottom:0, width:2, borderRadius:1, background:`linear-gradient(180deg, ${planColor}60, transparent)` }} />
                   <p style={{ fontSize:12.5, color:'#8A95A3', lineHeight:1.8, margin:0, fontStyle:'italic' }}>
-                    "{t.text}"
+                    "{isBn ? (t.textBn || t.textEn) : t.textEn}"
                   </p>
                 </div>
               </div>
