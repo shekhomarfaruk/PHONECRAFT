@@ -3372,6 +3372,60 @@ app.post('/api/reset-password', resetPasswordLimiter, (req, res) => {
   res.json({ ok: true, msg: 'Password reset successfully. You can now log in.' });
 });
 
+// ── Reset Database — Keep specific user IDs (main admin only) ────────────────
+app.post('/api/admin/reset-database-selective', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin only' });
+
+  const { confirmPhrase, keepUserIds } = req.body || {};
+  if (confirmPhrase !== 'SELECTIVE RESET') return res.status(400).json({ error: 'Confirmation phrase required' });
+  if (!Array.isArray(keepUserIds) || keepUserIds.length === 0) {
+    return res.status(400).json({ error: 'keepUserIds array is required' });
+  }
+
+  const safeKeepIds = keepUserIds.map(Number).filter(n => n > 0 && Number.isInteger(n));
+  if (safeKeepIds.length === 0) return res.status(400).json({ error: 'No valid user IDs provided' });
+
+  try {
+    const mainAdmin = db.prepare("SELECT id FROM users WHERE refer_code = ?").get(MAIN_ADMIN_REFER_CODE);
+    if (!mainAdmin) return res.status(500).json({ error: 'Main admin not found' });
+
+    // Always include main admin in keep list
+    const keepSet = [...new Set([mainAdmin.id, ...safeKeepIds])];
+    const placeholders = keepSet.map(() => '?').join(',');
+
+    const tablesToClear = [
+      'transactions', 'balance_log', 'notifications', 'support_chats',
+      'support_sessions', 'team_chat', 'team_chat_reads', 'manufacturing_jobs',
+      'referral_activity', 'admin_activity_log', 'login_logs',
+      'telegram_action_logs', 'tg_msg_map', 'user_locations',
+      'push_subscriptions', 'pending_registrations', 'admin_permissions',
+      'admin_messages',
+    ];
+
+    let deletedUserCount = 0;
+    db.transaction(() => {
+      // Count users being deleted
+      deletedUserCount = db.prepare(`SELECT COUNT(*) as cnt FROM users WHERE id NOT IN (${placeholders})`).get(...keepSet).cnt;
+      // Delete non-kept users
+      db.prepare(`DELETE FROM users WHERE id NOT IN (${placeholders})`).run(...keepSet);
+      // Clear all activity tables (for a clean slate)
+      for (const tbl of tablesToClear) {
+        try { db.prepare(`DELETE FROM ${tbl} WHERE user_id NOT IN (${placeholders})`).run(...keepSet); } catch (_) {
+          // Table may not have user_id column — skip
+          try { db.prepare(`DELETE FROM ${tbl}`).run(); } catch (_2) {}
+        }
+      }
+    })();
+
+    console.log(`[Admin] Selective DB reset: kept users [${keepSet.join(',')}], deleted ${deletedUserCount} users at ${new Date().toISOString()}`);
+    res.json({ ok: true, message: `Done. Deleted ${deletedUserCount} user(s). Kept user IDs: [${keepSet.join(', ')}].` });
+  } catch (err) {
+    console.error('[Selective Reset DB]', err.message);
+    res.status(500).json({ error: 'Reset failed. Please check server logs.' });
+  }
+});
+
 // ── Reset Database (main admin only) ─────────────────────────────────────────
 app.post('/api/admin/reset-database', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;

@@ -1145,6 +1145,8 @@ function FinancePage({ authFetch, toast, isMain, adminPerms }) {
   const [typeFilter, setTypeFilter] = useState('all');
   const [processing, setProcessing] = useState(null);
   const [note, setNote] = useState('');
+  const [proofModal, setProofModal] = useState(null);
+  const [proofChecked, setProofChecked] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1260,14 +1262,20 @@ function FinancePage({ authFetch, toast, isMain, adminPerms }) {
                       const canApprove = isMain || (tx.type === 'deposit' ? adminPerms?.approve_deposits : adminPerms?.approve_withdrawals);
                       return canApprove ? (
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <input className="inp" style={{ width: 100, marginBottom: 0, fontSize: 11, padding: '4px 8px' }} placeholder="Note..."
-                            value={processing === tx.id ? note : ''}
-                            onFocus={() => { setProcessing(tx.id); setNote(''); }}
-                            onChange={e => setNote(e.target.value)} />
-                          <button className="btn btn-success btn-sm" disabled={processing !== null && processing !== tx.id} onClick={() => handleTx(tx.id, 'approved')}>
+                          <button
+                            className="btn btn-success btn-sm"
+                            disabled={processing === tx.id}
+                            onClick={() => { setProofModal({ tx, action: 'approved' }); setProofChecked(false); setNote(''); }}
+                            title="Approve — verify proof first"
+                          >
                             <CheckCircle size={14} />
                           </button>
-                          <button className="btn btn-danger btn-sm" disabled={processing !== null && processing !== tx.id} onClick={() => handleTx(tx.id, 'rejected')}>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            disabled={processing === tx.id}
+                            onClick={() => { setProofModal({ tx, action: 'rejected' }); setProofChecked(false); setNote(''); }}
+                            title="Reject"
+                          >
                             <X size={14} />
                           </button>
                         </div>
@@ -1285,6 +1293,118 @@ function FinancePage({ authFetch, toast, isMain, adminPerms }) {
           </table>
         </div>
       )}
+
+      {/* ── Proof Verification Modal ───────────────────────────────────────── */}
+      {proofModal && (() => {
+        const { tx, action } = proofModal;
+        const isApprove = action === 'approved';
+        const hasProof = tx.screenshot || tx.txn_hash;
+        return (
+          <div className="modal-overlay" onClick={() => setProofModal(null)}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+              <div className="modal-header">
+                <span style={{ fontWeight: 700, fontSize: 16 }}>
+                  {isApprove ? '✅ Approve Transaction' : '❌ Reject Transaction'}
+                </span>
+                <button className="btn btn-outline btn-sm" onClick={() => setProofModal(null)}><X size={14} /></button>
+              </div>
+
+              <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Transaction summary */}
+                <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '12px 14px', fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ color: 'var(--text2)' }}>Type</span>
+                    <span style={{ fontWeight: 700, color: tx.type === 'deposit' ? 'var(--success)' : 'var(--danger)' }}>
+                      {tx.type === 'deposit' ? '💰 Deposit' : '💸 Withdraw'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ color: 'var(--text2)' }}>User</span>
+                    <span style={{ fontWeight: 600 }}>{tx.user_name} <span style={{ color: 'var(--text2)', fontWeight: 400 }}>(ID: {tx.user_id})</span></span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ color: 'var(--text2)' }}>Amount</span>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(tx.amount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ color: 'var(--text2)' }}>Method</span>
+                    <span className="badge badge-blue">{tx.method?.toUpperCase()}</span>
+                  </div>
+                  {tx.account && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ color: 'var(--text2)' }}>Account</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{tx.account}</span>
+                    </div>
+                  )}
+                  {tx.txn_hash && (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ color: 'var(--text2)', fontSize: 11, marginBottom: 2 }}>Transaction Hash:</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--accent)', wordBreak: 'break-all', background: 'rgba(0,0,0,0.1)', padding: '4px 8px', borderRadius: 6 }}>{tx.txn_hash}</div>
+                    </div>
+                  )}
+                  {tx.blockchain && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text2)' }}>Chain: {tx.blockchain?.toUpperCase()} · {tx.token?.toUpperCase()}</div>}
+                </div>
+
+                {/* Screenshot proof */}
+                {tx.screenshot && (
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, fontWeight: 600 }}>📎 Payment Screenshot:</div>
+                    <a href={tx.screenshot} target="_blank" rel="noreferrer">
+                      <img src={tx.screenshot} alt="proof" style={{ width: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 10, border: '2px solid var(--border)', cursor: 'zoom-in', background: 'var(--bg2)' }} />
+                    </a>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>Click image to open full-size</div>
+                  </div>
+                )}
+
+                {/* No proof warning */}
+                {!hasProof && tx.type === 'deposit' && (
+                  <div style={{ background: 'rgba(252,213,53,0.1)', border: '1px solid rgba(252,213,53,0.3)', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#ca8a04' }}>
+                    ⚠️ No screenshot or transaction hash provided for this deposit.
+                  </div>
+                )}
+
+                {/* Admin note */}
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>Admin Note (optional):</label>
+                  <input className="inp" placeholder="Add a note..." value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: 0 }} />
+                </div>
+
+                {/* Mandatory proof confirm checkbox */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 12px', background: isApprove ? 'rgba(14,203,129,0.07)' : 'rgba(220,38,38,0.07)', borderRadius: 8, border: `1px solid ${isApprove ? 'rgba(14,203,129,0.25)' : 'rgba(220,38,38,0.2)'}` }}>
+                  <input
+                    type="checkbox"
+                    checked={proofChecked}
+                    onChange={e => setProofChecked(e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: isApprove ? 'var(--success)' : 'var(--danger)', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>
+                    {isApprove
+                      ? 'আমি payment proof যাচাই করেছি এবং এটি Approve করতে সম্মত।'
+                      : 'আমি এই request টি Reject করতে নিশ্চিত।'}
+                  </span>
+                </label>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className={`btn ${isApprove ? 'btn-success' : 'btn-danger'}`}
+                    disabled={!proofChecked || processing === tx.id}
+                    onClick={async () => {
+                      setProofModal(null);
+                      await handleTx(tx.id, action);
+                    }}
+                    style={{ flex: 1, opacity: proofChecked ? 1 : 0.5 }}
+                  >
+                    {processing === tx.id ? 'Processing...' : isApprove ? '✅ Approve Now' : '❌ Reject Now'}
+                  </button>
+                  <button className="btn btn-outline" onClick={() => setProofModal(null)} style={{ flex: 1 }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
@@ -1543,6 +1663,90 @@ function ResetDatabaseCard({ authFetch, toast }) {
   );
 }
 
+function SelectiveResetCard({ authFetch, toast }) {
+  const [open, setOpen] = useState(false);
+  const [keepIds, setKeepIds] = useState('');
+  const [phrase, setPhrase] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState('');
+
+  const doReset = async () => {
+    const ids = keepIds.split(',').map(s => Number(s.trim())).filter(n => n > 0);
+    if (ids.length === 0) { toast('Enter at least one User ID to keep', 'error'); return; }
+    if (phrase !== 'SELECTIVE RESET') { toast('Type the exact phrase: SELECTIVE RESET', 'error'); return; }
+    setLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/reset-database-selective`, {
+        method: 'POST',
+        body: JSON.stringify({ confirmPhrase: 'SELECTIVE RESET', keepUserIds: ids }),
+      });
+      const d = await r.json();
+      if (r.ok) { setResult(d.message); setOpen(false); toast('Selective reset done!', 'success'); }
+      else toast(d.error || 'Reset failed', 'error');
+    } catch { toast('Connection error', 'error'); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="card" style={{ borderColor: 'rgba(234,179,8,0.4)', background: 'rgba(234,179,8,0.03)' }}>
+      <div className="card-title" style={{ color: '#ca8a04' }}>
+        <Users size={16} color="#ca8a04" /> Selective Cleanup — Keep Specific Users
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14, lineHeight: 1.6 }}>
+        Delete all test/fake users while keeping specific real users. Enter the User IDs you want to <strong>keep</strong> (comma-separated). Main admin is always kept automatically.
+      </div>
+
+      {result && (
+        <div style={{ background: 'rgba(14,203,129,0.08)', border: '1px solid rgba(14,203,129,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: 'var(--success)', marginBottom: 12 }}>
+          ✅ {result}
+        </div>
+      )}
+
+      {!open && (
+        <button className="btn btn-sm" style={{ background: 'rgba(234,179,8,0.12)', color: '#ca8a04', border: '1px solid rgba(234,179,8,0.3)' }} onClick={() => setOpen(true)}>
+          <Users size={14} /> Delete Fake Users (Keep Real Ones)
+        </button>
+      )}
+
+      {open && (
+        <div style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>User IDs to KEEP (comma-separated):</div>
+          <input
+            className="inp"
+            placeholder="e.g. 12, 13"
+            value={keepIds}
+            onChange={e => setKeepIds(e.target.value)}
+            style={{ marginBottom: 12 }}
+          />
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#ca8a04', marginBottom: 8 }}>
+            ⚠️ Type <code style={{ background: 'rgba(234,179,8,0.15)', padding: '2px 6px', borderRadius: 4 }}>SELECTIVE RESET</code> to confirm:
+          </div>
+          <input
+            className="inp"
+            placeholder="SELECTIVE RESET"
+            value={phrase}
+            onChange={e => setPhrase(e.target.value)}
+            style={{ marginBottom: 12, borderColor: phrase === 'SELECTIVE RESET' ? '#ca8a04' : undefined }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-sm"
+              style={{ background: '#ca8a04', color: '#fff', border: 'none', opacity: phrase === 'SELECTIVE RESET' ? 1 : 0.5 }}
+              onClick={doReset}
+              disabled={loading || phrase !== 'SELECTIVE RESET'}
+            >
+              {loading ? 'Cleaning...' : '🧹 Confirm Selective Cleanup'}
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => { setOpen(false); setPhrase(''); setKeepIds(''); }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminsPage({ authFetch, toast, adminUser }) {
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -1704,6 +1908,7 @@ function AdminsPage({ authFetch, toast, adminUser }) {
       )}
 
       {/* ⚠️ Danger Zone — Reset Database (main admin only) */}
+      {isMain && <SelectiveResetCard authFetch={authFetch} toast={toast} />}
       {isMain && <ResetDatabaseCard authFetch={authFetch} toast={toast} />}
     </>
   );
