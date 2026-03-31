@@ -664,6 +664,21 @@ function AnalyticsChart({ authFetch }) {
   );
 }
 
+const METHOD_META = {
+  bkash:  { color: '#E2136E', bg: '#fce8f3', label: 'bKash',  char: 'b' },
+  nagad:  { color: '#F7941D', bg: '#fef3e2', label: 'Nagad',  char: 'N' },
+  rocket: { color: '#8B2252', bg: '#f5e8f0', label: 'Rocket', char: 'R', img: `${import.meta.env.BASE_URL}rocket-logo.png` },
+  crypto: { color: '#F7931A', bg: '#fef6e8', label: 'Crypto', char: '₿', img: `${import.meta.env.BASE_URL}crypto-logo.png` },
+};
+
+function MethodIcon({ method }) {
+  const key = method?.toLowerCase();
+  const m = METHOD_META[key];
+  if (!m) return <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#888', flexShrink: 0 }}>{method?.[0]?.toUpperCase() || '?'}</div>;
+  if (m.img) return <img src={m.img} alt={m.label} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${m.color}22`, flexShrink: 0 }} />;
+  return <div style={{ width: 28, height: 28, borderRadius: '50%', background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: m.color, border: `2px solid ${m.color}33`, flexShrink: 0 }}>{m.char}</div>;
+}
+
 function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreasury }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -867,7 +882,12 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
                       setBkModal(prev => prev ? { ...prev, loading: false, error: true } : null);
                     }
                   }}>
-                    <td style={{ fontWeight: 600 }}>{m.method?.toUpperCase()}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <MethodIcon method={m.method} />
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>{METHOD_META[m.method?.toLowerCase()]?.label || m.method?.toUpperCase()}</span>
+                      </div>
+                    </td>
                     <td><span className={`badge ${m.type === 'deposit' ? 'badge-green' : 'badge-red'}`}>{m.type}</span></td>
                     <td>{m.count}</td>
                     <td style={{ fontWeight: 700, color: m.type === 'deposit' ? 'var(--success)' : 'var(--danger)' }}>{formatMoney(m.total)}</td>
@@ -884,8 +904,9 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
         <div className="modal-overlay" onClick={() => setBkModal(null)}>
           <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {bkModal.method?.toUpperCase()}
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <MethodIcon method={bkModal.method} />
+                {METHOD_META[bkModal.method?.toLowerCase()]?.label || bkModal.method?.toUpperCase()}
                 <span className={`badge ${bkModal.type === 'deposit' ? 'badge-green' : 'badge-red'}`}>{bkModal.type}</span>
                 <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text2)' }}>— Transactions</span>
               </h2>
@@ -901,8 +922,8 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
               <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                 {bkModal.txList.map(tx => (
                   <div key={tx.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: bkModal.type === 'deposit' ? 'rgba(5,150,105,0.12)' : 'rgba(220,38,38,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
-                      {bkModal.type === 'deposit' ? '💰' : '💸'}
+                    <div style={{ flexShrink: 0, marginTop: 2 }}>
+                      <MethodIcon method={tx.method} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
