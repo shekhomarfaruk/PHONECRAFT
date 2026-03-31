@@ -487,6 +487,483 @@ function VideoSlider({ lang }) {
   );
 }
 
+// ── Earning Calculator ───────────────────────────────────────────────────────
+const CALC_PLANS = [
+  { id:'basic',    label:'BASIC',    color:'#23AF91', invest:12800, daily:200,  tasks:10, perTask:20,  weekly:1400,  monthly:6000,  recovery:64 },
+  { id:'premium',  label:'PREMIUM',  color:'#818CF8', invest:25500, daily:420,  tasks:10, perTask:42,  weekly:2940,  monthly:12600, recovery:61 },
+  { id:'gold',     label:'GOLD',     color:'#FCD535', invest:50000, daily:900,  tasks:12, perTask:75,  weekly:6300,  monthly:27000, recovery:56 },
+  { id:'platinum', label:'PLATINUM', color:'#F0B90B', invest:80000, daily:1600, tasks:16, perTask:100, weekly:11200, monthly:48000, recovery:50 },
+];
+
+function EarningCalculator({ lang, onGetStarted }) {
+  const [sel, setSel] = useState('premium');
+  const plan = CALC_PLANS.find(p => p.id === sel);
+  const isBn = lang === 'bn';
+
+  const fmt = (n) => '৳' + Number(n).toLocaleString('en-BD');
+
+  const STAT_ICONS = [
+    <svg viewBox="0 0 18 18" fill="none" style={{width:15,height:15}}><circle cx="9" cy="9" r="8" stroke="#4ADE80" strokeWidth="1.2"/><path d="M9 5 L9 13 M6 8 L9 5 L12 8" stroke="#4ADE80" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+    <svg viewBox="0 0 18 18" fill="none" style={{width:15,height:15}}><rect x="2" y="4" width="14" height="10" rx="2" stroke="#60A5FA" strokeWidth="1.2"/><path d="M6 4 L6 2 M12 4 L12 2" stroke="#60A5FA" strokeWidth="1.2" strokeLinecap="round"/><path d="M5 9 L8 9 M10 9 L13 9" stroke="#60A5FA" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+    <svg viewBox="0 0 18 18" fill="none" style={{width:15,height:15}}><circle cx="9" cy="9" r="7" stroke="#FBBF24" strokeWidth="1.2"/><path d="M9 5.5 L9 12.5 M6.5 7.5 Q6.5 5.5 9 5.5 Q11.5 5.5 11.5 7.5 Q11.5 9 9 9 Q6.5 9 6.5 11 Q6.5 13 9 13" stroke="#FBBF24" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+    <svg viewBox="0 0 18 18" fill="none" style={{width:15,height:15}}><circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="1.2" strokeDasharray="3 2"/><path d="M9 5 L9 9 L12 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
+  ];
+
+  return (
+    <section className="ld-fade ld-fade-5 ld-section">
+      <style>{`
+        .calc-tab { transition: all .22s cubic-bezier(.4,0,.2,1); position: relative; overflow: hidden; }
+        .calc-tab:hover { filter: brightness(1.1); }
+        .calc-stat-card { transition: transform .2s; }
+        .calc-stat-card:hover { transform: translateY(-2px); }
+        @keyframes calcIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .calc-result { animation: calcIn .28s ease both; }
+      `}</style>
+      <div className="ld-wrap">
+        <div className="ld-sec-head">
+          <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#23AF91,#6366F1)', display:'inline-block' }} />
+          <span className="ld-sec-title">{isBn ? 'আয় ক্যালকুলেটর' : 'Earning Calculator'}</span>
+        </div>
+        <p style={{ fontSize:13, color:'#707A8A', marginBottom:16, lineHeight:1.7 }}>
+          {isBn ? 'আপনার পছন্দের প্ল্যান বেছে নিন এবং সম্ভাব্য আয় দেখুন:' : 'Select your plan to see estimated earnings:'}
+        </p>
+
+        {/* Plan selector tabs */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginBottom:18, background:'rgba(14,18,28,0.7)', padding:5, borderRadius:14, border:'1px solid rgba(43,49,57,0.6)' }}>
+          {CALC_PLANS.map(p => (
+            <button key={p.id} className="calc-tab" onClick={() => setSel(p.id)} style={{
+              padding:'9px 4px', borderRadius:10,
+              border: sel === p.id ? `1px solid ${p.color}45` : '1px solid transparent',
+              background: sel === p.id ? `linear-gradient(135deg, ${p.color}1a, ${p.color}0a)` : 'transparent',
+              color: sel === p.id ? p.color : '#4a5568',
+              fontFamily:'Space Grotesk', fontWeight:700, fontSize:12, cursor:'pointer',
+              boxShadow: sel === p.id ? `0 2px 12px ${p.color}20` : 'none',
+            }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Result card */}
+        <div key={sel} className="calc-result" style={{
+          borderRadius:18, border:`1px solid ${plan.color}25`,
+          background:`linear-gradient(145deg, ${plan.color}0c 0%, rgba(10,14,22,0.95) 60%)`,
+          padding:'18px 18px 16px',
+          boxShadow: `0 8px 32px ${plan.color}12, inset 0 1px 0 rgba(255,255,255,0.03)`,
+          position:'relative', overflow:'hidden',
+        }}>
+          {/* Corner decoration */}
+          <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:`radial-gradient(circle, ${plan.color}14, transparent 70%)`, pointerEvents:'none' }} />
+
+          {/* Plan header */}
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
+            <div style={{
+              width:44, height:44, borderRadius:14, flexShrink:0,
+              background:`linear-gradient(135deg, ${plan.color}22, ${plan.color}08)`,
+              border:`1.5px solid ${plan.color}35`,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:20,
+            }}>
+              💰
+            </div>
+            <div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontFamily:'Space Grotesk', fontWeight:800, fontSize:17, color:plan.color }}>{plan.label}</span>
+                <span style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.35)', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:6, padding:'2px 8px', letterSpacing:1 }}>{isBn ? 'প্ল্যান' : 'PLAN'}</span>
+              </div>
+              <div style={{ fontSize:12, color:'#6a7380', marginTop:2 }}>
+                {isBn ? `বিনিয়োগ: ` : `Investment: `}
+                <span style={{ color:'#EAECEF', fontWeight:600 }}>{fmt(plan.invest)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats grid */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, marginBottom:14 }}>
+            {[
+              { label: isBn ? 'দৈনিক আয়' : 'Daily Earn', value: fmt(plan.daily), color:'#4ADE80', icon: STAT_ICONS[0] },
+              { label: isBn ? 'সাপ্তাহিক আয়' : 'Weekly Earn', value: fmt(plan.weekly), color:'#60A5FA', icon: STAT_ICONS[1] },
+              { label: isBn ? 'মাসিক আয়' : 'Monthly Earn', value: fmt(plan.monthly), color:'#FBBF24', icon: STAT_ICONS[2] },
+              { label: isBn ? 'বিনিয়োগ ফেরত' : 'ROI Days', value: isBn ? `${plan.recovery} দিন` : `${plan.recovery} days`, color: plan.color, icon: <svg viewBox="0 0 18 18" fill="none" style={{width:15,height:15}}><circle cx="9" cy="9" r="7" stroke={plan.color} strokeWidth="1.2" strokeDasharray="3 2"/><path d="M9 5 L9 9 L12 11" stroke={plan.color} strokeWidth="1.4" strokeLinecap="round"/></svg> },
+            ].map((item, i) => (
+              <div key={i} className="calc-stat-card" style={{
+                padding:'12px 14px', borderRadius:12,
+                background:'linear-gradient(160deg, rgba(22,26,37,0.9), rgba(14,18,28,0.7))',
+                border:'1px solid rgba(43,49,57,0.6)',
+                borderLeft: `3px solid ${item.color}`,
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:6, color: item.color }}>
+                  {item.icon}
+                  <span style={{ fontSize:10, fontWeight:600, color:'#5a6473', letterSpacing:0.5 }}>{item.label}</span>
+                </div>
+                <div style={{ fontFamily:'Space Grotesk', fontWeight:900, fontSize:18, color:item.color, lineHeight:1 }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Info pills */}
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14 }}>
+            {[
+              { icon:'📱', text: isBn ? `${plan.tasks}টি টাস্ক/দিন` : `${plan.tasks} tasks/day` },
+              { icon:'⚡', text: isBn ? `${fmt(plan.perTask)}/টাস্ক` : `${fmt(plan.perTask)}/task` },
+              { icon:'💳', text: isBn ? 'bKash/Nagad' : 'bKash/Nagad' },
+            ].map((pill, i) => (
+              <div key={i} style={{
+                display:'flex', alignItems:'center', gap:5, padding:'5px 10px',
+                borderRadius:20, background:'rgba(35,175,145,0.06)',
+                border:'1px solid rgba(35,175,145,0.15)',
+                fontSize:11, color:'#6a7380',
+              }}>
+                <span>{pill.icon}</span>
+                <span>{pill.text}</span>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={onGetStarted} style={{
+            width:'100%', padding:'13px', borderRadius:12, border:'none',
+            background:`linear-gradient(135deg, ${plan.color}, ${plan.color}bb)`,
+            color: plan.id === 'gold' || plan.id === 'platinum' ? '#0a0800' : '#fff',
+            fontFamily:'Space Grotesk', fontWeight:700, fontSize:14,
+            cursor:'pointer', boxShadow:`0 6px 20px ${plan.color}30`,
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            letterSpacing: 0.3, transition:'all .2s',
+          }}>
+            <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}>
+              <path d="M3 8 L13 8 M9 4 L13 8 L9 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+            {isBn ? `${plan.label} প্ল্যান শুরু করুন` : `Start ${plan.label} Plan`}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Testimonials ─────────────────────────────────────────────────────────────
+const TESTIMONIALS = [
+  { name:'মোঃ রহিম উদ্দিন', area:'ঢাকা, মিরপুর', plan:'GOLD', days:45, earned:'৪০,৫০০৳', rating:5, text:'আমি প্রথমে বিশ্বাস করিনি, কিন্তু ৪৫ দিনে ৪০,৫০০ টাকা আয় করেছি। এখন আমার পরিবার ভালো আছে। GOLD প্ল্যান নিয়েছিলাম, প্রতিদিন সকালে ২০-২৫ মিনিট কাজ করি।', avatar:'👨' },
+  { name:'সুমাইয়া আক্তার', area:'চট্টগ্রাম, পাহাড়তলী', plan:'PREMIUM', days:60, earned:'২৫,২০০৳', rating:5, text:'গৃহিণী হিসেবে ঘরে বসে আয় করতে পারছি — এটাই সবচেয়ে বড় পাওয়া। PREMIUM প্ল্যানে প্রতি মাসে ১২,৬০০+ টাকা পাচ্ছি। bKash-এ সরাসরি পাই।', avatar:'👩' },
+  { name:'তানভীর হোসেন', area:'সিলেট, জালালাবাদ', plan:'PLATINUM', days:30, earned:'৪৮,০০০৳', rating:5, text:'PLATINUM নিয়েছি, মাত্র ৩০ দিনে ৪৮,০০০ টাকা আয় করেছি। রেফারেল থেকেও অতিরিক্ত ১৫,০০০+ টাকা পেয়েছি। এটি সত্যিই সেরা প্ল্যাটফর্ম।', avatar:'👨' },
+  { name:'নাজমা বেগম', area:'রাজশাহী, বোয়ালিয়া', plan:'BASIC', days:90, earned:'১৮,০০০৳', rating:4, text:'প্রথমে ছোট BASIC দিয়ে শুরু করেছিলাম। ৩ মাসে ১৮,০০০ টাকা আয় হয়েছে। এখন GOLD-এ আপগ্রেড করার কথা ভাবছি।', avatar:'👩' },
+  { name:'আরিফ হাসান', area:'বরিশাল, বন্দর', plan:'GOLD', days:55, earned:'৪৯,৫০০৳', rating:5, text:'৫৫ দিনে বিনিয়োগ তুলে এসেছে এবং ৪৯,৫০০ টাকা আয়। আমার বন্ধুদের রেফার করেছি, তারাও উপকৃত হচ্ছে। সত্যিই ভরসার জায়গা।', avatar:'👨' },
+  { name:'রিতু মণি দাস', area:'খুলনা, সোনাডাঙ্গা', plan:'PREMIUM', days:75, earned:'৩১,৫০০৳', rating:5, text:'বেকারত্ব থেকে মুক্তি পেয়েছি। ৭৫ দিনে ৩১,৫০০ টাকা আয় হয়েছে। প্রতিটি উইথড্র সময়মতো পেয়েছি। PhoneCraft-কে ধন্যবাদ।', avatar:'👩' },
+];
+
+const PLAN_COLORS = { BASIC:'#23AF91', PREMIUM:'#818CF8', GOLD:'#FCD535', PLATINUM:'#F97316' };
+
+function StarRating({ count }) {
+  return (
+    <div style={{ display:'flex', gap:2 }}>
+      {[1,2,3,4,5].map(i => (
+        <svg key={i} viewBox="0 0 12 12" style={{width:11,height:11}}>
+          <path d="M6 1 L7.18 4.09 L10.5 4.41 L8.1 6.52 L8.84 9.76 L6 8.05 L3.16 9.76 L3.9 6.52 L1.5 4.41 L4.82 4.09 Z" fill={i <= count ? '#FCD535' : 'rgba(43,49,57,0.6)'} />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+const AVATAR_COLORS = ['#23AF91','#818CF8','#F97316','#60A5FA','#FCD535','#F472B6'];
+
+function TestimonialsSection({ lang }) {
+  const [startIdx, setStartIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const isBn = lang === 'bn';
+  const visible = 2;
+
+  const prev = () => setStartIdx(i => Math.max(0, i - 1));
+  const next = () => setStartIdx(i => Math.min(TESTIMONIALS.length - visible, i + 1));
+
+  useEffect(() => {
+    if (paused) return;
+    const id = setInterval(() => {
+      setStartIdx(i => i >= TESTIMONIALS.length - visible ? 0 : i + 1);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [paused]);
+
+  const shown = TESTIMONIALS.slice(startIdx, startIdx + visible);
+
+  return (
+    <section className="ld-fade ld-fade-5 ld-section">
+      <style>{`
+        @keyframes tCardIn { from{opacity:0;transform:translateY(10px) scale(0.98)} to{opacity:1;transform:translateY(0) scale(1)} }
+        .t-card { animation: tCardIn .3s cubic-bezier(.22,.68,0,1.1) both; transition: box-shadow .25s, transform .25s; }
+        .t-card:hover { transform: translateY(-3px); }
+        .t-nav-btn { transition: all .2s; }
+        .t-nav-btn:hover:not(:disabled) { background: rgba(35,175,145,0.15) !important; border-color: rgba(35,175,145,0.4) !important; color: #23AF91 !important; }
+      `}</style>
+      <div className="ld-wrap">
+        <div className="ld-sec-head">
+          <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#23AF91,#6366F1)', display:'inline-block' }} />
+          <span className="ld-sec-title">{isBn ? 'সফল সদস্যদের গল্প' : 'Member Success Stories'}</span>
+          <div style={{ marginLeft:'auto', display:'flex', gap:6 }}>
+            <button className="t-nav-btn" onClick={prev} disabled={startIdx === 0} onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} style={{ width:32, height:32, borderRadius:10, border:'1px solid rgba(43,49,57,0.7)', background:'rgba(14,18,28,0.6)', color: startIdx === 0 ? '#2B3139' : '#9AA4B2', cursor: startIdx === 0 ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg viewBox="0 0 14 14" fill="none" style={{width:12,height:12}}><path d="M9 3 L5 7 L9 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </button>
+            <button className="t-nav-btn" onClick={next} disabled={startIdx >= TESTIMONIALS.length - visible} onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} style={{ width:32, height:32, borderRadius:10, border:'1px solid rgba(43,49,57,0.7)', background:'rgba(14,18,28,0.6)', color: startIdx >= TESTIMONIALS.length - visible ? '#2B3139' : '#9AA4B2', cursor: startIdx >= TESTIMONIALS.length - visible ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg viewBox="0 0 14 14" fill="none" style={{width:12,height:12}}><path d="M5 3 L9 7 L5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <p style={{ fontSize:13, color:'#707A8A', marginBottom:16, lineHeight:1.7 }}>
+          {isBn ? `${TESTIMONIALS.length}+ সত্যিকারের সদস্যরা প্রতিদিন আয় করছে` : `${TESTIMONIALS.length}+ real members earning daily`}
+        </p>
+
+        {/* Progress dots */}
+        <div style={{ display:'flex', gap:5, marginBottom:14 }}>
+          {Array.from({ length: TESTIMONIALS.length - visible + 1 }).map((_, i) => (
+            <div key={i} onClick={() => setStartIdx(i)} style={{
+              height:3, borderRadius:2, cursor:'pointer', transition:'all .35s',
+              flex: i === startIdx ? 2 : 1,
+              background: i === startIdx ? '#23AF91' : 'rgba(43,49,57,0.6)',
+            }} />
+          ))}
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(min(320px,100%),1fr))', gap:12 }}>
+          {shown.map((t, i) => {
+            const planColor = PLAN_COLORS[t.plan] || '#23AF91';
+            const avatarBg = AVATAR_COLORS[(startIdx + i) % AVATAR_COLORS.length];
+            const initials = t.name.charAt(0);
+            return (
+              <div key={startIdx + i} className="t-card" style={{
+                borderRadius:16,
+                border:`1px solid ${planColor}20`,
+                borderLeft:`3px solid ${planColor}`,
+                background:'linear-gradient(150deg, rgba(18,22,34,0.95), rgba(10,14,22,0.9))',
+                padding:'16px 18px',
+                boxShadow: `0 4px 24px rgba(0,0,0,0.2), 0 0 0 1px ${planColor}08`,
+                position:'relative', overflow:'hidden',
+              }}>
+                {/* Background glow */}
+                <div style={{ position:'absolute', top:-20, right:-20, width:80, height:80, borderRadius:'50%', background:`radial-gradient(circle, ${planColor}0c, transparent 70%)`, pointerEvents:'none' }} />
+
+                {/* Header row */}
+                <div style={{ display:'flex', alignItems:'flex-start', gap:12, marginBottom:12 }}>
+                  {/* Avatar */}
+                  <div style={{ position:'relative', flexShrink:0 }}>
+                    <div style={{
+                      width:46, height:46, borderRadius:14,
+                      background:`linear-gradient(135deg, ${avatarBg}30, ${avatarBg}10)`,
+                      border:`1.5px solid ${avatarBg}50`,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:20, fontWeight:700, color:avatarBg,
+                      fontFamily:'Space Grotesk',
+                    }}>
+                      {t.avatar}
+                    </div>
+                    {t.rating === 5 && (
+                      <div style={{ position:'absolute', bottom:-4, right:-4, width:16, height:16, borderRadius:'50%', background:'linear-gradient(135deg,#FCD535,#F0B90B)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:8 }}>✓</div>
+                    )}
+                  </div>
+
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:700, fontSize:14, color:'#EAECEF', marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.name}</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'#5a6473', marginBottom:5 }}>
+                      <svg viewBox="0 0 12 12" fill="none" style={{width:10,height:10}}><path d="M6 1 C3.79 1 2 2.79 2 5 C2 8 6 11 6 11 C6 11 10 8 10 5 C10 2.79 8.21 1 6 1Z" stroke="#23AF91" strokeWidth="1" fill="rgba(35,175,145,0.15)"/><circle cx="6" cy="5" r="1.5" fill="#23AF91"/></svg>
+                      {t.area}
+                    </div>
+                    <StarRating count={t.rating} />
+                  </div>
+
+                  {/* Earnings badge */}
+                  <div style={{ textAlign:'right', flexShrink:0 }}>
+                    <div style={{
+                      display:'inline-block', fontFamily:'Space Grotesk', fontSize:10, fontWeight:700,
+                      color: planColor, background:`${planColor}10`,
+                      border:`1px solid ${planColor}30`, borderRadius:6,
+                      padding:'2px 8px', marginBottom:5, letterSpacing:0.8,
+                    }}>{t.plan}</div>
+                    <div style={{ fontSize:15, color:'#4ADE80', fontWeight:800, fontFamily:'Space Grotesk', lineHeight:1 }}>{t.earned}</div>
+                    <div style={{ fontSize:10, color:'#5a6473', marginTop:3 }}>{isBn ? `${t.days} দিনে` : `in ${t.days} days`}</div>
+                  </div>
+                </div>
+
+                {/* Quote */}
+                <div style={{ position:'relative', paddingLeft:16 }}>
+                  <div style={{ position:'absolute', left:0, top:0, bottom:0, width:2, borderRadius:1, background:`linear-gradient(180deg, ${planColor}60, transparent)` }} />
+                  <p style={{ fontSize:12.5, color:'#8A95A3', lineHeight:1.8, margin:0, fontStyle:'italic' }}>
+                    "{t.text}"
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Trust note */}
+        <div style={{ marginTop:14, padding:'10px 14px', borderRadius:10, background:'rgba(35,175,145,0.04)', border:'1px solid rgba(35,175,145,0.1)', fontSize:11.5, color:'#5a6473', textAlign:'center', lineHeight:1.6, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          <svg viewBox="0 0 14 14" fill="none" style={{width:12,height:12,flexShrink:0}}><path d="M7 1 L8.4 4.8 L12.4 5.1 L9.5 7.6 L10.4 11.5 L7 9.3 L3.6 11.5 L4.5 7.6 L1.6 5.1 L5.6 4.8 Z" stroke="#23AF91" strokeWidth="1" fill="rgba(35,175,145,0.1)"/></svg>
+          {isBn ? 'বাস্তব সদস্যদের অভিজ্ঞতা। আয় প্ল্যান, কার্যকলাপ ও রেফারেল অনুযায়ী পরিবর্তিত হতে পারে।' : 'Real member experiences. Earnings may vary by plan, activity, and referrals.'}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── FAQ Accordion ─────────────────────────────────────────────────────────────
+const FAQ_ITEMS = [
+  {
+    q: 'টাকা কীভাবে তুলব (উইথড্র করব)?',
+    a: 'অ্যাপের ওয়ালেট সেকশনে যান → উইথড্র ট্যাব বেছে নিন → আপনার bKash/Nagad/রকেট নম্বর ও পরিমাণ দিন → রিকোয়েস্ট করুন। অ্যাডমিন ২৪ ঘন্টার মধ্যে প্রক্রিয়া করে দেবেন।',
+  },
+  {
+    q: 'বিনিয়োগ কি নিরাপদ?',
+    a: 'PhoneCraft একটি প্রতিষ্ঠিত প্ল্যাটফর্ম। তবে যেকোনো অনলাইন বিনিয়োগে ঝুঁকি থাকে। আমাদের পরামর্শ — শুধুমাত্র সেই পরিমাণ বিনিয়োগ করুন যা আপনি সামলাতে পারবেন। রেজিস্ট্রেশনের আগে সকল আইনি শর্তাবলী পড়ুন।',
+  },
+  {
+    q: 'প্রতিদিন কতটি কাজ করতে পারব?',
+    a: 'প্ল্যান অনুযায়ী: BASIC = ১০টি, PREMIUM = ১০টি, GOLD = ১২টি, PLATINUM = ১৬টি। প্রতিটি টাস্ক মাত্র ২ মিনিট সময় নেয়।',
+  },
+  {
+    q: 'রেজিস্ট্রেশনের জন্য কী কী দরকার?',
+    a: 'আপনার পুরো নাম, মোবাইল নম্বর বা ইমেইল, একটি পাসওয়ার্ড, এবং একটি বৈধ রেফারেল কোড প্রয়োজন। রেফারেল কোড ছাড়া নিবন্ধন করা যাবে না।',
+  },
+  {
+    q: 'রেফারেল সিস্টেম কীভাবে কাজ করে?',
+    a: 'আপনার রেফারেল কোড শেয়ার করুন। কেউ আপনার কোড দিয়ে নিবন্ধন ও প্ল্যান কিনলে আপনি লেভেল ১ এ তাদের প্ল্যান মূল্যের ২০% কমিশন পাবেন। লেভেল ২ এ ৪% এবং লেভেল ৩ এ ১% পাবেন।',
+  },
+  {
+    q: 'কত দিনে বিনিয়োগ ফেরত পাব?',
+    a: 'প্ল্যান অনুযায়ী ৫০-৬৪ দিনের মধ্যে বিনিয়োগ পুনরুদ্ধার সম্ভব (শুধুমাত্র ম্যানুফ্যাকচারিং থেকে, রেফারেল ছাড়া)। রেফারেল থেকে আয় হলে আরও দ্রুত ফেরত পাবেন।',
+  },
+  {
+    q: 'ন্যূনতম উইথড্র কত?',
+    a: 'প্রতিটি প্ল্যানের জন্য ন্যূনতম উইথড্র সীমা আলাদা। সঠিক তথ্যের জন্য অ্যাপের ওয়ালেট সেকশন বা সাপোর্ট টিমের সাথে যোগাযোগ করুন।',
+  },
+  {
+    q: 'কাজের সময় কখন?',
+    a: 'বাংলাদেশ সময় সকাল ৯টা থেকে রাত ১০টা পর্যন্ত ওয়ার্ক স্ক্রিন সক্রিয় থাকে। এই সময়ের মধ্যে যেকোনো সময় আপনার দৈনিক টাস্ক সম্পন্ন করতে পারবেন।',
+  },
+  {
+    q: 'একটি ডিভাইস থেকে একাধিক অ্যাকাউন্ট করা যাবে?',
+    a: 'না। প্রতি ব্যক্তির জন্য শুধুমাত্র একটি অ্যাকাউন্ট অনুমোদিত। একাধিক অ্যাকাউন্ট তৈরি করলে সব অ্যাকাউন্ট স্থায়ীভাবে বাতিল করা হবে।',
+  },
+  {
+    q: 'সাপোর্টের সাথে কীভাবে যোগাযোগ করব?',
+    a: 'অ্যাপের সাপোর্ট সেকশনে সরাসরি মেসেজ করুন। আমাদের টিম ২৪/৭ সক্রিয় থাকে এবং দ্রুত সাড়া দেয়।',
+  },
+];
+
+const FAQ_ICONS = [
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><rect x="2" y="3" width="12" height="10" rx="2" stroke="#23AF91" strokeWidth="1.2"/><path d="M5 7 L11 7 M5 10 L8 10" stroke="#23AF91" strokeWidth="1.1" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M8 2 L14 5 L14 9 C14 12.5 11 14.5 8 15.5 C5 14.5 2 12.5 2 9 L2 5 Z" stroke="#23AF91" strokeWidth="1.2" fill="rgba(35,175,145,0.08)"/><path d="M5.5 8 L7 9.5 L10.5 6" stroke="#23AF91" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><rect x="2" y="2" width="12" height="12" rx="2" stroke="#23AF91" strokeWidth="1.2"/><path d="M5 8 L7 10 L11 6" stroke="#23AF91" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><circle cx="8" cy="6" r="3" stroke="#23AF91" strokeWidth="1.2"/><path d="M2 14 C2 11 4.7 9 8 9 C11.3 9 14 11 14 14" stroke="#23AF91" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M8 2 L10 6 L14 6.5 L11 9.5 L11.5 14 L8 12 L4.5 14 L5 9.5 L2 6.5 L6 6 Z" stroke="#23AF91" strokeWidth="1" fill="rgba(35,175,145,0.1)"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><circle cx="8" cy="8" r="6" stroke="#23AF91" strokeWidth="1.2"/><path d="M8 5 L8 9 M8 11 L8 11.5" stroke="#23AF91" strokeWidth="1.4" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><rect x="2" y="4" width="12" height="9" rx="1.5" stroke="#23AF91" strokeWidth="1.2"/><path d="M5 4 L5 3 C5 2 6 1.5 8 1.5 C10 1.5 11 2 11 3 L11 4" stroke="#23AF91" strokeWidth="1.1"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><circle cx="8" cy="8" r="6" stroke="#23AF91" strokeWidth="1.2"/><path d="M8 4 L8 8 L11 10" stroke="#23AF91" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M3 8 C3 5 5 3 8 3 C11 3 13 5 13 8 C13 11 11 13 8 13 C5 13 3 11 3 8Z" stroke="#23AF91" strokeWidth="1.2"/><path d="M6 6 L10 10 M10 6 L6 10" stroke="#23AF91" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M13 10.5 C13 12 12 13 10.5 13 L5.5 13 C4 13 3 12 3 10.5 L3 5.5 C3 4 4 3 5.5 3 L10.5 3 C12 3 13 4 13 5.5 Z" stroke="#23AF91" strokeWidth="1.2"/><path d="M6 8 L10 8 M8 6 L10 8 L8 10" stroke="#23AF91" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+];
+
+function FAQSection({ lang }) {
+  const [openIdx, setOpenIdx] = useState(null);
+  const isBn = lang === 'bn';
+
+  const enItems = [
+    { q:'How do I withdraw money?', a:'Go to Wallet → Withdraw tab → Enter your bKash/Nagad number & amount → Submit. Admin processes within 24 hours.' },
+    { q:'Is my investment safe?', a:'PhoneCraft is an established platform. However, all online investments carry risk. Only invest what you can afford. Read all legal terms before registering.' },
+    { q:'How many tasks can I do per day?', a:'By plan: BASIC = 10, PREMIUM = 10, GOLD = 12, PLATINUM = 16. Each task takes only 2 minutes.' },
+    { q:'What do I need to register?', a:'Your full name, mobile/email, password, and a valid referral code. Registration is not possible without a referral code.' },
+    { q:'How does the referral system work?', a:'Share your referral code. When someone registers with your code and buys a plan, you earn 20% commission (Level 1). Level 2 earns 4%, Level 3 earns 1%.' },
+    { q:'When will I recover my investment?', a:'Within 50–64 days depending on your plan (from manufacturing only). With referrals, you can recover faster.' },
+    { q:'What is the minimum withdrawal?', a:'Minimum withdrawal varies by plan. Check the Wallet section in-app or contact support for exact limits.' },
+    { q:'What are the work hours?', a:'The Work Screen is active from 9 AM to 10 PM Bangladesh Time. Complete your daily tasks anytime within this window.' },
+    { q:'Can I have multiple accounts?', a:'No. Each person is allowed only one account. Creating multiple accounts results in permanent ban of all accounts.' },
+    { q:'How do I contact support?', a:'Message directly through the Support section in-app. Our team is active 24/7 and responds quickly.' },
+  ];
+
+  const items = isBn ? FAQ_ITEMS : enItems;
+
+  return (
+    <section className="ld-fade ld-fade-5 ld-section">
+      <style>{`
+        @keyframes faqFade { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+        .faq-item { transition: border-color .2s, box-shadow .2s; }
+        .faq-item:hover { border-color: rgba(35,175,145,0.25) !important; }
+        .faq-item.open { border-color: rgba(35,175,145,0.3) !important; box-shadow: 0 4px 20px rgba(35,175,145,0.06); }
+        .faq-btn { transition: background .2s; }
+        .faq-btn:hover { background: rgba(35,175,145,0.04) !important; }
+      `}</style>
+      <div className="ld-wrap">
+        <div className="ld-sec-head">
+          <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#23AF91,#6366F1)', display:'inline-block' }} />
+          <span className="ld-sec-title">{isBn ? 'প্রশ্ন ও উত্তর' : 'FAQ'}</span>
+          <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700, color:'#23AF91', background:'rgba(35,175,145,0.1)', border:'1px solid rgba(35,175,145,0.2)', borderRadius:10, padding:'2px 8px', fontFamily:'Space Grotesk', letterSpacing:0.8 }}>{items.length} {isBn ? 'প্রশ্ন' : 'Q&As'}</span>
+        </div>
+        <p style={{ fontSize:13, color:'#707A8A', marginBottom:16 }}>
+          {isBn ? 'সাধারণ প্রশ্নের উত্তর এখানে পাবেন:' : 'Find answers to common questions:'}
+        </p>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+          {items.map((item, i) => (
+            <div
+              key={i}
+              className={`faq-item${openIdx === i ? ' open' : ''}`}
+              style={{
+                borderRadius:14,
+                border:`1px solid ${openIdx === i ? 'rgba(35,175,145,0.25)' : 'rgba(43,49,57,0.7)'}`,
+                background: openIdx === i ? 'linear-gradient(135deg, rgba(35,175,145,0.05), rgba(10,14,22,0.9))' : 'rgba(14,18,28,0.7)',
+                overflow:'hidden',
+              }}
+            >
+              <button
+                className="faq-btn"
+                onClick={() => setOpenIdx(openIdx === i ? null : i)}
+                style={{
+                  width:'100%', display:'flex', alignItems:'center', gap:12,
+                  padding:'13px 16px', background:'none', border:'none',
+                  cursor:'pointer', textAlign:'left', fontFamily:'Inter, sans-serif',
+                }}
+              >
+                {/* Icon */}
+                <div style={{
+                  width:30, height:30, borderRadius:9, flexShrink:0,
+                  background: openIdx === i ? 'rgba(35,175,145,0.12)' : 'rgba(22,26,37,0.8)',
+                  border:`1px solid ${openIdx === i ? 'rgba(35,175,145,0.3)' : 'rgba(43,49,57,0.6)'}`,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  transition:'all .2s',
+                }}>
+                  {FAQ_ICONS[i] || FAQ_ICONS[0]}
+                </div>
+
+                {/* Question */}
+                <span style={{ flex:1, fontSize:13.5, fontWeight:600, color: openIdx === i ? '#EAECEF' : '#B0BAC8', lineHeight:1.5 }}>
+                  {item.q}
+                </span>
+
+                {/* Chevron */}
+                <div style={{
+                  width:24, height:24, borderRadius:7, flexShrink:0,
+                  background: openIdx === i ? 'rgba(35,175,145,0.12)' : 'transparent',
+                  border: openIdx === i ? '1px solid rgba(35,175,145,0.25)' : '1px solid rgba(43,49,57,0.5)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  transition:'all .25s',
+                }}>
+                  <svg viewBox="0 0 12 12" fill="none" style={{ width:10, height:10, transform: openIdx === i ? 'rotate(180deg)' : 'rotate(0)', transition:'transform .25s cubic-bezier(.4,0,.2,1)' }}>
+                    <path d="M2 4 L6 8 L10 4" stroke={openIdx === i ? '#23AF91' : '#5a6473'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </button>
+
+              {openIdx === i && (
+                <div style={{ padding:'0 16px 14px 58px', animation:'faqFade .2s ease both' }}>
+                  <div style={{ height:1, background:'rgba(35,175,145,0.12)', marginBottom:12 }} />
+                  <p style={{ fontSize:13, color:'#8A95A3', lineHeight:1.85, margin:0 }}>{item.a}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ── Legal Modal ─────────────────────────────────────────────────────────────
 function LegalModal({ doc, onClose }) {
   useEffect(() => {
@@ -908,25 +1385,68 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           </div>{/* end ld-wrap */}
         </section>
 
-        {/* ── HOW IT WORKS ── */}
+        {/* ── HOW IT WORKS (Enhanced 6-step) ── */}
         <section className="ld-fade ld-fade-4 ld-section">
           <div className="ld-wrap">
           <div className="ld-sec-head">
             <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#23AF91,#6366F1)', display:'inline-block' }} />
             <span className="ld-sec-title">{t.how_title}</span>
           </div>
-          <div className="ld-steps-grid">
-            {t.steps.map((s, i) => (
-              <div key={i} style={{ textAlign:'center', padding:'clamp(16px,2.5vw,24px) clamp(10px,2vw,18px)', borderRadius:14, border:'1px solid rgba(43,49,57,0.9)', background:'rgba(22,26,37,.7)' }}>
-                <div style={{ display:'flex', justifyContent:'center', marginBottom:8 }}>{(() => { const IC = Icons[s.iconKey]; return IC ? <IC size={Math.min(38, window.innerWidth * 0.035 + 26)} /> : null; })()}</div>
-                <div style={{ fontFamily:'Space Grotesk', fontSize:'clamp(10px,0.9vw,13px)', fontWeight:700, color:'#23AF91', letterSpacing:1.5, marginBottom:6 }}>STEP {s.step}</div>
-                <div style={{ fontWeight:700, fontSize:'clamp(13px,1.4vw,17px)', marginBottom:6 }}>{s.title}</div>
-                <div style={{ fontSize:'clamp(12px,1.1vw,15px)', color:'#707A8A', lineHeight:1.65 }}>{s.desc}</div>
+          <style>{`
+            .ld-6steps { display:grid; grid-template-columns:1fr; gap:10px; }
+            @media(min-width:540px) { .ld-6steps { grid-template-columns:repeat(2,1fr); } }
+            @media(min-width:900px) { .ld-6steps { grid-template-columns:repeat(3,1fr); } }
+            .ld-step-card { transition: transform .22s, box-shadow .22s; }
+            .ld-step-card:hover { transform: translateY(-3px); }
+          `}</style>
+          <div className="ld-6steps">
+            {(lang === 'bn' ? [
+              { step:'০১', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.3"/><path d="M8 12 L11 15 L16 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>, title:'রেফারেল কোড সংগ্রহ', desc:'আপনার রেফারারের কাছ থেকে একটি বৈধ রেফারেল কোড নিন। রেফারেল কোড ছাড়া নিবন্ধন সম্ভব নয়।', color:'#23AF91' },
+              { step:'০২', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="4" y="3" width="16" height="18" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M8 8 L16 8 M8 12 L16 12 M8 16 L12 16" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'অ্যাকাউন্ট তৈরি', desc:'আপনার নাম, মোবাইল নম্বর/ইমেইল, পাসওয়ার্ড ও রেফারেল কোড দিয়ে মাত্র ২ মিনিটে নিবন্ধন করুন।', color:'#6366F1' },
+              { step:'০৩', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="2" y="6" width="20" height="13" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M2 10 L22 10" stroke="currentColor" strokeWidth="1.3"/><circle cx="7" cy="15" r="1.5" fill="currentColor"/><path d="M11 15 L17 15" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'প্ল্যান বিনিয়োগ', desc:'BASIC থেকে PLATINUM পর্যন্ত আপনার বাজেট অনুযায়ী প্ল্যান বেছে নিন এবং bKash/Nagad-এ পেমেন্ট করুন।', color:'#FCD535' },
+              { step:'০৪', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M8 5 L8 3 M16 5 L16 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M7 12 L10 15 L17 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>, title:'ভার্চুয়াল ফোন তৈরি', desc:'প্রতিদিন আপনার ড্যাশবোর্ডে লগইন করুন এবং ভার্চুয়াল ম্যানুফ্যাকচারিং টাস্ক শুরু করুন। প্রতিটি টাস্ক মাত্র ২ মিনিট!', color:'#F97316' },
+              { step:'০৫', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><path d="M4 20 L4 10 L8 10 L8 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M10 20 L10 6 L14 6 L14 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M16 20 L16 13 L20 13 L20 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M2 20 L22 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'মার্কেটপ্লেসে বিক্রি', desc:'আপনার তৈরি ভার্চুয়াল ফোন স্বয়ংক্রিয়ভাবে মার্কেটপ্লেসে পোস্ট হয় এবং ৩০ মিনিটের মধ্যে বিক্রি হয়।', color:'#A78BFA' },
+              { step:'০৬', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.3"/><path d="M12 7 L12 17 M9 9.5 Q9 7 12 7 Q15 7 15 9.5 Q15 12 12 12 Q9 12 9 14.5 Q9 17 12 17" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'আয় উইথড্র করুন', desc:'আপনার আয় সরাসরি bKash, Nagad বা ব্যাংক অ্যাকাউন্টে উইথড্র করুন। ২৪ ঘন্টার মধ্যে প্রক্রিয়া করা হয়।', color:'#4ADE80' },
+            ] : [
+              { step:'01', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.3"/><path d="M8 12 L11 15 L16 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>, title:'Get Referral Code', desc:'Obtain a valid referral code from your referrer. Registration requires a referral code.', color:'#23AF91' },
+              { step:'02', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="4" y="3" width="16" height="18" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M8 8 L16 8 M8 12 L16 12 M8 16 L12 16" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'Create Account', desc:'Register in 2 minutes with your name, mobile/email, password and referral code.', color:'#6366F1' },
+              { step:'03', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="2" y="6" width="20" height="13" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M2 10 L22 10" stroke="currentColor" strokeWidth="1.3"/><circle cx="7" cy="15" r="1.5" fill="currentColor"/><path d="M11 15 L17 15" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'Choose & Pay Plan', desc:'Select a plan from BASIC to PLATINUM and pay via bKash, Nagad, or bank.', color:'#FCD535' },
+              { step:'04', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M8 5 L8 3 M16 5 L16 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M7 12 L10 15 L17 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>, title:'Manufacture Phones', desc:'Log in daily and start virtual manufacturing tasks. Each task takes just 2 minutes!', color:'#F97316' },
+              { step:'05', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><path d="M4 20 L4 10 L8 10 L8 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M10 20 L10 6 L14 6 L14 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M16 20 L16 13 L20 13 L20 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M2 20 L22 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'List on Marketplace', desc:'Your manufactured phones auto-list on the marketplace and sell within 30 minutes.', color:'#A78BFA' },
+              { step:'06', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.3"/><path d="M12 7 L12 17 M9 9.5 Q9 7 12 7 Q15 7 15 9.5 Q15 12 12 12 Q9 12 9 14.5 Q9 17 12 17" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'Withdraw Earnings', desc:'Withdraw directly to bKash, Nagad or bank account. Processed within 24 hours.', color:'#4ADE80' },
+            ]).map((s, i) => (
+              <div key={i} className="ld-step-card" style={{
+                padding:'clamp(16px,2vw,20px)', borderRadius:16,
+                border:`1px solid ${s.color}20`,
+                borderTop:`2.5px solid ${s.color}`,
+                background:'linear-gradient(160deg, rgba(18,22,34,0.95), rgba(10,14,22,0.9))',
+                position:'relative', overflow:'hidden',
+                boxShadow: `0 4px 20px rgba(0,0,0,0.15)`,
+              }}>
+                {/* Background glow */}
+                <div style={{ position:'absolute', top:-20, right:-20, width:80, height:80, borderRadius:'50%', background:`radial-gradient(circle, ${s.color}14, transparent 70%)`, pointerEvents:'none' }} />
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+                  <div style={{
+                    width:42, height:42, borderRadius:13,
+                    background:`linear-gradient(135deg, ${s.color}20, ${s.color}08)`,
+                    border:`1.5px solid ${s.color}35`,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    flexShrink:0, color: s.color,
+                  }}>{s.icon}</div>
+                  <div style={{ fontFamily:'Space Grotesk', fontSize:10, fontWeight:800, color:s.color, letterSpacing:2, lineHeight:1 }}>
+                    {lang === 'bn' ? `ধাপ ${s.step}` : `STEP ${s.step}`}
+                  </div>
+                </div>
+                <div style={{ fontWeight:700, fontSize:'clamp(13px,1.2vw,15px)', marginBottom:6, color:'#EAECEF' }}>{s.title}</div>
+                <div style={{ fontSize:'clamp(12px,1vw,13px)', color:'#6a7380', lineHeight:1.75 }}>{s.desc}</div>
               </div>
             ))}
           </div>
           </div>{/* end ld-wrap */}
         </section>
+
+        {/* ── EARNING CALCULATOR ── */}
+        <EarningCalculator lang={lang} onGetStarted={onGetStarted} />
 
         {/* ── PLANS ── */}
         <section className="ld-fade ld-fade-5 ld-section">
@@ -1135,6 +1655,12 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           </div>{/* end ld-plans-grid */}
           </div>{/* end ld-wrap */}
         </section>
+
+        {/* ── TESTIMONIALS ── */}
+        <TestimonialsSection lang={lang} />
+
+        {/* ── FAQ ── */}
+        <FAQSection lang={lang} />
 
         {/* ── TRUST SECTION ── */}
         <section className="ld-fade ld-fade-5 ld-section">

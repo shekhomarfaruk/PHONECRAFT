@@ -18,6 +18,7 @@ import SettingsScreen from "./screens/SettingsScreen.jsx";
 import WorkScreen from "./screens/WorkScreen.jsx";
 import GuideScreen from "./screens/GuideScreen.jsx";
 import LandingScreen from "./screens/LandingScreen.jsx";
+import OnboardingSlider, { shouldShowOnboarding } from "./components/OnboardingSlider.jsx";
 import SupportWidget from "./SupportWidget.jsx";
 import GuestPlanModal from "./GuestPlanModal.jsx";
 import GuestExpiredModal from "./GuestExpiredModal.jsx";
@@ -127,6 +128,7 @@ export default function App() {
   const [settingsLoaded, setSettingsLoaded] = useState(() => !!localStorage.getItem('app-settings'));
   const [usdRate,       setUsdRate      ] = useState(() => getLiveRate());
   const [teamChatUnread, setTeamChatUnread] = useState(0);
+  const [showOnboarding, setShowOnboarding] = useState(() => shouldShowOnboarding());
 
   // Apply font size as CSS variable on root
   useEffect(() => {
@@ -621,6 +623,13 @@ export default function App() {
           onLogin={() => { setShowLanding(false); setAuthTab('login'); }}
         />
       </div>
+      {showOnboarding && (
+        <OnboardingSlider
+          onDone={() => setShowOnboarding(false)}
+          onRegister={() => { setShowOnboarding(false); setShowLanding(false); setAuthTab('register'); }}
+          onLogin={() => { setShowOnboarding(false); setShowLanding(false); setAuthTab('login'); }}
+        />
+      )}
       <SupportWidget lang={lang} />
       {toast && <ToastBox toast={toast} setToast={setToast} lang={lang} />}
     </>
