@@ -3419,37 +3419,44 @@ app.post('/api/admin/reset-database-selective', authRequired, (req, res) => {
 
     // Always include main admin in keep list
     const keepSet = [...new Set([mainAdmin.id, ...safeKeepIds])];
-    const placeholders = keepSet.map(() => '?').join(',');
-
-    const tablesToClear = [
-      'transactions', 'balance_log', 'notifications', 'support_chats',
-      'support_sessions', 'team_chat', 'team_chat_reads', 'manufacturing_jobs',
-      'referral_activity', 'admin_activity_log', 'login_logs',
-      'telegram_action_logs', 'tg_msg_map', 'user_locations',
-      'push_subscriptions', 'pending_registrations', 'admin_permissions',
-      'admin_messages',
-    ];
+    const ph = keepSet.map(() => '?').join(',');
 
     let deletedUserCount = 0;
     db.transaction(() => {
-      // Count users being deleted
-      deletedUserCount = db.prepare(`SELECT COUNT(*) as cnt FROM users WHERE id NOT IN (${placeholders})`).get(...keepSet).cnt;
-      // Delete non-kept users
-      db.prepare(`DELETE FROM users WHERE id NOT IN (${placeholders})`).run(...keepSet);
-      // Clear all activity tables (for a clean slate)
-      for (const tbl of tablesToClear) {
-        try { db.prepare(`DELETE FROM ${tbl} WHERE user_id NOT IN (${placeholders})`).run(...keepSet); } catch (_) {
-          // Table may not have user_id column — skip
-          try { db.prepare(`DELETE FROM ${tbl}`).run(); } catch (_2) {}
-        }
+      // Count users being deleted first
+      deletedUserCount = db.prepare(`SELECT COUNT(*) as cnt FROM users WHERE id NOT IN (${ph})`).get(keepSet).cnt;
+
+      // ── Step 1: Delete child rows for non-kept users BEFORE deleting users ──
+      // Tables with user_id column
+      const userIdTables = [
+        'transactions', 'balance_log', 'notifications', 'support_chats',
+        'support_sessions', 'team_chat', 'team_chat_reads', 'manufacturing_jobs',
+        'referral_activity', 'login_logs', 'user_locations',
+        'push_subscriptions', 'password_resets',
+      ];
+      for (const tbl of userIdTables) {
+        try { db.prepare(`DELETE FROM ${tbl} WHERE user_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
       }
+
+      // Tables with different user-referencing columns
+      try { db.prepare(`DELETE FROM admin_activity_log WHERE admin_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
+      try { db.prepare(`DELETE FROM admin_permissions WHERE admin_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
+      try { db.prepare(`DELETE FROM admin_messages WHERE sender_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
+
+      // Tables with no user reference — always clear fully
+      try { db.prepare('DELETE FROM tg_msg_map').run(); } catch (_) {}
+      try { db.prepare('DELETE FROM telegram_action_logs').run(); } catch (_) {}
+      try { db.prepare('DELETE FROM pending_registrations').run(); } catch (_) {}
+
+      // ── Step 2: Now safe to delete users ──
+      db.prepare(`DELETE FROM users WHERE id NOT IN (${ph})`).run(keepSet);
     })();
 
     console.log(`[Admin] Selective DB reset: kept users [${keepSet.join(',')}], deleted ${deletedUserCount} users at ${new Date().toISOString()}`);
     res.json({ ok: true, message: `Done. Deleted ${deletedUserCount} user(s). Kept user IDs: [${keepSet.join(', ')}].` });
   } catch (err) {
-    console.error('[Selective Reset DB]', err.message);
-    res.status(500).json({ error: 'Reset failed. Please check server logs.' });
+    console.error('[Selective Reset DB]', err.message, err.stack);
+    res.status(500).json({ error: 'Reset failed: ' + err.message });
   }
 });
 
