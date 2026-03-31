@@ -2051,11 +2051,12 @@ app.post('/api/transfer', authRequired, financeLimiter, (req, res) => {
 
 // ── Live Support Chat ──────────────────────────────────────────────────────────
 app.post('/api/support/message', authRequired, supportLimiter, async (req, res) => {
-  const { sessionId, message, senderName } = req.body || {};
+  const { sessionId, message } = req.body || {};
   if (!sessionId || !message) return res.status(400).json({ error: 'Missing fields' });
   if (String(message).length > 1000) return res.status(400).json({ error: 'Message too long (max 1000 chars)' });
   if (!/^[a-zA-Z0-9_\-]{4,64}$/.test(String(sessionId))) return res.status(400).json({ error: 'Invalid session' });
   const cleanMessage = String(message).trim().substring(0, 1000);
+  const senderName = req.auth.user?.name || 'User';
   try {
     stmts.insertSupportMsg.run(sessionId, 'user', cleanMessage);
 
@@ -2070,7 +2071,7 @@ app.post('/api/support/message', authRequired, supportLimiter, async (req, res) 
     // Push notification to all admins
     notifyAdmins({
       title: `💬 নতুন Support Message`,
-      body: `${senderName || 'User'}: ${String(message).trim().slice(0, 80)}`,
+      body: `${senderName}: ${String(message).trim().slice(0, 80)}`,
       icon: '/logo.png', tag: 'admin-support', url: '/xpc-ctrl-7f3b/',
     });
 

@@ -455,7 +455,6 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            user: user.name, identifier: user.identifier,
             amount: wAmt, method: 'crypto',
             account: cryptoWithdrawWallet.trim(), type: 'withdraw',
             blockchain, token, txnHash: '',
@@ -497,7 +496,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
       const res = await authFetch(`${API_URL}/api/withdraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: user.name, identifier: user.identifier, amount: numAmt, method, account: acct, type: tab }),
+        body: JSON.stringify({ amount: numAmt, method, account: acct, type: tab }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -520,7 +519,6 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            user: user.name, identifier: user.identifier,
             amount: page.amount, method: 'crypto',
             account: page.walletAddr, type: 'deposit', coinType: coinLabel,
             blockchain: page.blockchain, token: page.token, txnHash: page.txId || '',
@@ -543,7 +541,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
         const res = await authFetch(`${API_URL}/api/withdraw`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user: user.name, identifier: user.identifier, amount: page.amount, method: page.method, account: page.walletAddr, type: 'deposit' }),
+          body: JSON.stringify({ amount: page.amount, method: page.method, account: page.walletAddr, type: 'deposit' }),
         });
         const data = await res.json();
         if (res.ok) {

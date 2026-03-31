@@ -112,7 +112,7 @@ function BalanceScreen({ user, setUser, showToast, lang, isDark }) {
       const r = await authFetch(`${API_URL}/api/transfer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromUserId: user.id, toIdentifier: toIdentifier.trim(), amount: amt }),
+        body: JSON.stringify({ toIdentifier: toIdentifier.trim(), amount: amt }),
       });
       const data = await r.json();
       if (!r.ok) { showToast(data.error || 'Transfer failed', 'error'); return; }

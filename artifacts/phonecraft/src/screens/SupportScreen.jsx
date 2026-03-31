@@ -281,7 +281,7 @@ function SupportScreen({ user, showToast, lang }) {
       await authFetch(`${API_URL}/api/support/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, message: text, senderName: user?.name || 'Guest' }),
+        body: JSON.stringify({ sessionId, message: text }),
       });
     } catch (_) {
       showToast('Failed to send', 'error');
