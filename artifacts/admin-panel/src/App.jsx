@@ -126,6 +126,14 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate, adminUser, lang
 
   const typeIcon = { success: '✅', info: '🔔', warning: '⚠️', error: '❌' };
 
+  function getNotifPage(message) {
+    const txt = (parseMsg(message, 'en') + ' ' + parseMsg(message, 'bn')).toLowerCase();
+    if (txt.includes('deposit') || txt.includes('withdraw') || txt.includes('transaction') || txt.includes('payment')) return 'finance';
+    if (txt.includes('support') || txt.includes('chat') || txt.includes('reply') || txt.includes('message')) return 'support';
+    if (txt.includes('plan') || txt.includes('balance')) return 'users';
+    return 'users';
+  }
+
   return (
     <>
       <div className="notif-panel-overlay" onClick={onClose} />
@@ -240,7 +248,8 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate, adminUser, lang
               </div>
             ) : (
               inbox.map(n => (
-                <div key={n.id} className="notif-item" style={{ cursor: 'default', background: n.read ? 'transparent' : 'rgba(37,99,235,0.04)', borderLeft: n.read ? 'none' : '3px solid var(--primary)' }}>
+                <div key={n.id} className="notif-item" onClick={() => { onNavigate(getNotifPage(n.message)); onClose(); }}
+                  style={{ cursor: 'pointer', background: n.read ? 'transparent' : 'rgba(37,99,235,0.04)', borderLeft: n.read ? 'none' : '3px solid var(--primary)' }}>
                   <div className="notif-icon" style={{ background: n.type === 'success' ? 'rgba(5,150,105,0.1)' : n.type === 'warning' ? 'rgba(234,88,12,0.1)' : n.type === 'error' ? 'rgba(220,38,38,0.1)' : 'rgba(37,99,235,0.1)', fontSize: 15 }}>
                     {typeIcon[n.type] || '🔔'}
                   </div>
@@ -250,6 +259,7 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate, adminUser, lang
                     </div>
                     <div className="notif-content-sub">{fmtDate(n.created_at)}</div>
                   </div>
+                  <ChevronRight size={14} color="var(--text2)" />
                 </div>
               ))
             )
@@ -657,6 +667,7 @@ function AnalyticsChart({ authFetch }) {
 function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreasury }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [bkModal, setBkModal] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -840,18 +851,88 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
           <div className="card-title"><CreditCard size={16} /> Payment Method Breakdown</div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Method</th><th>Type</th><th>Count</th><th>Total</th></tr></thead>
+              <thead><tr><th>Method</th><th>Type</th><th>Count</th><th>Total</th><th></th></tr></thead>
               <tbody>
                 {stats.methodBreakdown.map((m, i) => (
-                  <tr key={i}>
+                  <tr key={i} style={{ cursor: 'pointer' }} onClick={async () => {
+                    setBkModal({ method: m.method, type: m.type, loading: true, txList: [] });
+                    try {
+                      const r = await authFetch(`${API}/api/admin/transactions`);
+                      const d = await r.json();
+                      const filtered = (d.transactions || []).filter(t =>
+                        t.method?.toLowerCase() === m.method?.toLowerCase() && t.type === m.type
+                      );
+                      setBkModal({ method: m.method, type: m.type, loading: false, txList: filtered });
+                    } catch {
+                      setBkModal(prev => prev ? { ...prev, loading: false, error: true } : null);
+                    }
+                  }}>
                     <td style={{ fontWeight: 600 }}>{m.method?.toUpperCase()}</td>
                     <td><span className={`badge ${m.type === 'deposit' ? 'badge-green' : 'badge-red'}`}>{m.type}</span></td>
                     <td>{m.count}</td>
                     <td style={{ fontWeight: 700, color: m.type === 'deposit' ? 'var(--success)' : 'var(--danger)' }}>{formatMoney(m.total)}</td>
+                    <td style={{ color: 'var(--text2)' }}><ChevronRight size={14} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {bkModal && (
+        <div className="modal-overlay" onClick={() => setBkModal(null)}>
+          <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {bkModal.method?.toUpperCase()}
+                <span className={`badge ${bkModal.type === 'deposit' ? 'badge-green' : 'badge-red'}`}>{bkModal.type}</span>
+                <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text2)' }}>— Transactions</span>
+              </h2>
+              <button className="btn btn-outline btn-sm" onClick={() => setBkModal(null)}><X size={16} /></button>
+            </div>
+            {bkModal.loading ? (
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--text2)' }}>Loading...</div>
+            ) : bkModal.error ? (
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--danger)' }}>Failed to load</div>
+            ) : bkModal.txList.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--text2)' }}>No transactions found</div>
+            ) : (
+              <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                {bkModal.txList.map(tx => (
+                  <div key={tx.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: bkModal.type === 'deposit' ? 'rgba(5,150,105,0.12)' : 'rgba(220,38,38,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+                      {bkModal.type === 'deposit' ? '💰' : '💸'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{tx.user_name}</span>
+                        <span style={{ fontSize: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 3, padding: '0 4px', color: 'var(--text2)' }}>#{tx.user_id}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: bkModal.type === 'deposit' ? 'var(--success)' : 'var(--danger)', marginLeft: 'auto' }}>
+                          {bkModal.type === 'deposit' ? '+' : '-'}৳{Number(tx.amount).toLocaleString()}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.7 }}>
+                        {bkModal.method?.toLowerCase() === 'crypto' ? (
+                          <>
+                            {tx.blockchain && <span>🔗 {tx.blockchain}{tx.token ? ` · ${tx.token}` : ''} &nbsp;</span>}
+                            {tx.account && <div style={{ wordBreak: 'break-all' }}>📍 {tx.account}</div>}
+                            {tx.txn_hash && <div style={{ wordBreak: 'break-all', marginTop: 1 }}>🧾 Hash: <span style={{ fontFamily: 'monospace', fontSize: 10 }}>{tx.txn_hash}</span></div>}
+                          </>
+                        ) : (
+                          <span>📱 {tx.account}</span>
+                        )}
+                        <div style={{ marginTop: 2, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <span className={`badge ${tx.status === 'approved' ? 'badge-green' : tx.status === 'rejected' ? 'badge-red' : 'badge-yellow'}`} style={{ fontSize: 10 }}>{tx.status}</span>
+                          <span>{fmtDate(tx.created_at)}</span>
+                          {tx.admin_note && <span>📝 {tx.admin_note}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -873,6 +954,8 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
   const [bulkIds, setBulkIds] = useState(new Set());
   const [msgTarget, setMsgTarget] = useState('all');
   const [msgUserId, setMsgUserId] = useState('');
+  const [msgUserName, setMsgUserName] = useState('');
+  const [msgSearch, setMsgSearch] = useState('');
   const [msgText, setMsgText] = useState('');
   const [msgSending, setMsgSending] = useState(false);
   const [planOptions, setPlanOptions] = useState([]);
@@ -901,7 +984,7 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
   const filtered = users.filter(u => {
     if (!isMain && u.is_admin) return false;
     const q = search.toLowerCase();
-    const match = !q || u.name.toLowerCase().includes(q) || u.identifier.toLowerCase().includes(q) || u.refer_code.toLowerCase().includes(q) || String(u.id) === q;
+    const match = !q || u.name.toLowerCase().includes(q) || u.identifier.toLowerCase().includes(q) || u.refer_code.toLowerCase().includes(q) || String(u.id).includes(q);
     const statusMatch = filter === 'all' || (filter === 'banned' && u.banned) || (filter === 'admin' && u.is_admin) || (filter === 'active' && !u.banned && !u.is_admin);
     return match && statusMatch;
   });
@@ -1026,10 +1109,58 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
           <button className={`btn btn-sm ${msgTarget === 'user' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setMsgTarget('user')}>Single User</button>
         </div>
         {msgTarget === 'user' && (
-          <select className="inp" value={msgUserId} onChange={e => setMsgUserId(e.target.value)}>
-            <option value="">Select user...</option>
-            {users.filter(u => !u.banned).map(u => <option key={u.id} value={u.id}>{u.name} ({u.identifier})</option>)}
-          </select>
+          <div style={{ position: 'relative', marginBottom: 6 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text2)' }} />
+                <input
+                  className="inp"
+                  style={{ paddingLeft: 30, marginBottom: 0 }}
+                  placeholder="Search by name, ID, or refer code..."
+                  value={msgSearch}
+                  onChange={e => { setMsgSearch(e.target.value); if (msgUserId) { setMsgUserId(''); setMsgUserName(''); } }}
+                />
+              </div>
+              {msgUserName && (
+                <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  ✓ {msgUserName}
+                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', padding: 2 }} onClick={() => { setMsgUserId(''); setMsgUserName(''); setMsgSearch(''); }}>
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+            </div>
+            {msgSearch && !msgUserId && (() => {
+              const sq = msgSearch.toLowerCase();
+              const results = users.filter(u => !u.banned && (
+                u.name.toLowerCase().includes(sq) ||
+                u.identifier.toLowerCase().includes(sq) ||
+                u.refer_code.toLowerCase().includes(sq) ||
+                String(u.id).includes(sq)
+              )).slice(0, 8);
+              return results.length > 0 ? (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, maxHeight: 220, overflowY: 'auto' }}>
+                  {results.map(u => (
+                    <div key={u.id} onClick={() => { setMsgUserId(String(u.id)); setMsgUserName(`${u.name} #${u.id}`); setMsgSearch(''); }}
+                      style={{ padding: '9px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', borderBottom: '1px solid var(--border)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                      onMouseLeave={e => e.currentTarget.style.background = ''}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text2)' }}>{u.identifier} · REF: {u.refer_code}</div>
+                      </div>
+                      <span style={{ fontSize: 11, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text2)' }}>#{u.id}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, padding: '10px 14px', fontSize: 12, color: 'var(--text2)' }}>
+                  No users found
+                </div>
+              );
+            })()}
+          </div>
         )}
         <textarea className="inp" rows={2} placeholder="Type message..." value={msgText} onChange={e => setMsgText(e.target.value)} />
         <button className="btn btn-primary btn-sm" onClick={sendMsg} disabled={msgSending}>{msgSending ? 'Sending...' : 'Send Message'}</button>
