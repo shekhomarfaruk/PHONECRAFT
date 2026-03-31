@@ -204,17 +204,26 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate, adminUser, lang
                     </div>
                   )}
                   {recentActivity.map((a, i) => (
-                    <div key={i} className="notif-item" style={{ cursor: 'default' }}>
-                      <div className="notif-icon" style={{ background: a.type === 'signup' ? 'rgba(37,99,235,0.1)' : a.type === 'deposit' ? 'rgba(5,150,105,0.1)' : 'rgba(220,38,38,0.1)', fontSize: 15 }}>
+                    <div key={i} className="notif-item" style={{ cursor: 'default', alignItems: 'flex-start' }}>
+                      <div className="notif-icon" style={{ background: a.type === 'signup' ? 'rgba(37,99,235,0.1)' : a.type === 'deposit' ? 'rgba(5,150,105,0.1)' : 'rgba(220,38,38,0.1)', fontSize: 15, marginTop: 2 }}>
                         {a.type === 'signup' ? '👤' : a.type === 'deposit' ? '💰' : '💸'}
                       </div>
                       <div className="notif-content">
-                        <div className="notif-content-title">{a.user_name || a.detail}</div>
-                        <div className="notif-content-sub">
-                          {a.type === 'signup'
-                            ? (lang === 'bn' ? 'নতুন রেজিস্ট্রেশন' : 'New registration')
-                            : `${a.type === 'deposit' ? '+' : '-'}৳${a.detail?.split(' ')[0]}`}
-                          {' · '}{fmtDate(a.created_at)}
+                        <div className="notif-content-title" style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                          <span>{a.user_name}</span>
+                          <span style={{ fontSize: 10, opacity: 0.6, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 3, padding: '0 4px' }}>#{a.user_id}</span>
+                          {a.type === 'signup' && <span style={{ fontSize: 10, color: 'var(--text2)' }}>{lang === 'bn' ? 'যোগ দিয়েছে' : 'joined'}</span>}
+                          {(a.type === 'deposit' || a.type === 'withdraw') && (
+                            <span style={{ color: a.type === 'deposit' ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>
+                              {a.type === 'deposit' ? '+' : '-'}৳{Number(a.amount).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="notif-content-sub" style={{ marginTop: 2, lineHeight: 1.6 }}>
+                          {a.type === 'signup' && a.referrer_name && <span>{lang === 'bn' ? 'রেফার: ' : 'Ref: '}<b>{a.referrer_name}</b> · </span>}
+                          {a.type === 'signup' && a.plan_name && <span>{a.plan_name} · ৳{Number(a.plan_rate).toLocaleString()} · </span>}
+                          {(a.type === 'deposit' || a.type === 'withdraw') && a.method && <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{a.method}{a.account ? ` · ${a.account}` : ''} · </span>}
+                          {fmtDate(a.created_at)}
                         </div>
                       </div>
                     </div>
@@ -785,23 +794,41 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
       {stats.recentActivity?.length > 0 && (
         <div className="card">
           <div className="card-title"><Activity size={16} /> Recent Activity</div>
-          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+          <div style={{ overflowY: 'auto', maxHeight: 420 }}>
             {stats.recentActivity.map((a, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>{a.type === 'signup' ? '👤' : a.type === 'deposit' ? '💰' : '💸'}</span>
-                  <div>
-                    <span style={{ fontWeight: 600 }}>{a.user_name || a.detail}</span>
-                    {a.type !== 'signup' && (
-                      <span style={{ color: a.type === 'deposit' ? 'var(--success)' : 'var(--danger)', marginLeft: 6 }}>
-                        {a.type === 'deposit' ? '+' : '-'}৳{a.detail?.split(' ')[0]}
-                        <span style={{ color: 'var(--text2)', fontSize: 11, marginLeft: 4 }}>{a.detail?.split(' ')[1]?.toUpperCase()}</span>
-                      </span>
-                    )}
-                    {a.type === 'signup' && <span style={{ color: 'var(--text2)', marginLeft: 6, fontSize: 11 }}>joined</span>}
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                <span style={{ fontSize: 18, marginTop: 1, flexShrink: 0 }}>
+                  {a.type === 'signup' ? '👤' : a.type === 'deposit' ? '💰' : '💸'}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* User name + ID */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700 }}>{a.user_name}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text2)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 5px' }}>#{a.user_id}</span>
+                    {a.type === 'signup' && <span style={{ fontSize: 11, color: 'var(--text2)' }}>joined</span>}
                   </div>
+                  {/* Signup extras: referrer + plan */}
+                  {a.type === 'signup' && (
+                    <div style={{ marginTop: 3, display: 'flex', flexWrap: 'wrap', gap: '4px 10px', fontSize: 11, color: 'var(--text2)' }}>
+                      {a.referrer_name
+                        ? <span>Referred by: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{a.referrer_name}</span> <span style={{ opacity: 0.6 }}>#{a.referrer_id}</span></span>
+                        : <span style={{ opacity: 0.5 }}>No referrer</span>}
+                      {a.plan_name && <span>Plan: <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{a.plan_name}</span></span>}
+                      {a.plan_rate > 0 && <span>Cost: <span style={{ fontWeight: 600 }}>৳{Number(a.plan_rate).toLocaleString()}</span></span>}
+                    </div>
+                  )}
+                  {/* Deposit / Withdraw extras */}
+                  {(a.type === 'deposit' || a.type === 'withdraw') && (
+                    <div style={{ marginTop: 3, display: 'flex', flexWrap: 'wrap', gap: '4px 10px', fontSize: 11, color: 'var(--text2)' }}>
+                      <span style={{ color: a.type === 'deposit' ? 'var(--success)' : 'var(--danger)', fontWeight: 700, fontSize: 13 }}>
+                        {a.type === 'deposit' ? '+' : '-'}৳{Number(a.amount).toLocaleString()}
+                      </span>
+                      <span>via <span style={{ fontWeight: 600, color: 'var(--text1)', textTransform: 'uppercase' }}>{a.method}</span></span>
+                      {a.account && <span title={a.account} style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {a.account}</span>}
+                    </div>
+                  )}
                 </div>
-                <span style={{ color: 'var(--text2)', fontSize: 11 }}>{fmtDate(a.created_at)}</span>
+                <span style={{ color: 'var(--text2)', fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0 }}>{fmtDate(a.created_at)}</span>
               </div>
             ))}
           </div>

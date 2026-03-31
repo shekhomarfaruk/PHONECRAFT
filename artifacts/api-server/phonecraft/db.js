@@ -685,12 +685,42 @@ const stmts = {
     ORDER BY earned DESC LIMIT 10
   `),
   getRecentActivity: db.prepare(`
-    SELECT 'signup' as type, u.id, u.name as user_name, u.name as detail, u.created_at FROM users u WHERE u.created_at > datetime('now', '-24 hours') AND u.is_admin = 0
-    UNION ALL
-    SELECT t.type, t.id, u.name as user_name, CAST(t.amount AS TEXT) || ' ' || t.method as detail, t.created_at
-    FROM transactions t JOIN users u ON u.id = t.user_id
-    WHERE t.created_at > datetime('now', '-24 hours') AND u.is_admin = 0
-    ORDER BY created_at DESC LIMIT 30
+    SELECT * FROM (
+      SELECT
+        'signup' as type,
+        u.id as user_id,
+        u.name as user_name,
+        u.plan_id,
+        p.name as plan_name,
+        p.rate as plan_rate,
+        r.name as referrer_name,
+        r.id as referrer_id,
+        NULL as method,
+        NULL as account,
+        NULL as amount,
+        u.created_at
+      FROM users u
+      LEFT JOIN plans p ON p.id = u.plan_id
+      LEFT JOIN users r ON r.refer_code = u.referred_by
+      WHERE u.created_at > datetime('now', '-48 hours') AND u.is_admin = 0
+      UNION ALL
+      SELECT
+        t.type,
+        u.id as user_id,
+        u.name as user_name,
+        NULL as plan_id,
+        NULL as plan_name,
+        NULL as plan_rate,
+        NULL as referrer_name,
+        NULL as referrer_id,
+        t.method,
+        t.account,
+        t.amount,
+        t.created_at
+      FROM transactions t
+      JOIN users u ON u.id = t.user_id
+      WHERE t.created_at > datetime('now', '-48 hours') AND u.is_admin = 0
+    ) ORDER BY created_at DESC LIMIT 40
   `),
   upsertUserLocation: db.prepare(`
     INSERT INTO user_locations (user_id, lat, lng, accuracy, updated_at)
