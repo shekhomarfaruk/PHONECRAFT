@@ -1097,7 +1097,7 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
     try {
       const r = await authFetch(`${API}/api/admin/messages`, { method: 'POST', body: JSON.stringify({ target: msgTarget, userId: msgTarget === 'user' ? Number(msgUserId) : undefined, message: text }) });
       const d = await r.json();
-      if (r.ok) { setMsgText(''); toast(`Delivered to ${d.delivered || 0} users`); }
+      if (r.ok) { setMsgText(''); setMsgUserId(''); setMsgUserName(''); setMsgSearch(''); toast(`Delivered to ${d.delivered || 0} users`); }
       else toast(d.error || 'Failed', 'error');
     } catch { toast('Failed', 'error'); }
     finally { setMsgSending(false); }
