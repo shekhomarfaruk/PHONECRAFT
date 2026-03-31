@@ -455,7 +455,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userId: user.id, user: user.name, identifier: user.identifier,
+            user: user.name, identifier: user.identifier,
             amount: wAmt, method: 'crypto',
             account: cryptoWithdrawWallet.trim(), type: 'withdraw',
             blockchain, token, txnHash: '',
@@ -477,16 +477,18 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
     if (tab === 'deposit') {
       if (!amount) { showToast(t.fill_all_fields); return; }
       if (!depositNumber) { showToast(isBn ? 'Deposit number সেট করা নেই' : 'Deposit number not configured'); return; }
-      const depAmt = parseInt(amount);
+      const depAmt = Math.floor(Number(amount));
+      if (!Number.isFinite(depAmt) || depAmt <= 0) { showToast(t.fill_all_fields); return; }
       if (minDeposit > 0 && depAmt < minDeposit) { showToast(isBn ? `সর্বনিম্ন ডিপোজিট পরিমাণ ৳${minDeposit.toLocaleString()}` : `Minimum deposit is ৳${minDeposit.toLocaleString()}`); return; }
       if (maxDeposit > 0 && depAmt > maxDeposit) { showToast(isBn ? `সর্বোচ্চ ডিপোজিট পরিমাণ ৳${maxDeposit.toLocaleString()}` : `Maximum deposit is ৳${maxDeposit.toLocaleString()}`); return; }
-      setPaymentPage({ tab, method, amount, walletAddr: depositNumber });
+      setPaymentPage({ tab, method, amount: depAmt, walletAddr: depositNumber });
       return;
     }
 
     // Fiat Withdraw
     if (!amount || !acct) { showToast(t.fill_all_fields); return; }
-    const numAmt = parseInt(amount);
+    const numAmt = Math.floor(Number(amount));
+    if (!Number.isFinite(numAmt) || numAmt <= 0) { showToast(t.fill_all_fields); return; }
     if (minWithdraw > 0 && numAmt < minWithdraw) { showToast(isBn ? `সর্বনিম্ন উইথড্র পরিমাণ ৳${minWithdraw.toLocaleString()}` : `Minimum withdrawal is ৳${minWithdraw.toLocaleString()}`); return; }
     if (maxWithdraw > 0 && numAmt > maxWithdraw) { showToast(isBn ? `সর্বোচ্চ উইথড্র পরিমাণ ৳${maxWithdraw.toLocaleString()}` : `Maximum withdrawal is ৳${maxWithdraw.toLocaleString()}`); return; }
     if (numAmt > user.balance) { showToast(t.insufficient_balance); return; }
@@ -495,7 +497,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
       const res = await authFetch(`${API_URL}/api/withdraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, user: user.name, identifier: user.identifier, amount, method, account: acct, type: tab }),
+        body: JSON.stringify({ user: user.name, identifier: user.identifier, amount: numAmt, method, account: acct, type: tab }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -518,7 +520,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userId: user.id, user: user.name, identifier: user.identifier,
+            user: user.name, identifier: user.identifier,
             amount: page.amount, method: 'crypto',
             account: page.walletAddr, type: 'deposit', coinType: coinLabel,
             blockchain: page.blockchain, token: page.token, txnHash: page.txId || '',
@@ -541,7 +543,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
         const res = await authFetch(`${API_URL}/api/withdraw`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, user: user.name, identifier: user.identifier, amount: page.amount, method: page.method, account: page.walletAddr, type: 'deposit' }),
+          body: JSON.stringify({ user: user.name, identifier: user.identifier, amount: page.amount, method: page.method, account: page.walletAddr, type: 'deposit' }),
         });
         const data = await res.json();
         if (res.ok) {

@@ -199,7 +199,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.id, deviceName: deviceName.trim(),
+          deviceName: deviceName.trim(),
           brand, ram, rom, color,
         }),
       });
@@ -278,7 +278,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
       const res = await authFetch(`${API_URL}/api/manufacture/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, jobId: jobRef.current.id }),
+        body: JSON.stringify({ jobId: jobRef.current.id }),
       });
       const data = await res.json();
       if (!res.ok) { showToast(data.error || data.message, 'error'); return; }
