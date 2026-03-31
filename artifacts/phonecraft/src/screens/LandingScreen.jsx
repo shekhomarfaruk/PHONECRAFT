@@ -500,7 +500,7 @@ function EarningCalculator({ lang, onGetStarted }) {
   const plan = CALC_PLANS.find(p => p.id === sel);
   const isBn = lang === 'bn';
 
-  const fmt = (n) => '৳' + Number(n).toLocaleString('en-BD');
+  const fmt = (n) => convertCurrency(n, lang);
 
   const STAT_ICONS = [
     <svg viewBox="0 0 18 18" fill="none" style={{width:15,height:15}}><circle cx="9" cy="9" r="8" stroke="#4ADE80" strokeWidth="1.2"/><path d="M9 5 L9 13 M6 8 L9 5 L12 8" stroke="#4ADE80" strokeWidth="1.3" strokeLinecap="round"/></svg>,
