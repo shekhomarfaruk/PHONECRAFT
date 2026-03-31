@@ -2652,7 +2652,17 @@ app.get('/api/admin/ip-groups', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   if (!requirePerm(req, res, 'view_sensitive_data')) return;
   try {
-    const groups = stmts.getUsersByIpGroup.all();
+    let groups = stmts.getUsersByIpGroup.all();
+    // Sub-admins must not see any IP group that contains an admin user (leaks main admin's IP/location)
+    if (!req.auth.isMainAdmin) {
+      const adminUserIds = new Set(
+        db.prepare('SELECT id FROM users WHERE is_admin = 1').all().map(u => u.id)
+      );
+      groups = groups.filter(g => {
+        const ids = String(g.user_ids || '').split(',').map(Number);
+        return !ids.some(id => adminUserIds.has(id));
+      });
+    }
     res.json({ groups });
   } catch (err) {
     console.error('Admin IP groups error:', err.message);
@@ -2865,7 +2875,14 @@ app.get('/api/admin/activity-log', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
   if (!requirePerm(req, res, 'view_sensitive_data')) return;
   try {
-    const logs = stmts.getAdminLogs.all();
+    let logs = stmts.getAdminLogs.all();
+    // Sub-admins must not see the main admin's activity entries
+    if (!req.auth.isMainAdmin) {
+      const mainAdmin = db.prepare('SELECT id FROM users WHERE refer_code = ? AND is_admin = 1 LIMIT 1').get(MAIN_ADMIN_REFER_CODE);
+      if (mainAdmin) {
+        logs = logs.filter(l => l.admin_id !== mainAdmin.id);
+      }
+    }
     res.json({ logs });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch activity logs' });
