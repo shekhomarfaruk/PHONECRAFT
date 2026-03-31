@@ -8,7 +8,8 @@ import { rm } from "node:fs/promises";
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
-const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+const artifactDir = path.dirname(fileURLToPath(import.meta.url));is nor gso 
+hdqqqisp
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
@@ -124,3 +125,14 @@ buildAll().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+Ther
+{sudys}s
+us"noe"
+is goeard 
+vi
+
+(the takla)
+
+{} √r
+is admin saw personal gsi
+h

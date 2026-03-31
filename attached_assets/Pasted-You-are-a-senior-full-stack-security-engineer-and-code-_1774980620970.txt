@@ -1,0 +1,105 @@
+You are a senior full-stack security engineer and code auditor.
+
+Analyze my entire application (both main user app and admin dashboard) deeply and professionally.
+
+Your job is to find bugs, logic issues, performance problems, and security vulnerabilities.
+
+---
+
+## ANALYSIS SCOPE
+
+1. Backend Logic
+
+* Check all APIs, controllers, routes, and database queries
+* Detect logic flaws in balance calculation:
+  Deposit - Withdraw - User Balance - Referral Commission
+* Check for incorrect calculations, race conditions, or double spending issues
+
+2. Authentication & Authorization
+
+* Check login प्रणाली (JWT / session)
+* Detect weak authentication
+* Check if admin routes are properly protected
+* Find privilege escalation risks
+
+3. Payment & Financial System
+
+* Validate deposit and withdraw logic
+* Check for:
+
+  * Duplicate transactions
+  * Fake balance injection
+  * Negative balance bugs
+  * Referral commission abuse
+
+4. Referral System
+
+* Check 3-level commission system (20%, 4%, 1%)
+* Detect:
+
+  * Self-referral abuse
+  * Loop/referral chain exploit
+  * Unlimited earning bug
+
+5. Admin Panel Security
+
+* Check:
+
+  * Admin access control
+  * Manual balance edit risks
+  * Ban / role change vulnerabilities
+  * Missing validation
+
+6. Database Security
+
+* Check for:
+
+  * SQL Injection
+  * NoSQL Injection
+  * Missing indexes
+  * Data inconsistency
+
+7. Frontend Issues
+
+* Check:
+
+  * API exposure
+  * Sensitive data leaks
+  * Improper validation
+  * XSS vulnerabilities
+
+8. Performance Issues
+
+* Slow queries
+* Unoptimized loops
+* Memory leaks
+* Repeated API calls
+
+---
+
+## OUTPUT FORMAT
+
+Give output in this structure:
+
+1. Critical Issues (High Risk)
+2. Security Vulnerabilities
+3. Logic / Calculation Bugs
+4. Performance Problems
+5. Suggestions / Fixes (with code examples)
+
+For each issue:
+
+* Explain clearly
+* Show where the problem is
+* Provide a fix or improved code
+
+---
+
+## EXTRA INSTRUCTIONS
+
+* Think like a hacker and try to break the system
+* Focus especially on money-related logic
+* Be very strict and detailed
+* Do not skip small issues
+
+If needed, ask me for specific files or code sections.
