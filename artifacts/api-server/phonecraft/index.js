@@ -769,6 +769,18 @@ app.post('/api/register', registerLimiter, (req, res) => {
       meta
     );
 
+    // Alert admins in-app about new registration request
+    try {
+      const regAdminMsg = biMsg(
+        `🔔 New Registration Request: ${name.trim()} (${planRow.name.toUpperCase()}) — Referred by ${referrer.name}`,
+        `🔔 নতুন নিবন্ধন অনুরোধ: ${name.trim()} (${planRow.name.toUpperCase()}) — রেফার করেছেন: ${referrer.name}`
+      );
+      const allAdmins = stmts.getAdminUsers.all();
+      for (const adm of allAdmins) {
+        stmts.insertNotification.run(adm.id, regAdminMsg, 'info');
+      }
+    } catch (_) {}
+
     // Alert admins on Telegram (fire-and-forget)
     sendTelegram([
       `🔔 <b>নতুন Registration Request</b>`,
@@ -893,6 +905,21 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
     const newUser = approveTx();
     if (newUser?.alreadyProcessed)
       return res.status(409).json({ error: 'Already processed' });
+
+    // ── Notify all admins in-app about new user approval ─────────────────────
+    try {
+      const referrerUser = stmts.getUserByReferCode.get(pending.refer_code_used);
+      const referrerName = referrerUser ? referrerUser.name : pending.refer_code_used;
+      const adminMsg = biMsg(
+        `🆕 New Member Joined: ${pending.name} (${planRow.name.toUpperCase()}) — Referred by ${referrerName}`,
+        `🆕 নতুন সদস্য যোগ দিয়েছেন: ${pending.name} (${planRow.name.toUpperCase()}) — রেফার করেছেন: ${referrerName}`
+      );
+      const allAdmins = stmts.getAdminUsers.all();
+      for (const adm of allAdmins) {
+        stmts.insertNotification.run(adm.id, adminMsg, 'info');
+      }
+    } catch (_) {}
+
     res.json({ ok: true, user: toClientUser(newUser), plan: planRow, token: issueAuthToken(newUser) });
   } catch (err) {
     console.error('Approve error:', err.message);

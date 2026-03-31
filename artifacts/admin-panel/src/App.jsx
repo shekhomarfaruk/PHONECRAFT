@@ -964,7 +964,15 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
               <span className="badge badge-blue">ID: {selected.id}</span>
               <span className="badge badge-blue">{selected.identifier}</span>
               <span className="badge badge-purple">REF: {selected.refer_code}</span>
-              {selected.referred_by && <span className="badge badge-blue">By: {selected.referred_by}</span>}
+              {selected.referred_by && (() => {
+                const referrer = users.find(u => u.refer_code === selected.referred_by);
+                return (
+                  <span className="badge badge-blue" title={`Referral code: ${selected.referred_by}`} style={{ cursor: 'help' }}>
+                    👤 রেফার: {referrer ? `${referrer.name} (ID: ${referrer.id})` : selected.referred_by}
+                  </span>
+                );
+              })()}
+              {!selected.referred_by && <span className="badge" style={{ background: 'var(--bg2)', color: 'var(--text2)' }}>Direct / No Referrer</span>}
               <span className={`badge ${selected.banned ? 'badge-red' : 'badge-green'}`}>{selected.banned ? 'Banned' : 'Active'}</span>
               {selected.is_admin && <span className="badge badge-purple">Admin</span>}
               {selected.is_guest && <span className="badge badge-yellow">Guest</span>}
@@ -1104,9 +1112,11 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
       {loading ? <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading users...</div> : filtered.length === 0 ? <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>No users found</div> : (
         <div className="table-wrap">
           <table>
-            <thead><tr>{bulkMode && <th style={{ width: 30 }}></th>}<th>User</th><th>Plan</th><th>Balance</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
+            <thead><tr>{bulkMode && <th style={{ width: 30 }}></th>}<th>User</th><th>Plan</th><th>Balance</th><th>Referred By</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
             <tbody>
-              {filtered.map(u => (
+              {filtered.map(u => {
+                const referrer = u.referred_by ? users.find(r => r.refer_code === u.referred_by) : null;
+                return (
                 <tr key={u.id}>
                   {bulkMode && <td><input type="checkbox" checked={bulkIds.has(u.id)} onChange={() => { const n = new Set(bulkIds); n.has(u.id) ? n.delete(u.id) : n.add(u.id); setBulkIds(n); }} /></td>}
                   <td>
@@ -1120,6 +1130,13 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
                   </td>
                   <td><span style={{ color: u.plan_color, fontWeight: 600 }}>{u.plan_name}</span></td>
                   <td style={{ fontWeight: 700 }}>{formatMoney(u.balance)}</td>
+                  <td style={{ fontSize: 12 }}>
+                    {referrer
+                      ? <div style={{ cursor: 'pointer', color: 'var(--accent)' }} onClick={() => selectUser(referrer)} title="Click to view referrer">👤 {referrer.name}<div style={{ fontSize: 10, color: 'var(--text2)' }}>ID: {referrer.id}</div></div>
+                      : u.referred_by
+                        ? <span style={{ fontFamily: 'monospace', color: 'var(--text2)', fontSize: 11 }}>{u.referred_by}</span>
+                        : <span style={{ color: 'var(--text2)' }}>—</span>}
+                  </td>
                   <td><span className={`badge ${u.banned ? 'badge-red' : 'badge-green'}`}>{u.banned ? 'Banned' : 'Active'}</span></td>
                   <td style={{ fontSize: 11, color: 'var(--text2)' }}>{fmtDate(u.created_at)}</td>
                   <td>
@@ -1129,7 +1146,8 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
