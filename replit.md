@@ -24,14 +24,6 @@ pnpm workspace monorepo. The primary product is **PhoneCraft** — a virtual pho
 - **Auth**: Custom HMAC-SHA256 token (NOT JWT) signed with `AUTH_SECRET`. `authRequired` middleware sets `req.auth = {userId, isAdmin, user}`. `requireAdmin()` additionally sets `req.auth.isMainAdmin`. Always call both in admin routes that need isMainAdmin.
 - **DB file**: `artifacts/api-server/phonecraft/phonecraft.db` (gitignored)
 
-### PhoneCraft Presentation (`artifacts/phonecraft-presentation`)
-- **Framework**: React + Vite (TypeScript) — slides-style app
-- **Preview path**: `/phonecraft-presentation/` (port 5173 in dev)
-- **Dev command**: `pnpm --filter @workspace/phonecraft-presentation run dev`
-- 8 slides: Hero, Overview, How It Works, How to Earn, All Features, Login/Signup, App Screenshots, Closing
-- Uses Space Grotesk + Inter fonts, dark teal/purple brand palette
-- Screenshots stored in `public/` (ss-home.jpg, ss-login.jpg, ss-register.jpg)
-
 ### Admin Panel (`artifacts/admin-panel`)
 - **Framework**: React + Vite (JSX)
 - **Preview path**: `/admin-panel/` (port 3001 in dev)
