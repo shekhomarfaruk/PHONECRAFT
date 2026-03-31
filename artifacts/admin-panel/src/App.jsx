@@ -12,6 +12,19 @@ import {
 const BASE = import.meta.env.BASE_URL || '/admin-panel/';
 const API = `${window.location.origin}`;
 
+/** Parse bilingual JSON message {en, bn} based on lang */
+function parseMsg(text, lang = 'en') {
+  if (!text) return '';
+  const s = String(text);
+  if (s.startsWith('{') && s.includes('"en"')) {
+    try {
+      const p = JSON.parse(s);
+      return (lang === 'bn' ? p.bn : p.en) || p.en || p.bn || s;
+    } catch (_) {}
+  }
+  return s;
+}
+
 function Toast({ toasts }) {
   return (
     <div className="toast-container">
@@ -80,9 +93,11 @@ function MfgBackground() {
   );
 }
 
-function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
+function AdminNotifPanel({ open, onClose, authFetch, onNavigate, adminUser, lang }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [inbox, setInbox] = useState([]);
+  const [tab, setTab] = useState('activity');
 
   useEffect(() => {
     if (!open) return;
@@ -92,7 +107,14 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
       .then(d => setStats(d))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [open]);
+    // Also load admin's in-app notifications
+    if (adminUser?.id) {
+      authFetch(`${API}/api/user/${adminUser.id}/notifications`)
+        .then(r => r.json())
+        .then(d => setInbox((d.notifications || []).slice(0, 30)))
+        .catch(() => {});
+    }
+  }, [open, adminUser?.id]);
 
   if (!open) return null;
 
@@ -102,18 +124,36 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
   const recentActivity = (stats?.recentActivity || []).slice(0, 8);
   const total = pendingDeposits + pendingWithdrawals + unreplied;
 
+  const typeIcon = { success: '✅', info: '🔔', warning: '⚠️', error: '❌' };
+
   return (
     <>
       <div className="notif-panel-overlay" onClick={onClose} />
       <div className="notif-panel">
         <div className="notif-panel-header">
-          <div className="notif-panel-title">🔔 Activity Overview</div>
+          <div className="notif-panel-title">🔔 {lang === 'bn' ? 'নোটিফিকেশন' : 'Notifications'}</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', display: 'flex', padding: 4 }}>
             <X size={18} />
           </button>
         </div>
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--card)' }}>
+          {['activity', 'inbox'].map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              flex: 1, padding: '9px 0', fontSize: 12, fontWeight: 700,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: tab === t ? 'var(--primary)' : 'var(--text2)',
+              borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
+              transition: 'all .15s',
+            }}>
+              {t === 'activity'
+                ? (lang === 'bn' ? '📊 অ্যাক্টিভিটি' : '📊 Activity')
+                : (lang === 'bn' ? `📩 ইনবক্স${inbox.length ? ` (${inbox.length})` : ''}` : `📩 Inbox${inbox.length ? ` (${inbox.length})` : ''}`)}
+            </button>
+          ))}
+        </div>
         <div className="notif-panel-body">
-          {loading ? (
+          {tab === 'activity' && (loading ? (
             <div className="notif-empty">
               <RefreshCw size={24} style={{ opacity: 0.4, animation: 'spin 1s linear infinite' }} />
               <div style={{ fontSize: 13 }}>Loading...</div>
@@ -123,8 +163,8 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
               {total === 0 && recentActivity.length === 0 ? (
                 <div className="notif-empty">
                   <CheckCircle size={32} color="var(--success)" style={{ opacity: 0.6 }} />
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>All clear!</div>
-                  <div style={{ fontSize: 12 }}>No pending actions</div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{lang === 'bn' ? 'সব ঠিক আছে!' : 'All clear!'}</div>
+                  <div style={{ fontSize: 12 }}>{lang === 'bn' ? 'কোনো পেন্ডিং কাজ নেই' : 'No pending actions'}</div>
                 </div>
               ) : (
                 <>
@@ -132,8 +172,8 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
                     <div className="notif-item" onClick={() => { onNavigate('finance'); onClose(); }}>
                       <div className="notif-icon" style={{ background: 'rgba(5,150,105,0.1)' }}>💰</div>
                       <div className="notif-content">
-                        <div className="notif-content-title">{pendingDeposits} Pending Deposit{pendingDeposits > 1 ? 's' : ''}</div>
-                        <div className="notif-content-sub">Awaiting approval → Finance</div>
+                        <div className="notif-content-title">{pendingDeposits} {lang === 'bn' ? 'পেন্ডিং ডিপোজিট' : `Pending Deposit${pendingDeposits > 1 ? 's' : ''}`}</div>
+                        <div className="notif-content-sub">{lang === 'bn' ? 'অনুমোদনের অপেক্ষা → ফাইন্যান্স' : 'Awaiting approval → Finance'}</div>
                       </div>
                       <ChevronRight size={14} color="var(--text2)" />
                     </div>
@@ -142,8 +182,8 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
                     <div className="notif-item" onClick={() => { onNavigate('finance'); onClose(); }}>
                       <div className="notif-icon" style={{ background: 'rgba(220,38,38,0.1)' }}>💸</div>
                       <div className="notif-content">
-                        <div className="notif-content-title">{pendingWithdrawals} Pending Withdrawal{pendingWithdrawals > 1 ? 's' : ''}</div>
-                        <div className="notif-content-sub">Awaiting approval → Finance</div>
+                        <div className="notif-content-title">{pendingWithdrawals} {lang === 'bn' ? 'পেন্ডিং উইথড্র' : `Pending Withdrawal${pendingWithdrawals > 1 ? 's' : ''}`}</div>
+                        <div className="notif-content-sub">{lang === 'bn' ? 'অনুমোদনের অপেক্ষা → ফাইন্যান্স' : 'Awaiting approval → Finance'}</div>
                       </div>
                       <ChevronRight size={14} color="var(--text2)" />
                     </div>
@@ -152,15 +192,15 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
                     <div className="notif-item" onClick={() => { onNavigate('support'); onClose(); }}>
                       <div className="notif-icon" style={{ background: 'rgba(124,58,237,0.1)' }}>💬</div>
                       <div className="notif-content">
-                        <div className="notif-content-title">{unreplied} Unanswered Support{unreplied > 1 ? 's' : ''}</div>
-                        <div className="notif-content-sub">Users waiting for reply → Support</div>
+                        <div className="notif-content-title">{unreplied} {lang === 'bn' ? 'অনুত্তরিত সাপোর্ট' : `Unanswered Support${unreplied > 1 ? 's' : ''}`}</div>
+                        <div className="notif-content-sub">{lang === 'bn' ? 'ব্যবহারকারী অপেক্ষা করছে → সাপোর্ট' : 'Users waiting for reply → Support'}</div>
                       </div>
                       <ChevronRight size={14} color="var(--text2)" />
                     </div>
                   )}
                   {recentActivity.length > 0 && (
                     <div style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                      Recent Activity
+                      {lang === 'bn' ? 'সাম্প্রতিক কার্যক্রম' : 'Recent Activity'}
                     </div>
                   )}
                   {recentActivity.map((a, i) => (
@@ -171,7 +211,9 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
                       <div className="notif-content">
                         <div className="notif-content-title">{a.user_name || a.detail}</div>
                         <div className="notif-content-sub">
-                          {a.type === 'signup' ? 'New registration' : `${a.type === 'deposit' ? '+' : '-'}৳${a.detail?.split(' ')[0]}`}
+                          {a.type === 'signup'
+                            ? (lang === 'bn' ? 'নতুন রেজিস্ট্রেশন' : 'New registration')
+                            : `${a.type === 'deposit' ? '+' : '-'}৳${a.detail?.split(' ')[0]}`}
                           {' · '}{fmtDate(a.created_at)}
                         </div>
                       </div>
@@ -180,6 +222,28 @@ function AdminNotifPanel({ open, onClose, authFetch, onNavigate }) {
                 </>
               )}
             </>
+          ))}
+          {tab === 'inbox' && (
+            inbox.length === 0 ? (
+              <div className="notif-empty">
+                <Bell size={32} style={{ opacity: 0.3 }} />
+                <div style={{ fontSize: 13 }}>{lang === 'bn' ? 'কোনো নোটিফিকেশন নেই' : 'No notifications yet'}</div>
+              </div>
+            ) : (
+              inbox.map(n => (
+                <div key={n.id} className="notif-item" style={{ cursor: 'default', background: n.read ? 'transparent' : 'rgba(37,99,235,0.04)', borderLeft: n.read ? 'none' : '3px solid var(--primary)' }}>
+                  <div className="notif-icon" style={{ background: n.type === 'success' ? 'rgba(5,150,105,0.1)' : n.type === 'warning' ? 'rgba(234,88,12,0.1)' : n.type === 'error' ? 'rgba(220,38,38,0.1)' : 'rgba(37,99,235,0.1)', fontSize: 15 }}>
+                    {typeIcon[n.type] || '🔔'}
+                  </div>
+                  <div className="notif-content">
+                    <div className="notif-content-title" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>
+                      {parseMsg(n.message, lang)}
+                    </div>
+                    <div className="notif-content-sub">{fmtDate(n.created_at)}</div>
+                  </div>
+                </div>
+              ))
+            )
           )}
         </div>
       </div>
@@ -231,6 +295,7 @@ export default function App() {
   const [pendingCount, setPendingCount] = useState(0);
   const prevPendingRef = useRef(null);
   const [adminCurrency, setAdminCurrency] = useState(() => localStorage.getItem('admin-currency') || 'bdt');
+  const [adminLang, setAdminLang] = useState(() => localStorage.getItem('admin-lang') || 'en');
   const [treasuryBalance, setTreasuryBalance] = useState(null);
 
   const toast = (msg, type = 'success') => {
@@ -346,6 +411,8 @@ export default function App() {
         onClose={() => setNotifOpen(false)}
         authFetch={authFetch}
         onNavigate={(p) => { setPage(p); setSidebarOpen(false); }}
+        adminUser={adminUser}
+        lang={adminLang}
       />
       <div className="hamburger" onClick={() => setSidebarOpen(p => !p)}><Menu size={20} /></div>
       <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} />
@@ -397,6 +464,10 @@ export default function App() {
                 <span style={{ fontWeight: 800, fontSize: 14, color: '#0ECB81' }}>{formatMoney(treasuryBalance)}</span>
               </div>
             )}
+            <div style={{ display: 'flex', gap: 2, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: 2 }}>
+              <button onClick={() => { setAdminLang('en'); localStorage.setItem('admin-lang', 'en'); }} title="English" style={{ background: adminLang === 'en' ? 'var(--primary)' : 'none', color: adminLang === 'en' ? '#fff' : 'var(--text2)', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>EN</button>
+              <button onClick={() => { setAdminLang('bn'); localStorage.setItem('admin-lang', 'bn'); }} title="বাংলা" style={{ background: adminLang === 'bn' ? 'var(--primary)' : 'none', color: adminLang === 'bn' ? '#fff' : 'var(--text2)', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>বাং</button>
+            </div>
             <button
               onClick={toggleCurrency}
               title={adminCurrency === 'bdt' ? 'Switch to USD ($)' : 'Switch to BDT (৳)'}

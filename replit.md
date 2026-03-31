@@ -188,3 +188,6 @@ Two-tier role hierarchy:
 - **Admin broadcast i18n**: Admin message notifications are stored as bilingual JSON via biMsg()
 - **VAPID key warning**: Production warning logged if VAPID_PRIVATE_KEY env var is not set
 - **DB reset auth**: `/api/admin/reset-database` requires both `authRequired` + `requireAdmin()` so `isMainAdmin` is properly set; error responses do not leak internal err.message
+- **Admin language toggle**: Admin panel has EN/BN toggle (persisted as `admin-lang` in localStorage) in the topbar. `parseMsg(text, lang)` helper parses biMsg JSON `{en, bn}` throughout the admin panel.
+- **Admin notification inbox**: Bell dropdown in admin panel now has two tabs — "Activity" (pending counts + recent activity) and "Inbox" (fetches admin's DB notifications via `/api/user/{id}/notifications`, renders with `parseMsg`). All activity labels are bilingual.
+- **Notification lang re-render fix**: Main phonecraft app re-converts existing notification texts (using stored `rawText`) when lang changes, via `setNotifications` in the lang `useEffect`.

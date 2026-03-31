@@ -148,6 +148,11 @@ export default function App() {
         body: JSON.stringify({ lang }),
       }).catch(() => {});
     }
+    // Re-convert existing notification texts when language changes
+    setNotifications(prev => prev.map(n => ({
+      ...n,
+      text: convertCurrencyText(n.rawText || n.text, lang),
+    })));
   }, [lang, user?.id, auth]);
 
   // Persist theme to localStorage
