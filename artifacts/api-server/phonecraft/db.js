@@ -101,6 +101,20 @@ try { db.exec('ALTER TABLE login_logs ADD COLUMN device_id TEXT DEFAULT ""'); } 
 try { db.exec('ALTER TABLE login_logs ADD COLUMN device_name TEXT DEFAULT ""'); } catch (_) {}
 // Index for duplicate TxID prevention (non-unique to allow empty strings)
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_txn_hash ON transactions(txn_hash) WHERE txn_hash != ""'); } catch (_) {}
+// Performance indexes for financial queries (full-table-scan prevention)
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_user_type ON transactions(user_id, type)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_user_created ON transactions(user_id, created_at)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_user_status ON manufacturing_jobs(user_id, status)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_user_created ON manufacturing_jobs(user_id, created_at)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_balance_log_user ON balance_log(user_id)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users(referred_by)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)'); } catch (_) {}
+// Pending registration expiry column (48-hour window)
+try { db.exec("ALTER TABLE pending_registrations ADD COLUMN expires_at TEXT DEFAULT (datetime('now', '+48 hours'))"); } catch (_) {}
+// Backfill: existing rows without expires_at get 48h from created_at
+try { db.exec("UPDATE pending_registrations SET expires_at = datetime(created_at, '+48 hours') WHERE expires_at IS NULL AND status = 'pending'"); } catch (_) {}
 // Guest mode columns
 try { db.exec('ALTER TABLE users ADD COLUMN is_guest INTEGER DEFAULT 0'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN guest_device_id TEXT DEFAULT NULL'); } catch (_) {}
@@ -344,7 +358,8 @@ db.exec(`
     new_refer_code  TEXT NOT NULL,
     plan_rate       INTEGER NOT NULL,
     status          TEXT DEFAULT 'pending',
-    created_at      TEXT DEFAULT (datetime('now'))
+    created_at      TEXT DEFAULT (datetime('now')),
+    expires_at      TEXT DEFAULT (datetime('now', '+48 hours'))
   );
 `);
 

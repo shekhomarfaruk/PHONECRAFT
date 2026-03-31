@@ -47,13 +47,15 @@ Set in Replit (shared env vars in `.replit` `[userenv.shared]`):
 - `MAIN_ADMIN_REFER_CODE` — Main admin's referral code
 
 Set as Replit **Secrets** (encrypted, not in `.replit`):
-- `AUTH_SECRET` — JWT signing secret
+- `AUTH_SECRET` — HMAC signing secret for auth tokens (REQUIRED in production; if unset, sessions invalidate on restart)
 - `TELEGRAM_FINANCE_BOT_TOKEN` — Finance Telegram bot token
 - `TELEGRAM_SUPPORT_BOT_TOKEN` — Support Telegram bot token
 - `ADMIN_PASSWORD` — Admin panel password
 - `TELEGRAM_ADMIN_CHAT_IDS` — (also as secret for secure access)
 - `TELEGRAM_SUPPORT_CHAT_IDS` — (also as secret)
-- `TELEGRAM_FINANCE_BOT_TOKEN` — (also as secret)
+- `VAPID_PUBLIC_KEY` — Web push VAPID public key (REQUIRED; generate with `npx web-push generate-vapid-keys`)
+- `VAPID_PRIVATE_KEY` — Web push VAPID private key (REQUIRED; previously hardcoded — must be rotated)
+- `TELEGRAM_WEBHOOK_SECRET` — Secret token for Telegram webhook signature verification (optional but recommended)
 
 ## Telegram Integration
 

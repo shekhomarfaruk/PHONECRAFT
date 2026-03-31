@@ -13,12 +13,13 @@ const { db, stmts, sanitizeUser, todayDate } = require('./db');
 const { TelegramService } = require('./services/telegramService');
 
 // ── Web Push VAPID setup ─────────────────────────────────────────────────────
-const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || 'BMzqYPuk_-UyWtAuChDOHBT8vOnpBsYSWnFe6dPI6FHzsKPXaakfvfSWCz-etkDPn8p8gJ502QFYax6gyVLzgBg';
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || 'TYZRvv8BQmxFfQ6YQA8hie5sBOTTetrNstQGIIpwyMk';
-if (!process.env.VAPID_PRIVATE_KEY && process.env.NODE_ENV === 'production') {
-  console.warn('[SECURITY] VAPID_PRIVATE_KEY env var is not set — using insecure hardcoded fallback. Set this in production!');
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
+if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+  console.error('[SECURITY] VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY env vars must be set. Push notifications disabled.');
+} else {
+  webPush.setVapidDetails('mailto:admin@phonecraft.tech', VAPID_PUBLIC, VAPID_PRIVATE);
 }
-webPush.setVapidDetails('mailto:admin@phonecraft.tech', VAPID_PUBLIC, VAPID_PRIVATE);
 
 // Send push notification to a specific user (non-blocking)
 async function sendPush(userId, payload) {
@@ -164,8 +165,10 @@ const allowedOrigins = new Set([
   ...String(process.env.ALLOWED_ORIGINS || '').split(',').map(v => v.trim()).filter(Boolean),
 ]);
 const AUTH_SECRET = process.env.AUTH_SECRET
-  || process.env.TELEGRAM_BOT_TOKEN
   || (IS_PRODUCTION ? crypto.randomBytes(32).toString('hex') : 'local-dev-auth-secret');
+if (!process.env.AUTH_SECRET) {
+  console.warn('[SECURITY] AUTH_SECRET env var is not set. Sessions will invalidate on restart.');
+}
 
 function parseDeviceName(ua) {
   if (!ua || ua === 'unknown') return 'Unknown Device';
@@ -412,6 +415,12 @@ function requirePendingReferrerOrAdmin(req, res, next) {
     res.status(404).json({ error: 'Not found or already processed' });
     return;
   }
+  // Expiry check: auto-expire requests older than 48 hours
+  if (pending.expires_at && new Date(pending.expires_at + 'Z') < new Date()) {
+    stmts.updatePendingStatus.run('expired', pending.id);
+    res.status(410).json({ error: biMsg('Registration request has expired (48-hour limit). Please ask to re-register.', 'রেজিস্ট্রেশন রিকোয়েস্টের মেয়াদ শেষ হয়ে গেছে (৪৮ ঘণ্টা সীমা)।') });
+    return;
+  }
   if (!req.auth?.isAdmin && pending.referrer_id !== req.auth?.userId) {
     res.status(403).json({ error: 'Forbidden' });
     return;
@@ -513,10 +522,17 @@ function processTransactionAction({ txId, status, adminNote = '' }) {
 
     if (tx.type === 'withdraw' && status === 'approved') {
       // Admin treasury: withdrawal paid out — debit admin wallet
-      const mainAdmin = db.prepare("SELECT id FROM users WHERE refer_code=? AND is_admin=1 LIMIT 1").get(MAIN_ADMIN_REFER_CODE);
+      const mainAdmin = db.prepare("SELECT id, balance FROM users WHERE refer_code=? AND is_admin=1 LIMIT 1").get(MAIN_ADMIN_REFER_CODE);
       if (mainAdmin) {
         stmts.debitBalance.run(tx.amount, mainAdmin.id);
         stmts.insertBalanceLog.run({ user_id: mainAdmin.id, type: 'treasury_withdrawal_out', amount: -tx.amount, note: `Withdrawal paid to user #${tx.user_id} via ${tx.method} (${tx.account})` });
+        // Low treasury alert: notify if balance drops below ৳50,000
+        const LOW_TREASURY_THRESHOLD = 50000;
+        const newTreasuryBalance = Math.max(0, mainAdmin.balance - tx.amount);
+        if (newTreasuryBalance < LOW_TREASURY_THRESHOLD) {
+          const alertMsg = `⚠️ <b>LOW TREASURY ALERT</b>\nTreasury balance has dropped to ৳${newTreasuryBalance.toLocaleString()}.\nPlease add funds immediately.`;
+          sendTelegram(alertMsg, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS }).catch(() => {});
+        }
       }
     }
 
@@ -610,6 +626,17 @@ function requirePerm(req, res, perm) {
 const PAYMENT_NUM_KEYS  = new Set(['deposit_bkash','deposit_nagad','deposit_rocket','deposit_bank']);
 const WALLET_ADDR_KEYS  = new Set(['deposit_wallet_1','deposit_wallet_2','deposit_wallet_3','deposit_wallet_4','deposit_wallet_5','deposit_wallet_6','deposit_wallet_7','deposit_wallet_8','deposit_wallet_9','deposit_wallet_10','wallet_rotation_index']);
 const REQUIRE_PROOF_KEY = new Set(['require_withdraw_proof']);
+// Complete whitelist of allowed setting keys — prevents arbitrary key injection
+const ALL_ALLOWED_SETTING_KEYS = new Set([
+  ...PAYMENT_NUM_KEYS, ...WALLET_ADDR_KEYS, ...REQUIRE_PROOF_KEY,
+  'maintenance_mode', 'announcement_banner', 'min_withdraw', 'max_withdraw',
+  'min_deposit', 'max_deposit', 'daily_withdraw_limit', 'auto_hold_threshold',
+  'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3',
+  'transfer_daily_limit', 'transfer_min_balance', 'withdraw_cooldown_hours',
+  'require_tasks_for_withdraw', 'work_blocked_countries',
+  'guest_mode_enabled', 'crypto_enabled',
+  'work_time_enabled', 'work_time_start', 'work_time_end',
+]);
 
 function toClientUser(user) {
   const safe = sanitizeUser(user);
@@ -943,7 +970,13 @@ app.get('/api/registration/:id/status', (req, res) => {
   try {
     const pending = stmts.getPendingReg.get(Number(req.params.id));
     if (!pending) return res.status(404).json({ error: 'Not found' });
-    res.json({ status: pending.status });
+    // Auto-expire if past deadline
+    let status = pending.status;
+    if (status === 'pending' && pending.expires_at && new Date(pending.expires_at + 'Z') < new Date()) {
+      stmts.updatePendingStatus.run('expired', pending.id);
+      status = 'expired';
+    }
+    res.json({ status });
   } catch (err) {
     res.status(500).json({ error: 'Failed' });
   }
@@ -1594,6 +1627,9 @@ app.post('/api/admin/settings', authRequired, (req, res) => {
     // Batch update: { settings: { key: value, ... } }
     if (body.settings && typeof body.settings === 'object') {
       for (const [k, v] of Object.entries(body.settings)) {
+        if (!ALL_ALLOWED_SETTING_KEYS.has(k)) {
+          return res.status(400).json({ error: `Unknown setting key: ${k}` });
+        }
         stmts.setSetting.run(k, v ?? '');
       }
       return res.json({ ok: true });
@@ -1601,6 +1637,9 @@ app.post('/api/admin/settings', authRequired, (req, res) => {
     // Single update: { key, value }
     const { key, value } = body;
     if (!key) return res.status(400).json({ error: 'key required' });
+    if (!ALL_ALLOWED_SETTING_KEYS.has(key)) {
+      return res.status(400).json({ error: `Unknown setting key: ${key}` });
+    }
     stmts.setSetting.run(key, value ?? '');
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: 'Failed' }); }
@@ -1755,6 +1794,18 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         const existing = stmts.getTransactionByTxnHash.get(safeTxnHash);
         if (existing) {
           return { status: 400, body: { error: 'This Transaction ID has already been used' } };
+        }
+      }
+      // ── Deposit: no-TxID duplicate prevention (10-min window) ──
+      if (type === 'deposit' && !safeTxnHash) {
+        const recentDup = db.prepare(`
+          SELECT id FROM transactions
+          WHERE user_id = ? AND type = 'deposit' AND method = ? AND amount = ?
+          AND created_at >= datetime('now', '-10 minutes') AND status = 'pending'
+          LIMIT 1
+        `).get(req.auth.userId, method, numAmount);
+        if (recentDup) {
+          return { status: 400, body: { error: biMsg('Duplicate deposit request detected. Please wait 10 minutes before resubmitting.', 'একই ডিপোজিট রিকোয়েস্ট পাঠানো হয়েছে। ১০ মিনিট অপেক্ষা করুন।') } };
         }
       }
 
@@ -2032,6 +2083,16 @@ app.post('/api/support/message', authRequired, supportLimiter, async (req, res) 
 app.get('/api/support/messages/:sessionId', authRequired, (req, res) => {
   const sid = req.params.sessionId;
   if (!/^[a-zA-Z0-9_\-]{4,64}$/.test(sid)) return res.status(400).json({ error: 'Invalid session' });
+  // Ownership check: session must belong to the requesting user (or admin)
+  const ownerMatch = sid.match(/^user_(\d+)$/);
+  if (ownerMatch) {
+    const ownerId = Number(ownerMatch[1]);
+    if (!req.auth.isAdmin && req.auth.userId !== ownerId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  } else if (!req.auth.isAdmin) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
   try {
     const msgs = stmts.getSupportMsgs.all(sid);
     res.json({ messages: msgs });
@@ -2169,8 +2230,21 @@ app.post('/api/admin/support/reply', authRequired, async (req, res) => {
   }
 });
 
+// ── Telegram Webhook Signature Verification ───────────────────────────────────
+const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+function verifyTelegramWebhook(req, res, next) {
+  if (TELEGRAM_WEBHOOK_SECRET) {
+    const header = req.headers['x-telegram-bot-api-secret-token'];
+    if (!header || header !== TELEGRAM_WEBHOOK_SECRET) {
+      console.warn('[Security] Telegram webhook rejected — invalid secret token from', req.ip);
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  }
+  next();
+}
+
 // ── Telegram Support Webhook ──────────────────────────────────────────────────
-app.post('/webhook/telegram', (req, res) => {
+app.post('/webhook/telegram', verifyTelegramWebhook, (req, res) => {
   res.sendStatus(200); // always ack immediately
   telegramService.handleSupportUpdate(req.body).catch((err) => {
     console.error('[Telegram Support Webhook] Error:', err.message);
@@ -2178,7 +2252,7 @@ app.post('/webhook/telegram', (req, res) => {
 });
 
 // ── Telegram Finance Webhook (admin commands) ───────────────────────────────
-app.post('/webhook/telegram/finance', (req, res) => {
+app.post('/webhook/telegram/finance', verifyTelegramWebhook, (req, res) => {
   res.sendStatus(200); // always ack immediately
   telegramService.handleAdminCommands(req.body).catch((err) => {
     console.error('[Telegram Finance Webhook] Error:', err.message);
@@ -2338,6 +2412,15 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
     const is_admin = requesterIsMain
       ? (req.body.is_admin !== undefined ? (req.body.is_admin ? 1 : 0) : user.is_admin)
       : user.is_admin;
+
+    // Validate balance: must be non-negative and within sane limit
+    const MAX_ADMIN_SET_BALANCE = 100_000_000; // ৳10 crore hard ceiling
+    if (isNaN(balance) || balance < 0) {
+      return res.status(400).json({ error: 'Balance must be a non-negative number' });
+    }
+    if (balance > MAX_ADMIN_SET_BALANCE) {
+      return res.status(400).json({ error: `Balance cannot exceed ${fmtAmt(MAX_ADMIN_SET_BALANCE, 'en')}` });
+    }
 
     // Newly promoted delegated admins must start from zero and earn via work.
     if (requesterIsMain && !user.is_admin && is_admin === 1) {
