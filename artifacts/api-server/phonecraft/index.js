@@ -1632,6 +1632,7 @@ app.post('/api/admin/settings', authRequired, (req, res) => {
         }
         stmts.setSetting.run(k, v ?? '');
       }
+      logAdminAction(req, 'update_settings', 'settings', 0, JSON.stringify(Object.keys(body.settings)));
       return res.json({ ok: true });
     }
     // Single update: { key, value }
@@ -1641,6 +1642,7 @@ app.post('/api/admin/settings', authRequired, (req, res) => {
       return res.status(400).json({ error: `Unknown setting key: ${key}` });
     }
     stmts.setSetting.run(key, value ?? '');
+    logAdminAction(req, 'update_settings', 'settings', 0, `${key} = ${String(value ?? '').slice(0, 100)}`);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: 'Failed' }); }
 });
@@ -1664,6 +1666,7 @@ app.put('/api/admin/settings/guest-mode', authRequired, (req, res) => {
     const { enabled } = req.body || {};
     if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) required' });
     stmts.setSetting.run('guest_mode_enabled', enabled ? '1' : '0');
+    logAdminAction(req, 'update_settings', 'settings', 0, `guest_mode_enabled = ${enabled}`);
     res.json({ ok: true, guest_mode_enabled: enabled });
   } catch (err) { res.status(500).json({ error: 'Failed' }); }
 });
@@ -2439,8 +2442,8 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
       stmts.insertBalanceLog.run({
         user_id: id, type: 'admin_adjustment', amount: diff,
         note: biMsg(
-          `Admin balance adjustment: ${fmtAmt(user.balance, 'en')} → ${fmtAmt(balance, 'en')}`,
-          `Admin ব্যালেন্স সংশোধন: ${fmtAmt(user.balance, 'bn')} → ${fmtAmt(balance, 'bn')}`
+          `Admin #${adminId} (${requester.name}) adjusted balance: ${fmtAmt(user.balance, 'en')} → ${fmtAmt(balance, 'en')}`,
+          `Admin #${adminId} (${requester.name}) ব্যালেন্স সংশোধন: ${fmtAmt(user.balance, 'bn')} → ${fmtAmt(balance, 'bn')}`
         ),
       });
       const uLangAdj = getUserLang(id);
@@ -2488,6 +2491,14 @@ app.patch('/api/admin/users/:id', authRequired, (req, res) => {
         });
       }
     }
+
+    // Audit trail: record every privileged change in the admin log
+    const adminChanges = [];
+    if (balance !== user.balance) adminChanges.push(`balance: ${fmtAmt(user.balance, 'en')} → ${fmtAmt(balance, 'en')}`);
+    if (banned !== user.banned) adminChanges.push(banned ? 'banned' : 'unbanned');
+    if (is_admin !== user.is_admin) adminChanges.push(is_admin ? 'promoted to admin' : 'admin removed');
+    if (plan_id !== user.plan_id) adminChanges.push(`plan: ${user.plan_id} → ${plan_id}`);
+    if (adminChanges.length > 0) logAdminAction(req, 'update_user', 'user', id, adminChanges.join('; '));
 
     const updated = stmts.getUserById.get(id);
     res.json({ user: toClientUser(updated), plan });
@@ -2830,6 +2841,7 @@ app.post('/api/admin/messages', authRequired, (req, res) => {
       });
     }
 
+    logAdminAction(req, 'broadcast_message', 'users', target === 'user' ? Number(userId || 0) : 0, `target=${target}; msg=${text.slice(0, 120)}`);
     res.json({ ok: true, delivered: recipients.length });
   } catch (err) {
     console.error('Admin message error:', err.message);
@@ -2892,7 +2904,11 @@ app.get('/api/admin/users/:id/full-profile', authRequired, (req, res) => {
       SELECT COUNT(*) as count FROM support_chats WHERE session_id = ?
     `).get(`user_${userId}`);
 
-    const { password, ...safeUser } = user;
+    const hasSensitiveAccess = req.auth.isMainAdmin || getSubAdminPerms(req.auth.userId).view_sensitive_data;
+    const { password, last_login_info: rawLoginInfo, ...safeUser } = user;
+    if (hasSensitiveAccess && rawLoginInfo) {
+      try { safeUser.last_login_info = JSON.parse(rawLoginInfo); } catch (_) {}
+    }
 
     res.json({
       user: safeUser,
@@ -2901,7 +2917,7 @@ app.get('/api/admin/users/:id/full-profile', authRequired, (req, res) => {
       mfgStats,
       transactions,
       recentJobs,
-      loginLogs,
+      loginLogs: hasSensitiveAccess ? loginLogs : [],
       balanceLog,
       balanceSummary,
       referralStats,
@@ -3200,9 +3216,14 @@ app.post('/api/admin/users/:id/force-password-reset', authRequired, (req, res) =
     if (!newPassword || newPassword.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
+    const targetForReset = stmts.getUserById.get(userId);
+    if (!targetForReset) return res.status(404).json({ error: 'User not found' });
+    if (targetForReset.is_admin && !req.auth.isMainAdmin) {
+      return res.status(403).json({ error: 'Only the main admin can reset another admin\'s password' });
+    }
     const hash = bcrypt.hashSync(newPassword, 10);
     db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, userId);
-    logAdminAction(req, 'force_password_reset', 'user', userId, '');
+    logAdminAction(req, 'force_password_reset', 'user', userId, `reset password for ${targetForReset.name} (${targetForReset.identifier})`);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to reset password' });
