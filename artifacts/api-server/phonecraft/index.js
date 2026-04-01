@@ -6,6 +6,8 @@ const path     = require('path');
 const fs       = require('fs');
 const multer   = require('multer');
 const webPush  = require('web-push');
+// Optional 2FA modules — loaded lazily so the server starts even if absent.
+// All 2FA endpoints check for null and return HTTP 503 when unavailable.
 let speakeasy, qrcode;
 try { speakeasy = require('speakeasy'); } catch (_) { speakeasy = null; }
 try { qrcode    = require('qrcode');    } catch (_) { qrcode = null; }
