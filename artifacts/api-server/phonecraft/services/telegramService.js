@@ -131,7 +131,7 @@ class TelegramService {
       `🆔 <b>Request ID:</b> #${requestId}`,
       `🕐 <b>সময়:</b> ${timestamp}`,
       '━━━━━━━━━━━━━━━━━━━',
-      `<code>/approve ${requestId}</code>`,
+      '🔐 <i>Admin Panel থেকে approve/reject করুন।</i>',
     );
     const text = lines.join('\n');
 
@@ -165,7 +165,7 @@ class TelegramService {
       `🆔 <b>Request ID:</b> #${requestId}`,
       `🕐 <b>সময়:</b> ${timestamp}`,
       '━━━━━━━━━━━━━━━━━━━',
-      `<code>/pay ${requestId}</code>`,
+      '🔐 <i>Admin Panel থেকে approve/reject করুন।</i>',
     ];
     const text = lines.join('\n');
 
@@ -186,11 +186,6 @@ class TelegramService {
     return deliveries;
   }
 
-  validateTrxId(trxId) {
-    const value = String(trxId || '').trim();
-    return /^[A-Za-z0-9_-]{4,64}$/.test(value);
-  }
-
   isAdminChatId(chatId) {
     return this.adminChatIds.has(String(chatId));
   }
@@ -208,157 +203,7 @@ class TelegramService {
   }
 
   async handleAdminCommands(update) {
-    const msg = update?.message;
-    if (!msg) return { handled: false, reason: 'no-message' };
-
-    const chatId = String(msg.chat?.id || '');
-    const senderId = String(msg.from?.id || '');
-    const text = this.getMessageText(msg);
-    if (!text.startsWith('/')) return { handled: false, reason: 'not-command' };
-
-    const isAdminActor = this.isAdminChatId(chatId) || this.isAdminChatId(senderId);
-    if (!isAdminActor) {
-      this.logAction('handleAdminCommands', false, `unauthorized chat=${chatId} sender=${senderId}`);
-      return { handled: false, reason: 'unauthorized' };
-    }
-
-    const [command, ...args] = text.split(/\s+/);
-
-    if (command === '/approve') {
-      if (args.length < 2) {
-        await this.replyToChat(chatId, 'Usage: /approve {request_id} {trxid_or_number}', {
-          replyToMessageId: msg.message_id,
-        });
-        return { handled: true, ok: false };
-      }
-
-      const requestId = Number(args[0]);
-      const trxId = String(args[1] || '').trim();
-
-      if (!Number.isInteger(requestId) || requestId <= 0) {
-        await this.replyToChat(chatId, 'Invalid request_id', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-
-      if (!this.validateTrxId(trxId)) {
-        await this.replyToChat(chatId, 'Invalid trxid_or_number format', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-
-      const tx = this.stmts.getTransactionById.get(requestId);
-      if (!tx) {
-        await this.replyToChat(chatId, 'Request not found', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-      if (tx.type !== 'deposit') {
-        await this.replyToChat(chatId, 'Request is not a deposit', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-
-      const result = this.processTransactionAction({
-        txId: requestId,
-        status: 'approved',
-        adminNote: `trxid:${trxId}`,
-      });
-
-      if (result.status !== 200) {
-        await this.replyToChat(chatId, `Approve failed: ${result.body?.error || 'unknown error'}`, {
-          replyToMessageId: msg.message_id,
-        });
-        this.logAction('approve', false, `tx=${requestId} reason=${result.body?.error || 'failed'}`);
-        return { handled: true, ok: false, result };
-      }
-
-      await this.replyToChat(chatId, `Approved deposit #${requestId} with trxid ${trxId}`, {
-        replyToMessageId: msg.message_id,
-      });
-      this.logAction('approve', true, `tx=${requestId}`);
-      return { handled: true, ok: true, result };
-    }
-
-    if (command === '/reject') {
-      if (args.length < 1) {
-        await this.replyToChat(chatId, 'Usage: /reject {request_id}', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-
-      const requestId = Number(args[0]);
-      if (!Number.isInteger(requestId) || requestId <= 0) {
-        await this.replyToChat(chatId, 'Invalid request_id', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-
-      const tx = this.stmts.getTransactionById.get(requestId);
-      if (!tx) {
-        await this.replyToChat(chatId, 'Request not found', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-      if (tx.type !== 'deposit') {
-        await this.replyToChat(chatId, 'Request is not a deposit', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-
-      const result = this.processTransactionAction({
-        txId: requestId,
-        status: 'rejected',
-        adminNote: 'Rejected via Telegram command',
-      });
-
-      if (result.status !== 200) {
-        await this.replyToChat(chatId, `Reject failed: ${result.body?.error || 'unknown error'}`, {
-          replyToMessageId: msg.message_id,
-        });
-        this.logAction('reject', false, `tx=${requestId} reason=${result.body?.error || 'failed'}`);
-        return { handled: true, ok: false, result };
-      }
-
-      await this.replyToChat(chatId, `Rejected deposit #${requestId}`, { replyToMessageId: msg.message_id });
-      this.logAction('reject', true, `tx=${requestId}`);
-      return { handled: true, ok: true, result };
-    }
-
-    if (command === '/paid') {
-      if (args.length < 1) {
-        await this.replyToChat(chatId, 'Usage: /paid {request_id}', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-
-      const requestId = Number(args[0]);
-      if (!Number.isInteger(requestId) || requestId <= 0) {
-        await this.replyToChat(chatId, 'Invalid request_id', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-
-      const tx = this.stmts.getTransactionById.get(requestId);
-      if (!tx) {
-        await this.replyToChat(chatId, 'Request not found', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-      if (tx.type !== 'withdraw') {
-        await this.replyToChat(chatId, 'Request is not a withdraw', { replyToMessageId: msg.message_id });
-        return { handled: true, ok: false };
-      }
-
-      const result = this.processTransactionAction({
-        txId: requestId,
-        status: 'approved',
-        adminNote: 'Marked paid via Telegram command',
-      });
-
-      if (result.status !== 200) {
-        await this.replyToChat(chatId, `Paid failed: ${result.body?.error || 'unknown error'}`, {
-          replyToMessageId: msg.message_id,
-        });
-        this.logAction('paid', false, `tx=${requestId} reason=${result.body?.error || 'failed'}`);
-        return { handled: true, ok: false, result };
-      }
-
-      await this.replyToChat(chatId, `Marked withdraw #${requestId} as paid`, { replyToMessageId: msg.message_id });
-      this.logAction('paid', true, `tx=${requestId}`);
-      return { handled: true, ok: true, result };
-    }
-
-    return { handled: false, reason: 'unknown-command' };
+    return { handled: false, reason: 'no-commands' };
   }
 
   async forwardSupportMessage({ sessionId, message, senderName }) {
