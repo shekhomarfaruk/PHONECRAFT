@@ -56,7 +56,9 @@ jobs:
               "node-fetch": "^3.3.2",
               "cookie-parser": "^1.4.7",
               "web-push": "^3.6.7",
-              "multer": "^2.1.1"
+              "multer": "^2.1.1",
+              "speakeasy": "^2.0.0",
+              "qrcode": "^1.5.4"
             }
           }' > server/package.json
           cd server && npm install --production && npm rebuild better-sqlite3 --build-from-source
