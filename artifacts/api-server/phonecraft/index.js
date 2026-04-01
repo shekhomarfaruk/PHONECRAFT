@@ -2859,10 +2859,9 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
   }
 });
 
-// ── GET /api/admin/balance-summary — dual balance cards (main admin only) ────
+// ── GET /api/admin/balance-summary — dual balance cards (all admins) ────
 app.get('/api/admin/balance-summary', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
   try {
     const admin12 = db.prepare('SELECT plan_id FROM users WHERE id=12 LIMIT 1').get();
     const planRow = admin12 ? db.prepare('SELECT rate FROM plans WHERE id=? LIMIT 1').get(admin12.plan_id) : null;

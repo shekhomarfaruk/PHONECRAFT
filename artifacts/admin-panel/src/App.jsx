@@ -396,7 +396,7 @@ export default function App() {
   const isMain = !!adminUser.is_main_admin;
   const canPayment = isMain || adminPerms.modify_payment_numbers || adminPerms.modify_wallet_addresses;
   const navItems = [
-    ...(isMain ? [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }] : []),
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'finance', label: 'Finance', icon: CreditCard },
     ...(isMain ? [{ id: 'flagged', label: 'Flagged', icon: Flag }] : []),
@@ -754,8 +754,7 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const fetches = [authFetch(`${API}/api/admin/stats`)];
-      if (isMain) fetches.push(authFetch(`${API}/api/admin/balance-summary`));
+      const fetches = [authFetch(`${API}/api/admin/stats`), authFetch(`${API}/api/admin/balance-summary`)];
       const [r, r2] = await Promise.all(fetches);
       const d = await r.json();
       if (r.ok) setStats(d);
@@ -803,7 +802,7 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
         </div>
       )}
 
-      {isMain && balSummary && (
+      {balSummary && (
         <div className="grid-2" style={{ marginBottom: 20 }}>
           <div className="card" style={{ borderColor: balSummary.userBalance >= 0 ? 'rgba(14,203,129,0.3)' : 'rgba(246,70,93,0.3)', background: balSummary.userBalance >= 0 ? 'linear-gradient(135deg,rgba(14,203,129,0.07),rgba(14,203,129,0.02))' : 'linear-gradient(135deg,rgba(246,70,93,0.07),rgba(246,70,93,0.02))' }}>
             <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, letterSpacing: 1, marginBottom: 4 }}>USER BALANCE</div>
