@@ -6,8 +6,9 @@ const path     = require('path');
 const fs       = require('fs');
 const multer   = require('multer');
 const webPush  = require('web-push');
-const speakeasy = require('speakeasy');
-const qrcode    = require('qrcode');
+let speakeasy, qrcode;
+try { speakeasy = require('speakeasy'); } catch (_) { speakeasy = null; }
+try { qrcode    = require('qrcode');    } catch (_) { qrcode = null; }
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config();
 
@@ -1127,6 +1128,7 @@ app.post('/api/admin/login', adminLoginLimiter, async (req, res) => {
 
 // ── POST /api/admin/2fa/verify-login — complete login with TOTP code ─────────
 app.post('/api/admin/2fa/verify-login', adminLoginLimiter, (req, res) => {
+  if (!speakeasy) return res.status(503).json({ error: '2FA module not available on this server' });
   try {
     const { preToken, totpCode } = req.body || {};
     if (!preToken || !totpCode) return res.status(400).json({ error: 'preToken and totpCode required' });
@@ -1164,6 +1166,7 @@ app.post('/api/admin/2fa/verify-login', adminLoginLimiter, (req, res) => {
 // ── POST /api/admin/2fa/setup — generate TOTP secret + QR code ───────────────
 app.post('/api/admin/2fa/setup', authRequired, async (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!speakeasy || !qrcode) return res.status(503).json({ error: '2FA module not available on this server' });
   try {
     const user = stmts.getUserById.get(req.auth.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -1192,6 +1195,7 @@ app.post('/api/admin/2fa/setup', authRequired, async (req, res) => {
 // ── POST /api/admin/2fa/enable — verify first code and activate 2FA ───────────
 app.post('/api/admin/2fa/enable', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!speakeasy) return res.status(503).json({ error: '2FA module not available on this server' });
   try {
     const { totpCode } = req.body || {};
     if (!totpCode) return res.status(400).json({ error: 'totpCode required' });
@@ -1215,6 +1219,7 @@ app.post('/api/admin/2fa/enable', authRequired, (req, res) => {
 // ── POST /api/admin/2fa/disable — disable 2FA (requires current TOTP) ────────
 app.post('/api/admin/2fa/disable', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
+  if (!speakeasy) return res.status(503).json({ error: '2FA module not available on this server' });
   try {
     const { totpCode } = req.body || {};
     if (!totpCode) return res.status(400).json({ error: 'Current TOTP code required to disable 2FA' });
