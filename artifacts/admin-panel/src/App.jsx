@@ -527,6 +527,8 @@ function LoginScreen({ onLogin }) {
   const [pw, setPw] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [preToken, setPreToken] = useState('');
+  const [totpCode, setTotpCode] = useState('');
 
   const login = async (e) => {
     e.preventDefault();
@@ -537,7 +539,9 @@ function LoginScreen({ onLogin }) {
         body: JSON.stringify({ identifier: id, password: pw }),
       });
       const data = await res.json();
-      if (res.ok && data.token && data.user?.is_admin) {
+      if (res.ok && data.requires2FA && data.preToken) {
+        setPreToken(data.preToken);
+      } else if (res.ok && data.token && data.user?.is_admin) {
         onLogin(data.token, data.user);
       } else {
         setErr(data.error || 'Invalid credentials');
@@ -545,6 +549,68 @@ function LoginScreen({ onLogin }) {
     } catch { setErr('Connection error'); }
     finally { setLoading(false); }
   };
+
+  const verify2FA = async (e) => {
+    e.preventDefault();
+    setLoading(true); setErr('');
+    try {
+      const res = await fetch(`${API}/api/admin/2fa/verify-login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preToken, totpCode: totpCode.replace(/\s/g, '') }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token && data.user?.is_admin) {
+        onLogin(data.token, data.user);
+      } else {
+        setErr(data.error || 'Invalid code');
+        if (res.status === 401 && data.error?.includes('expired')) {
+          setPreToken('');
+          setTotpCode('');
+        }
+      }
+    } catch { setErr('Connection error'); }
+    finally { setLoading(false); }
+  };
+
+  if (preToken) {
+    return (
+      <div className="login-container">
+        <MfgBackground />
+        <form className="login-box" onSubmit={verify2FA}>
+          <div className="login-logo">
+            <div className="login-logo-icon"><Shield size={22} color="#fff" /></div>
+          </div>
+          <h1>2-Factor Auth</h1>
+          <p className="subtitle">Enter the code from your authenticator app</p>
+          {err && (
+            <div style={{ background: 'rgba(220,38,38,0.07)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 10, padding: '10px 14px', color: 'var(--danger)', fontSize: 12, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <AlertTriangle size={14} /> {err}
+            </div>
+          )}
+          <label className="input-label">6-Digit Code</label>
+          <input
+            className="inp"
+            value={totpCode}
+            onChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="000000"
+            autoFocus
+            maxLength={6}
+            inputMode="numeric"
+            style={{ letterSpacing: 6, fontSize: 22, textAlign: 'center', fontWeight: 700 }}
+          />
+          <button className="btn btn-primary btn-full" type="submit" disabled={loading || totpCode.length < 6} style={{ marginTop: 8 }}>
+            <Lock size={14} /> {loading ? 'Verifying...' : 'Verify Code'}
+          </button>
+          <button type="button" className="btn btn-outline btn-full" style={{ marginTop: 8 }} onClick={() => { setPreToken(''); setTotpCode(''); setErr(''); }}>
+            ← Back to Login
+          </button>
+          <div style={{ marginTop: 12, textAlign: 'center', fontSize: 11, color: 'var(--text2)' }}>
+            Code expires in 5 minutes
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="login-container">
@@ -1059,8 +1125,8 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
   };
 
   const resetPw = async (uid) => {
-    const pw = prompt('Enter new password (min 6 chars):');
-    if (!pw || pw.length < 6) return;
+    const pw = prompt('Enter new password (min 8 chars):');
+    if (!pw || pw.length < 8) return;
     try {
       const r = await authFetch(`${API}/api/admin/users/${uid}/force-password-reset`, { method: 'POST', body: JSON.stringify({ newPassword: pw }) });
       if (r.ok) toast('Password reset done');
@@ -2577,19 +2643,53 @@ function SettingsPage({ authFetch, toast }) {
   const [saving, setSaving] = useState(false);
   const [plans, setPlans] = useState([]);
   const [editPlan, setEditPlan] = useState(null);
+  const [twoFA, setTwoFA] = useState({ enabled: false, qrDataUrl: '', manualCode: '', step: 'idle', code: '', disableCode: '', loading: false });
 
   const load = useCallback(async () => {
     try {
-      const [sr, pr] = await Promise.all([
+      const [sr, pr, mr] = await Promise.all([
         authFetch(`${API}/api/admin/settings`),
         authFetch(`${API}/api/admin/plans`),
+        authFetch(`${API}/api/admin/me`),
       ]);
       const sd = await sr.json();
       const pd = await pr.json();
+      const md = await mr.json();
       if (sr.ok && sd.settings) setSettings(sd.settings);
       if (pr.ok) setPlans(pd.plans || []);
+      if (mr.ok && md.user) setTwoFA(p => ({ ...p, enabled: !!md.user.totp_enabled }));
     } catch {}
   }, []);
+
+  const setup2FA = async () => {
+    setTwoFA(p => ({ ...p, loading: true }));
+    try {
+      const r = await authFetch(`${API}/api/admin/2fa/setup`, { method: 'POST' });
+      const d = await r.json();
+      if (r.ok) setTwoFA(p => ({ ...p, qrDataUrl: d.qrDataUrl, manualCode: d.manualCode, step: 'scan', loading: false }));
+      else { toast(d.error || 'Failed', 'error'); setTwoFA(p => ({ ...p, loading: false })); }
+    } catch { toast('Failed', 'error'); setTwoFA(p => ({ ...p, loading: false })); }
+  };
+
+  const enable2FA = async () => {
+    setTwoFA(p => ({ ...p, loading: true }));
+    try {
+      const r = await authFetch(`${API}/api/admin/2fa/enable`, { method: 'POST', body: JSON.stringify({ totpCode: twoFA.code }) });
+      const d = await r.json();
+      if (r.ok) { toast('2FA enabled! Keep your authenticator app safe.', 'success'); setTwoFA({ enabled: true, qrDataUrl: '', manualCode: '', step: 'idle', code: '', disableCode: '', loading: false }); }
+      else { toast(d.error || 'Invalid code', 'error'); setTwoFA(p => ({ ...p, loading: false })); }
+    } catch { toast('Failed', 'error'); setTwoFA(p => ({ ...p, loading: false })); }
+  };
+
+  const disable2FA = async () => {
+    setTwoFA(p => ({ ...p, loading: true }));
+    try {
+      const r = await authFetch(`${API}/api/admin/2fa/disable`, { method: 'POST', body: JSON.stringify({ totpCode: twoFA.disableCode }) });
+      const d = await r.json();
+      if (r.ok) { toast('2FA disabled', 'success'); setTwoFA({ enabled: false, qrDataUrl: '', manualCode: '', step: 'idle', code: '', disableCode: '', loading: false }); }
+      else { toast(d.error || 'Invalid code', 'error'); setTwoFA(p => ({ ...p, loading: false })); }
+    } catch { toast('Failed', 'error'); setTwoFA(p => ({ ...p, loading: false })); }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -2618,6 +2718,88 @@ function SettingsPage({ authFetch, toast }) {
       <div className="page-header">
         <div><h1>App Settings</h1><div className="subtitle">Configure platform parameters</div></div>
         <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save All Settings'}</button>
+      </div>
+
+      {/* 2FA Security Card */}
+      <div className="card" style={{ borderColor: twoFA.enabled ? 'rgba(34,197,94,0.3)' : 'rgba(59,130,246,0.2)' }}>
+        <div className="card-title"><Shield size={16} color={twoFA.enabled ? 'var(--success)' : 'var(--accent)'} /> Two-Factor Authentication (2FA)</div>
+        {twoFA.enabled ? (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 14px', background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>2FA is Active</span>
+              <span style={{ fontSize: 12, color: 'var(--text2)' }}>— Your account is protected by an authenticator app</span>
+            </div>
+            {twoFA.step !== 'disable' ? (
+              <button className="btn btn-outline btn-sm" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }} onClick={() => setTwoFA(p => ({ ...p, step: 'disable', disableCode: '' }))}>
+                Disable 2FA
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 340 }}>
+                <div style={{ fontSize: 13, color: 'var(--text2)' }}>Enter your current authenticator code to disable 2FA:</div>
+                <input
+                  className="inp"
+                  value={twoFA.disableCode}
+                  onChange={e => setTwoFA(p => ({ ...p, disableCode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                  placeholder="000000"
+                  maxLength={6}
+                  inputMode="numeric"
+                  style={{ letterSpacing: 4, fontSize: 18, textAlign: 'center', fontWeight: 700 }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-sm" style={{ background: 'var(--danger)', color: '#fff' }} disabled={twoFA.disableCode.length < 6 || twoFA.loading} onClick={disable2FA}>
+                    {twoFA.loading ? 'Disabling...' : 'Confirm Disable'}
+                  </button>
+                  <button className="btn btn-outline btn-sm" onClick={() => setTwoFA(p => ({ ...p, step: 'idle', disableCode: '' }))}>Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : twoFA.step === 'idle' ? (
+          <div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
+              2FA adds an extra layer of security to your admin account. You will need your authenticator app (Google Authenticator, Authy, etc.) every time you log in.
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={setup2FA} disabled={twoFA.loading}>
+              <Shield size={14} /> {twoFA.loading ? 'Loading...' : 'Setup 2FA'}
+            </button>
+          </div>
+        ) : twoFA.step === 'scan' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>
+              <strong>Step 1:</strong> Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.):
+            </div>
+            {twoFA.qrDataUrl && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+                <img src={twoFA.qrDataUrl} alt="2FA QR Code" style={{ width: 180, height: 180, border: '2px solid var(--border)', borderRadius: 12, background: '#fff', padding: 8 }} />
+                <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+                  Can't scan? Use this manual code:<br />
+                  <code style={{ fontSize: 12, letterSpacing: 2, color: 'var(--accent)', fontWeight: 700, userSelect: 'all' }}>{twoFA.manualCode}</code>
+                </div>
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>
+                <strong>Step 2:</strong> Enter the 6-digit code shown in your authenticator app to confirm setup:
+              </div>
+              <input
+                className="inp"
+                value={twoFA.code}
+                onChange={e => setTwoFA(p => ({ ...p, code: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                placeholder="000000"
+                maxLength={6}
+                inputMode="numeric"
+                style={{ letterSpacing: 4, fontSize: 18, textAlign: 'center', fontWeight: 700, maxWidth: 180 }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary btn-sm" disabled={twoFA.code.length < 6 || twoFA.loading} onClick={enable2FA}>
+                {twoFA.loading ? 'Activating...' : 'Activate 2FA'}
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={() => setTwoFA(p => ({ ...p, step: 'idle', qrDataUrl: '', manualCode: '', code: '' }))}>Cancel</button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="card" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>

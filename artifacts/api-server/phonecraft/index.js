@@ -6,6 +6,8 @@ const path     = require('path');
 const fs       = require('fs');
 const multer   = require('multer');
 const webPush  = require('web-push');
+const speakeasy = require('speakeasy');
+const qrcode    = require('qrcode');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config();
 
@@ -641,9 +643,11 @@ const ALL_ALLOWED_SETTING_KEYS = new Set([
 function toClientUser(user) {
   const safe = sanitizeUser(user);
   if (!safe) return safe;
+  const { totp_secret, ...rest } = safe;
   return {
-    ...safe,
+    ...rest,
     is_main_admin: isMainAdminUser(user),
+    totp_enabled: !!user.totp_enabled,
   };
 }
 
@@ -748,8 +752,8 @@ app.post('/api/register', registerLimiter, (req, res) => {
       return res.status(400).json({ error: 'Name must be 2–60 characters' });
     if (cleanId.length < 5 || cleanId.length > 80)
       return res.status(400).json({ error: 'Phone/email must be 5–80 characters' });
-    if (cleanPass.length < 6 || cleanPass.length > 100)
-      return res.status(400).json({ error: 'Password must be 6–100 characters' });
+    if (cleanPass.length < 8 || cleanPass.length > 100)
+      return res.status(400).json({ error: 'Password must be 8–100 characters' });
     if (!/^[a-zA-Z0-9._@+\-]+$/.test(cleanId))
       return res.status(400).json({ error: 'Invalid phone/email format' });
 
@@ -1102,6 +1106,15 @@ app.post('/api/admin/login', adminLoginLimiter, async (req, res) => {
     if (user.banned) {
       return res.status(403).json({ error: 'Account suspended' });
     }
+    // If admin has 2FA enabled, issue a short-lived pre-auth token instead of full JWT
+    if (user.totp_enabled && user.totp_secret) {
+      const preToken = require('jsonwebtoken').sign(
+        { userId: user.id, scope: 'totp_pending' },
+        process.env.AUTH_SECRET || 'dev-secret',
+        { expiresIn: '5m' }
+      );
+      return res.json({ requires2FA: true, preToken });
+    }
     const token = issueAuthToken(user);
     try {
       stmts.insertAdminLog.run({ admin_id: user.id, action: 'admin_login', target_type: 'user', target_id: user.id, details: 'Admin panel login', ip });
@@ -1109,6 +1122,118 @@ app.post('/api/admin/login', adminLoginLimiter, async (req, res) => {
     res.json({ token, user: toClientUser(user) });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// ── POST /api/admin/2fa/verify-login — complete login with TOTP code ─────────
+app.post('/api/admin/2fa/verify-login', adminLoginLimiter, (req, res) => {
+  try {
+    const { preToken, totpCode } = req.body || {};
+    if (!preToken || !totpCode) return res.status(400).json({ error: 'preToken and totpCode required' });
+    let payload;
+    try {
+      payload = require('jsonwebtoken').verify(preToken, process.env.AUTH_SECRET || 'dev-secret');
+    } catch (_) {
+      return res.status(401).json({ error: 'Pre-auth token expired or invalid. Please log in again.' });
+    }
+    if (payload.scope !== 'totp_pending') return res.status(401).json({ error: 'Invalid token scope' });
+    const user = stmts.getUserById.get(payload.userId);
+    if (!user || !user.is_admin || !user.totp_enabled || !user.totp_secret) {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+    const valid = speakeasy.totp.verify({
+      secret: user.totp_secret,
+      encoding: 'base32',
+      token: String(totpCode).replace(/\s/g, ''),
+      window: 1,
+    });
+    if (!valid) {
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
+      try { stmts.insertAdminLog.run({ admin_id: user.id, action: '2fa_failed', target_type: 'user', target_id: user.id, details: `Wrong TOTP from ${ip}`, ip }); } catch (_) {}
+      return res.status(401).json({ error: 'Invalid 2FA code. Please try again.' });
+    }
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
+    const token = issueAuthToken(user);
+    try { stmts.insertAdminLog.run({ admin_id: user.id, action: 'admin_login', target_type: 'user', target_id: user.id, details: 'Admin panel login (2FA)', ip }); } catch (_) {}
+    res.json({ token, user: toClientUser(user) });
+  } catch (err) {
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+// ── POST /api/admin/2fa/setup — generate TOTP secret + QR code ───────────────
+app.post('/api/admin/2fa/setup', authRequired, async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const user = stmts.getUserById.get(req.auth.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    // Generate a new TOTP secret
+    const secret = speakeasy.generateSecret({
+      name: `PhoneCraft Admin (${user.identifier || user.name})`,
+      issuer: 'PhoneCraft',
+      length: 20,
+    });
+    // Temporarily store secret (not yet enabled) so the user can confirm it
+    db.prepare('UPDATE users SET totp_secret = ? WHERE id = ?').run(secret.base32, user.id);
+    const otpauthUrl = speakeasy.otpauthURL({
+      secret: secret.base32,
+      label: encodeURIComponent(user.identifier || user.name),
+      issuer: 'PhoneCraft Admin',
+      encoding: 'base32',
+    });
+    const qrDataUrl = await qrcode.toDataURL(otpauthUrl);
+    res.json({ qrDataUrl, manualCode: secret.base32 });
+  } catch (err) {
+    console.error('2FA setup error:', err.message);
+    res.status(500).json({ error: 'Failed to generate 2FA secret' });
+  }
+});
+
+// ── POST /api/admin/2fa/enable — verify first code and activate 2FA ───────────
+app.post('/api/admin/2fa/enable', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { totpCode } = req.body || {};
+    if (!totpCode) return res.status(400).json({ error: 'totpCode required' });
+    const user = stmts.getUserById.get(req.auth.userId);
+    if (!user || !user.totp_secret) return res.status(400).json({ error: 'Run 2FA setup first' });
+    const valid = speakeasy.totp.verify({
+      secret: user.totp_secret,
+      encoding: 'base32',
+      token: String(totpCode).replace(/\s/g, ''),
+      window: 1,
+    });
+    if (!valid) return res.status(400).json({ error: 'Invalid code — scan the QR code again or wait for the next code' });
+    db.prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?').run(user.id);
+    logAdminAction(req, 'enable_2fa', 'user', user.id, '');
+    res.json({ ok: true, message: '2FA enabled successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to enable 2FA' });
+  }
+});
+
+// ── POST /api/admin/2fa/disable — disable 2FA (requires current TOTP) ────────
+app.post('/api/admin/2fa/disable', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { totpCode } = req.body || {};
+    if (!totpCode) return res.status(400).json({ error: 'Current TOTP code required to disable 2FA' });
+    const user = stmts.getUserById.get(req.auth.userId);
+    if (!user || !user.totp_enabled || !user.totp_secret) {
+      return res.status(400).json({ error: '2FA is not enabled on this account' });
+    }
+    const valid = speakeasy.totp.verify({
+      secret: user.totp_secret,
+      encoding: 'base32',
+      token: String(totpCode).replace(/\s/g, ''),
+      window: 1,
+    });
+    if (!valid) return res.status(400).json({ error: 'Invalid 2FA code' });
+    db.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?').run(user.id);
+    logAdminAction(req, 'disable_2fa', 'user', user.id, '');
+    res.json({ ok: true, message: '2FA disabled' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to disable 2FA' });
   }
 });
 
@@ -1591,6 +1716,14 @@ app.get('/api/deposit/next-wallet', (req, res) => {
   }
 });
 
+// ── Admin me (current admin info) ────────────────────────────────────────────
+app.get('/api/admin/me', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const user = stmts.getUserById.get(req.auth.userId);
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  return res.json({ user: toClientUser(user) });
+});
+
 // ── Admin settings ────────────────────────────────────────────────────────────
 app.get('/api/admin/settings', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
@@ -1680,8 +1813,8 @@ app.patch('/api/user/:id/change-password', authRequired, passwordLimiter, requir
       return res.status(400).json({ error: 'Both passwords are required' });
     if (String(currentPassword).length > 200 || String(newPassword).length > 200)
       return res.status(400).json({ error: 'Invalid credentials' });
-    if (newPassword.length < 6)
-      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    if (newPassword.length < 8)
+      return res.status(400).json({ error: 'New password must be at least 8 characters' });
 
     const user = stmts.getUserById.get(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -3230,8 +3363,8 @@ app.post('/api/admin/users/:id/force-password-reset', authRequired, (req, res) =
   try {
     const userId = Number(req.params.id);
     const { newPassword } = req.body || {};
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
     const targetForReset = stmts.getUserById.get(userId);
     if (!targetForReset) return res.status(404).json({ error: 'User not found' });
@@ -3509,7 +3642,7 @@ app.post('/api/reset-password', resetPasswordLimiter, (req, res) => {
   const { token, newPassword } = req.body || {};
   if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
   const pwStr = String(newPassword);
-  if (pwStr.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (pwStr.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
   if (pwStr.length > 128) return res.status(400).json({ error: 'Password too long (max 128 characters)' });
   const tokenStr = String(token).trim();
   if (tokenStr.length > 20) return res.status(400).json({ error: 'Invalid reset code' });

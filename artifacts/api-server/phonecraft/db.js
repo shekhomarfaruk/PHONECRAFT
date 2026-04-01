@@ -279,6 +279,10 @@ try { db.exec('ALTER TABLE support_chats ADD COLUMN status TEXT DEFAULT NULL'); 
 // Add user language preference (bn = Bangla/BDT, en = English/USD)
 try { db.exec("ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'bn'"); } catch (_) {}
 
+// 2FA TOTP support for admin accounts
+try { db.exec('ALTER TABLE users ADD COLUMN totp_secret TEXT DEFAULT NULL'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN totp_enabled INTEGER DEFAULT 0'); } catch (_) {}
+
 // Support session metadata table
 db.exec(`
   CREATE TABLE IF NOT EXISTS support_sessions (
