@@ -1,3 +1,82 @@
+// ── Maintenance fallback — must be the very first thing ──────────────────────
+// If the app crashes at startup (missing module, DB error, etc.) this fallback
+// server takes over so users see a friendly maintenance page instead of the
+// Azure "Application Error" screen.
+const http = require('http');
+const _PORT_FALLBACK = process.env.PORT || 4000;
+
+const MAINTENANCE_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PhoneCraft – Maintenance</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f172a 100%);
+       font-family:'Segoe UI',sans-serif;color:#e2e8f0}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+        border-radius:20px;padding:48px 40px;text-align:center;max-width:420px;
+        box-shadow:0 25px 60px rgba(0,0,0,.4)}
+  .icon{font-size:56px;margin-bottom:20px;animation:spin 8s linear infinite}
+  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+  h1{font-size:26px;font-weight:700;margin-bottom:10px;
+     background:linear-gradient(90deg,#38bdf8,#818cf8);
+     -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  p{color:#94a3b8;font-size:15px;line-height:1.6;margin-bottom:24px}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;
+         background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.2);
+         border-radius:99px;font-size:13px;color:#38bdf8}
+  .dot{width:8px;height:8px;border-radius:50%;background:#38bdf8;
+       animation:pulse 1.5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">⚙️</div>
+  <h1>Under Maintenance</h1>
+  <p>PhoneCraft is currently undergoing scheduled maintenance.<br/>
+  We'll be back shortly. Thank you for your patience!</p>
+  <div class="badge"><span class="dot"></span> Working on it…</div>
+</div>
+</body>
+</html>`;
+
+let _maintenanceServer = null;
+
+function startMaintenanceServer(reason) {
+  if (_maintenanceServer) return;
+  console.error('[Maintenance] Starting fallback server. Reason:', reason || 'unknown');
+  _maintenanceServer = http.createServer((req, res) => {
+    if (req.url && req.url.startsWith('/api/')) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Service temporarily unavailable. Please try again later.' }));
+    } else if (req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'maintenance' }));
+    } else {
+      res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(MAINTENANCE_HTML);
+    }
+  });
+  _maintenanceServer.listen(_PORT_FALLBACK, '0.0.0.0', () => {
+    console.error(`[Maintenance] Fallback server running on port ${_PORT_FALLBACK}`);
+  });
+}
+
+// Catch startup crashes — before any other requires can throw
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.message, err.stack);
+  startMaintenanceServer(err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+  startMaintenanceServer(String(reason));
+});
+
+// ── Main application ──────────────────────────────────────────────────────────
 const express  = require('express');
 const cors     = require('cors');
 const bcrypt   = require('bcryptjs');
