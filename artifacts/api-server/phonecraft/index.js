@@ -3677,35 +3677,46 @@ app.post('/api/admin/reset-database-selective', authRequired, (req, res) => {
     const ph = keepSet.map(() => '?').join(',');
 
     let deletedUserCount = 0;
-    db.transaction(() => {
-      // Count users being deleted first
-      deletedUserCount = db.prepare(`SELECT COUNT(*) as cnt FROM users WHERE id NOT IN (${ph})`).get(keepSet).cnt;
+    // Temporarily disable FK enforcement so we can clean up in any order
+    // (re-enabled in the finally block below)
+    db.pragma('foreign_keys = OFF');
+    try {
+      db.transaction(() => {
+        // Count users being deleted first
+        deletedUserCount = db.prepare(`SELECT COUNT(*) as cnt FROM users WHERE id NOT IN (${ph})`).get(keepSet).cnt;
 
-      // ── Step 1: Delete child rows for non-kept users BEFORE deleting users ──
-      // Tables with user_id column
-      const userIdTables = [
-        'transactions', 'balance_log', 'notifications', 'support_chats',
-        'support_sessions', 'team_chat', 'team_chat_reads', 'manufacturing_jobs',
-        'referral_activity', 'login_logs', 'user_locations',
-        'push_subscriptions', 'password_resets',
-      ];
-      for (const tbl of userIdTables) {
-        try { db.prepare(`DELETE FROM ${tbl} WHERE user_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
-      }
+        // ── Step 1: Delete child rows for non-kept users BEFORE deleting users ──
+        // Tables with user_id column
+        const userIdTables = [
+          'transactions', 'balance_log', 'notifications', 'support_chats',
+          'support_sessions', 'team_chat', 'team_chat_reads', 'manufacturing_jobs',
+          'referral_activity', 'login_logs', 'user_locations',
+          'push_subscriptions', 'password_resets',
+        ];
+        for (const tbl of userIdTables) {
+          try { db.prepare(`DELETE FROM ${tbl} WHERE user_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
+        }
 
-      // Tables with different user-referencing columns
-      try { db.prepare(`DELETE FROM admin_activity_log WHERE admin_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
-      try { db.prepare(`DELETE FROM admin_permissions WHERE admin_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
-      try { db.prepare(`DELETE FROM admin_messages WHERE sender_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
+        // Tables with different user-referencing columns
+        try { db.prepare(`DELETE FROM admin_activity_log WHERE admin_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
+        try { db.prepare(`DELETE FROM admin_permissions WHERE admin_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
+        try { db.prepare(`DELETE FROM admin_messages WHERE sender_id NOT IN (${ph})`).run(keepSet); } catch (_) {}
 
-      // Tables with no user reference — always clear fully
-      try { db.prepare('DELETE FROM tg_msg_map').run(); } catch (_) {}
-      try { db.prepare('DELETE FROM telegram_action_logs').run(); } catch (_) {}
-      try { db.prepare('DELETE FROM pending_registrations').run(); } catch (_) {}
+        // Reassign canned_responses created by non-kept users to main admin
+        // (keep the responses themselves, just fix the FK reference)
+        try { db.prepare(`UPDATE canned_responses SET created_by = ? WHERE created_by NOT IN (${ph})`).run(mainAdmin.id, ...keepSet); } catch (_) {}
 
-      // ── Step 2: Now safe to delete users ──
-      db.prepare(`DELETE FROM users WHERE id NOT IN (${ph})`).run(keepSet);
-    })();
+        // Tables with no user reference — always clear fully
+        try { db.prepare('DELETE FROM tg_msg_map').run(); } catch (_) {}
+        try { db.prepare('DELETE FROM telegram_action_logs').run(); } catch (_) {}
+        try { db.prepare('DELETE FROM pending_registrations').run(); } catch (_) {}
+
+        // ── Step 2: Now safe to delete users ──
+        db.prepare(`DELETE FROM users WHERE id NOT IN (${ph})`).run(keepSet);
+      })();
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
 
     console.log(`[Admin] Selective DB reset: kept users [${keepSet.join(',')}], deleted ${deletedUserCount} users at ${new Date().toISOString()}`);
     res.json({ ok: true, message: `Done. Deleted ${deletedUserCount} user(s). Kept user IDs: [${keepSet.join(', ')}].` });
@@ -3733,19 +3744,24 @@ app.post('/api/admin/reset-database', authRequired, (req, res) => {
       'referral_activity', 'admin_activity_log', 'login_logs',
       'telegram_action_logs', 'tg_msg_map', 'user_locations',
       'push_subscriptions', 'pending_registrations', 'admin_permissions',
-      'admin_messages',
+      'admin_messages', 'canned_responses', 'password_resets',
     ];
 
-    db.transaction(() => {
-      // Delete all users except main admin
-      db.prepare("DELETE FROM users WHERE refer_code != ?").run(MAIN_ADMIN_REFER_CODE);
-      // Clear all other tables
-      for (const tbl of tablesToClear) {
-        try { db.prepare(`DELETE FROM ${tbl}`).run(); } catch (_) {}
-      }
-      // Reset sqlite sequences
-      try { db.prepare("DELETE FROM sqlite_sequence WHERE name != 'plans' AND name != 'app_settings' AND name != 'canned_responses'").run(); } catch (_) {}
-    })();
+    db.pragma('foreign_keys = OFF');
+    try {
+      db.transaction(() => {
+        // Clear all child tables first
+        for (const tbl of tablesToClear) {
+          try { db.prepare(`DELETE FROM ${tbl}`).run(); } catch (_) {}
+        }
+        // Now safe to delete users
+        db.prepare("DELETE FROM users WHERE refer_code != ?").run(MAIN_ADMIN_REFER_CODE);
+        // Reset sqlite sequences
+        try { db.prepare("DELETE FROM sqlite_sequence WHERE name != 'plans' AND name != 'app_settings'").run(); } catch (_) {}
+      })();
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
 
     console.log(`[Admin] Database reset by main admin at ${new Date().toISOString()}`);
     res.json({ ok: true, message: 'Database reset complete. All user data has been cleared.' });
