@@ -2859,6 +2859,31 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
   }
 });
 
+// ── GET /api/admin/balance-summary — dual balance cards (main admin only) ────
+app.get('/api/admin/balance-summary', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  try {
+    const admin12 = db.prepare('SELECT plan_id FROM users WHERE id=12 LIMIT 1').get();
+    const planRow = admin12 ? db.prepare('SELECT rate FROM plans WHERE id=? LIMIT 1').get(admin12.plan_id) : null;
+    const INITIAL_BDT = planRow ? planRow.rate : 12800;
+
+    const planBuy       = db.prepare("SELECT COALESCE(SUM(ABS(amount)),0) AS v FROM balance_log WHERE type='referral_spend' AND amount<0").get().v;
+    const deposits      = db.prepare("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='deposit' AND status='approved'").get().v;
+    const withdrawals   = db.prepare("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='withdraw' AND status='approved'").get().v;
+    const dailyEarn     = db.prepare("SELECT COALESCE(SUM(amount),0) AS v FROM balance_log WHERE type='daily_earn' AND amount>0").get().v;
+    const referralBonus = db.prepare("SELECT COALESCE(SUM(amount),0) AS v FROM balance_log WHERE type IN ('referral_bonus','team_bonus') AND amount>0").get().v;
+
+    const userBalance    = planBuy + deposits - withdrawals - dailyEarn - referralBonus;
+    const mainAppBalance = INITIAL_BDT + deposits - withdrawals;
+
+    res.json({ planBuy, deposits, withdrawals, dailyEarn, referralBonus, userBalance, mainAppBalance, initialBDT: INITIAL_BDT });
+  } catch (err) {
+    console.error('Balance summary error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch balance summary' });
+  }
+});
+
 // ── GET /api/admin/analytics — period-based financial analytics ──────────────
 app.get('/api/admin/analytics', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;

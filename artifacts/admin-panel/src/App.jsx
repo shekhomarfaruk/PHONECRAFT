@@ -749,16 +749,23 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bkModal, setBkModal] = useState(null);
+  const [balSummary, setBalSummary] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await authFetch(`${API}/api/admin/stats`);
+      const fetches = [authFetch(`${API}/api/admin/stats`)];
+      if (isMain) fetches.push(authFetch(`${API}/api/admin/balance-summary`));
+      const [r, r2] = await Promise.all(fetches);
       const d = await r.json();
       if (r.ok) setStats(d);
+      if (r2) {
+        const d2 = await r2.json();
+        if (r2.ok) setBalSummary(d2);
+      }
     } catch {}
     finally { setLoading(false); }
-  }, []);
+  }, [isMain]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -792,6 +799,33 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
               </div>
             </div>
             <button className="btn btn-sm btn-outline" onClick={refreshTreasury}><RefreshCw size={13} /> Refresh</button>
+          </div>
+        </div>
+      )}
+
+      {isMain && balSummary && (
+        <div className="grid-2" style={{ marginBottom: 20 }}>
+          <div className="card" style={{ borderColor: balSummary.userBalance >= 0 ? 'rgba(14,203,129,0.3)' : 'rgba(246,70,93,0.3)', background: balSummary.userBalance >= 0 ? 'linear-gradient(135deg,rgba(14,203,129,0.07),rgba(14,203,129,0.02))' : 'linear-gradient(135deg,rgba(246,70,93,0.07),rgba(246,70,93,0.02))' }}>
+            <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, letterSpacing: 1, marginBottom: 4 }}>USER BALANCE</div>
+            <div style={{ fontSize: 36, fontWeight: 900, color: balSummary.userBalance >= 0 ? '#0ECB81' : '#F6465D', lineHeight: 1 }}>{formatMoney(balSummary.userBalance)}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(14,203,129,0.12)', color: '#0ECB81', fontWeight: 600 }}>Plan Buy +{formatMoney(balSummary.planBuy)}</span>
+              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(14,203,129,0.12)', color: '#0ECB81', fontWeight: 600 }}>Deposit +{formatMoney(balSummary.deposits)}</span>
+              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(246,70,93,0.12)', color: '#F6465D', fontWeight: 600 }}>Withdraw −{formatMoney(balSummary.withdrawals)}</span>
+              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(246,70,93,0.12)', color: '#F6465D', fontWeight: 600 }}>Daily Earn −{formatMoney(balSummary.dailyEarn)}</span>
+              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(246,70,93,0.12)', color: '#F6465D', fontWeight: 600 }}>Referral Bonus −{formatMoney(balSummary.referralBonus)}</span>
+            </div>
+          </div>
+
+          <div className="card" style={{ borderColor: 'rgba(30,177,253,0.3)', background: 'linear-gradient(135deg,rgba(30,177,253,0.07),rgba(30,177,253,0.02))' }}>
+            <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, letterSpacing: 1, marginBottom: 4 }}>MAIN APP BALANCE</div>
+            <div style={{ fontSize: 36, fontWeight: 900, color: balSummary.mainAppBalance >= 0 ? '#0ECB81' : '#F6465D', lineHeight: 1 }}>{formatMoney(balSummary.mainAppBalance)}</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>≈{formatMoneyUSD(balSummary.mainAppBalance)} USD</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(30,177,253,0.12)', color: '#1EB1FD', fontWeight: 600 }}>Initial {formatMoneyUSD(balSummary.initialBDT)} / ৳{(Number(balSummary.initialBDT) || 0).toLocaleString()}</span>
+              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(14,203,129,0.12)', color: '#0ECB81', fontWeight: 600 }}>+Deposits {formatMoney(balSummary.deposits)}</span>
+              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(246,70,93,0.12)', color: '#F6465D', fontWeight: 600 }}>−Withdrawals {formatMoney(balSummary.withdrawals)}</span>
+            </div>
           </div>
         </div>
       )}
