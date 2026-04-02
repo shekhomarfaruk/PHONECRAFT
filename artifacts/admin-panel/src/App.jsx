@@ -447,7 +447,7 @@ export default function App() {
             </div>
           </div>
           <div className="sidebar-admin-badge">
-            <Shield size={9} /> {isMain ? 'Main Admin' : 'Sub Admin'}
+            <Shield size={9} /> Admin
           </div>
           <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
             {adminUser.name}
@@ -1360,9 +1360,9 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
                   {(isMain || adminPerms?.ban_users) && <button className={`btn btn-sm ${selected.banned ? 'btn-success' : 'btn-danger'}`} onClick={() => toggleBan(selected)}>{selected.banned ? 'Unban' : 'Ban'}</button>}
                   {isMain && !selected.is_admin && !selected.is_guest && (
                     <button className="btn btn-outline btn-sm" style={{ borderColor: 'rgba(139,92,246,0.5)', color: '#8B5CF6' }} onClick={async () => {
-                      if (!confirm(`Promote "${selected.name}" to sub-admin? Their balance will be reset to 0.`)) return;
+                      if (!confirm(`Promote "${selected.name}" to Admin? Their balance will be reset to 0.`)) return;
                       const r = await authFetch(`${API}/api/admin/users/${selected.id}`, { method: 'PATCH', body: JSON.stringify({ is_admin: true }) });
-                      if (r.ok) { toast('User promoted to sub-admin'); load(); setSelected(null); }
+                      if (r.ok) { toast('User promoted to Admin'); load(); setSelected(null); }
                       else toast((await r.json()).error || 'Failed', 'error');
                     }}><Shield size={14} /> Make Admin</button>
                   )}
@@ -2204,7 +2204,7 @@ function AdminsPage({ authFetch, toast, adminUser }) {
           <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px', marginBottom: 8, borderRadius: 12, background: u.is_main_admin ? 'rgba(139,92,246,0.06)' : 'rgba(59,130,246,0.06)', border: `1px solid ${u.is_main_admin ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)'}` }}>
             <Avatar src={u.avatar_img || u.avatar} name={u.name} size={44} style={{ borderRadius: 12 }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{u.name} {u.is_main_admin ? <span className="badge badge-purple">Main Admin</span> : <span className="badge badge-blue">Sub Admin</span>}</div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{u.name} {u.is_main_admin && <span className="badge badge-purple">Main Admin</span>}</div>
               <div style={{ fontSize: 11, color: 'var(--text2)' }}>{u.identifier} · {u.refer_code}</div>
             </div>
             {!u.is_main_admin && (

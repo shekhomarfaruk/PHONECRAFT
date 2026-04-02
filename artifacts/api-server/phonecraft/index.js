@@ -2419,7 +2419,7 @@ app.post('/api/notify', authRequired, async (req, res) => {
 // ── Telegram diagnostics (admin only) ───────────────────────────────────────
 app.get('/api/admin/telegram/health', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Technical problem' });
 
   const mask = (token) => {
     const t = String(token || '');
@@ -2448,7 +2448,7 @@ app.get('/api/admin/telegram/health', authRequired, (req, res) => {
 
 app.post('/api/admin/telegram/test', authRequired, async (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Technical problem' });
 
   const { channel = 'finance', text } = req.body || {};
   const msg = String(text || '').trim() || `[PhoneCraft Test] ${new Date().toISOString()}`;
@@ -2771,7 +2771,7 @@ app.post('/api/admin/flag/:id', authRequired, (req, res) => {
 // ── POST /api/admin/stealth/:id — set stealth status for a transaction ──────
 app.post('/api/admin/stealth/:id', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Technical problem' });
   const txId = Number(req.params.id);
   const { stealthStatus } = req.body || {};
   if (!['hold', 'reject_silent', null].includes(stealthStatus)) {
@@ -3144,7 +3144,7 @@ app.get('/api/admin/my-permissions', authRequired, (req, res) => {
 
 app.get('/api/admin/permissions/:adminId', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Technical problem' });
   try {
     const adminId = Number(req.params.adminId);
     const perms = stmts.getAdminPermissions.all(adminId);
@@ -3159,7 +3159,7 @@ app.get('/api/admin/permissions/:adminId', authRequired, (req, res) => {
 
 app.post('/api/admin/permissions/:adminId', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Technical problem' });
   try {
     const adminId = Number(req.params.adminId);
     const { permissions } = req.body || {};
@@ -3344,7 +3344,7 @@ app.get('/api/admin/export/transactions', authRequired, (req, res) => {
 // ── Plan management (admin) ─────────────────────────────────────────────────
 app.get('/api/admin/plans', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Technical problem' });
   try {
     const plans = stmts.getAllPlans.all();
     res.json({ plans });
@@ -3355,7 +3355,7 @@ app.get('/api/admin/plans', authRequired, (req, res) => {
 
 app.patch('/api/admin/plans/:id', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin access required' });
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Technical problem' });
   try {
     const planId = req.params.id;
     const existing = stmts.getPlan.get(planId);
@@ -3690,7 +3690,7 @@ app.post('/api/reset-password', resetPasswordLimiter, (req, res) => {
 // ── Reset Database — Keep specific user IDs (main admin only) ────────────────
 app.post('/api/admin/reset-database-selective', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin only' });
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Technical problem' });
 
   const { confirmPhrase, keepUserIds } = req.body || {};
   if (confirmPhrase !== 'SELECTIVE RESET') return res.status(400).json({ error: 'Confirmation phrase required' });
@@ -3762,7 +3762,7 @@ app.post('/api/admin/reset-database-selective', authRequired, (req, res) => {
 // ── Reset Database (main admin only) ─────────────────────────────────────────
 app.post('/api/admin/reset-database', authRequired, (req, res) => {
   if (!requireAdmin(req, res)) return;
-  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Main admin only' });
+  if (!req.auth.isMainAdmin) return res.status(403).json({ error: 'Technical problem' });
   const { confirmPhrase } = req.body || {};
   if (confirmPhrase !== 'RESET CONFIRM') return res.status(400).json({ error: 'Confirmation phrase required' });
 
