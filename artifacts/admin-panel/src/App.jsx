@@ -3374,7 +3374,13 @@ function PaymentSettingsPage({ authFetch, toast, adminPerms }) {
   const save = async () => {
     setSaving(true);
     try {
-      const r = await authFetch(`${API}/api/admin/settings`, { method: 'POST', body: JSON.stringify({ settings }) });
+      const MANAGED_KEYS = [
+        'deposit_bkash', 'deposit_nagad', 'deposit_rocket',
+        ...['eth','op','base','polygon','arbitrum'].flatMap(c => [`crypto_${c}_usdt`, `crypto_${c}_usdc`]),
+        ...Array.from({length:10}, (_, i) => `deposit_wallet_${i+1}`),
+      ];
+      const filtered = Object.fromEntries(MANAGED_KEYS.filter(k => k in settings).map(k => [k, settings[k]]));
+      const r = await authFetch(`${API}/api/admin/settings`, { method: 'POST', body: JSON.stringify({ settings: filtered }) });
       if (r.ok) { toast('Payment settings saved'); await load(); }
       else { const d = await r.json(); toast(d.error || 'Failed to save', 'error'); }
     } catch { toast('Failed', 'error'); }

@@ -631,9 +631,27 @@ function requirePerm(req, res, perm) {
 const PAYMENT_NUM_KEYS  = new Set(['deposit_bkash','deposit_nagad','deposit_rocket','deposit_bank']);
 const WALLET_ADDR_KEYS  = new Set(['deposit_wallet_1','deposit_wallet_2','deposit_wallet_3','deposit_wallet_4','deposit_wallet_5','deposit_wallet_6','deposit_wallet_7','deposit_wallet_8','deposit_wallet_9','deposit_wallet_10','wallet_rotation_index']);
 const REQUIRE_PROOF_KEY = new Set(['require_withdraw_proof']);
+// Crypto chain wallet address keys (per-chain, per-token)
+const CRYPTO_WALLET_KEYS = new Set([
+  'crypto_eth_usdt','crypto_eth_usdc',
+  'crypto_op_usdt','crypto_op_usdc',
+  'crypto_base_usdt','crypto_base_usdc',
+  'crypto_polygon_usdt','crypto_polygon_usdc',
+  'crypto_arbitrum_usdt','crypto_arbitrum_usdc',
+  'crypto_tron_usdt','crypto_tron_usdc',
+  'crypto_bnb_usdt','crypto_bnb_usdc',
+  'crypto_sol_usdt','crypto_sol_usdc',
+]);
+// Legacy crypto keys (old format — allow so DB values don't cause errors)
+const LEGACY_CRYPTO_KEYS = new Set([
+  'deposit_crypto_usdt_trc20','deposit_crypto_usdt_erc20','deposit_crypto_usdt_bep20',
+  'deposit_crypto_usdc_erc20','deposit_crypto_usdc_bep20',
+  'deposit_crypto_btc','deposit_crypto_eth','deposit_crypto_bnb','deposit_crypto_sol',
+]);
 // Complete whitelist of allowed setting keys — prevents arbitrary key injection
 const ALL_ALLOWED_SETTING_KEYS = new Set([
   ...PAYMENT_NUM_KEYS, ...WALLET_ADDR_KEYS, ...REQUIRE_PROOF_KEY,
+  ...CRYPTO_WALLET_KEYS, ...LEGACY_CRYPTO_KEYS,
   'maintenance_mode', 'announcement_banner', 'min_withdraw', 'max_withdraw',
   'min_deposit', 'max_deposit', 'daily_withdraw_limit', 'auto_hold_threshold',
   'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3',
