@@ -1325,6 +1325,7 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
               <span className={`badge ${selected.banned ? 'badge-red' : 'badge-green'}`}>{selected.banned ? 'Banned' : 'Active'}</span>
               {selected.is_admin && <span className="badge badge-purple">Admin</span>}
               {selected.is_guest && <span className="badge badge-yellow">Guest</span>}
+              {selected.is_test && <span className="badge badge-blue">Test Account</span>}
             </div>
 
             <div className="filter-bar">
@@ -1472,7 +1473,7 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => selectUser(u)}>
                       <Avatar src={u.avatar_img || u.avatar} name={u.name} size={36} />
                       <div>
-                        <div style={{ fontWeight: 700 }}>{u.name} {u.is_admin && <span className="badge badge-purple" style={{ fontSize: 8 }}>Admin</span>}{u.is_guest && <span className="badge badge-yellow" style={{ fontSize: 8, marginLeft: 3 }}>Guest</span>}</div>
+                        <div style={{ fontWeight: 700 }}>{u.name} {u.is_admin && <span className="badge badge-purple" style={{ fontSize: 8 }}>Admin</span>}{u.is_guest && <span className="badge badge-yellow" style={{ fontSize: 8, marginLeft: 3 }}>Guest</span>}{u.is_test && <span className="badge badge-blue" style={{ fontSize: 8, marginLeft: 3 }}>Test</span>}</div>
                         <div style={{ fontSize: 11, color: 'var(--text2)' }}>{u.identifier} · {u.refer_code}</div>
                       </div>
                     </div>
