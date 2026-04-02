@@ -2824,7 +2824,7 @@ app.get('/api/admin/stats', authRequired, (req, res) => {
     const revenueChart = stmts.getRevenueByPeriod.all();
     const supportStats = stmts.getSupportStats.get();
     const methodBreakdown = stmts.getMethodBreakdown.all();
-    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_admin = 0').get()?.count || 0;
+    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_admin = 0 AND is_guest = 0 AND is_test = 0').get()?.count || 0;
 
     const pendingDeposits = db.prepare("SELECT COUNT(*) as count FROM transactions WHERE type='deposit' AND status='pending'").get()?.count || 0;
     const pendingWithdrawals = db.prepare("SELECT COUNT(*) as count FROM transactions WHERE type='withdraw' AND status='pending'").get()?.count || 0;
@@ -2867,11 +2867,13 @@ app.get('/api/admin/balance-summary', authRequired, (req, res) => {
     const planRow = admin12 ? db.prepare('SELECT rate FROM plans WHERE id=? LIMIT 1').get(admin12.plan_id) : null;
     const INITIAL_BDT = planRow ? planRow.rate : 12800;
 
-    const planBuy       = db.prepare("SELECT COALESCE(SUM(ABS(amount)),0) AS v FROM balance_log WHERE type='referral_spend' AND amount<0").get().v;
-    const deposits      = db.prepare("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='deposit' AND status='approved'").get().v;
-    const withdrawals   = db.prepare("SELECT COALESCE(SUM(amount),0) AS v FROM transactions WHERE type='withdraw' AND status='approved'").get().v;
-    const dailyEarn     = db.prepare("SELECT COALESCE(SUM(amount),0) AS v FROM balance_log WHERE type='daily_earn' AND amount>0").get().v;
-    const referralBonus = db.prepare("SELECT COALESCE(SUM(amount),0) AS v FROM balance_log WHERE type IN ('referral_bonus','team_bonus') AND amount>0").get().v;
+    const REAL_USER_FILTER = "JOIN users u ON u.id = bl.user_id WHERE u.is_guest=0 AND u.is_test=0 AND u.is_admin=0";
+    const REAL_USER_TXN_FILTER = "JOIN users u ON u.id = t.user_id WHERE u.is_guest=0 AND u.is_test=0 AND u.is_admin=0";
+    const planBuy       = db.prepare(`SELECT COALESCE(SUM(ABS(bl.amount)),0) AS v FROM balance_log bl ${REAL_USER_FILTER} AND bl.type='referral_spend' AND bl.amount<0`).get().v;
+    const deposits      = db.prepare(`SELECT COALESCE(SUM(t.amount),0) AS v FROM transactions t ${REAL_USER_TXN_FILTER} AND t.type='deposit' AND t.status='approved'`).get().v;
+    const withdrawals   = db.prepare(`SELECT COALESCE(SUM(t.amount),0) AS v FROM transactions t ${REAL_USER_TXN_FILTER} AND t.type='withdraw' AND t.status='approved'`).get().v;
+    const dailyEarn     = db.prepare(`SELECT COALESCE(SUM(bl.amount),0) AS v FROM balance_log bl ${REAL_USER_FILTER} AND bl.type='daily_earn' AND bl.amount>0`).get().v;
+    const referralBonus = db.prepare(`SELECT COALESCE(SUM(bl.amount),0) AS v FROM balance_log bl ${REAL_USER_FILTER} AND bl.type IN ('referral_bonus','team_bonus') AND bl.amount>0`).get().v;
 
     const userBalance    = planBuy + deposits - withdrawals - dailyEarn - referralBonus;
     const mainAppBalance = INITIAL_BDT + deposits - withdrawals;
@@ -3801,6 +3803,25 @@ app.post('/api/admin/reset-database', authRequired, (req, res) => {
     res.status(500).json({ error: 'Reset failed. Please check server logs.' });
   }
 });
+
+// ── Test account data cleanup (every 20 minutes) ─────────────────────────────
+setInterval(() => {
+  try {
+    const testUsers = db.prepare('SELECT id FROM users WHERE is_test = 1').all();
+    if (testUsers.length === 0) return;
+    const ids = testUsers.map(r => r.id);
+    const ph = ids.map(() => '?').join(',');
+    db.prepare(`DELETE FROM balance_log WHERE user_id IN (${ph})`).run(...ids);
+    db.prepare(`DELETE FROM transactions WHERE user_id IN (${ph})`).run(...ids);
+    db.prepare(`DELETE FROM manufacturing_jobs WHERE user_id IN (${ph})`).run(...ids);
+    db.prepare(`DELETE FROM notifications WHERE user_id IN (${ph})`).run(...ids);
+    db.prepare(`DELETE FROM referral_activity WHERE user_id IN (${ph})`).run(...ids);
+    db.prepare('UPDATE users SET balance = 0, daily_done = 0 WHERE is_test = 1').run();
+    console.log(`[TestCleanup] Cleared data for ${ids.length} test account(s)`);
+  } catch (e) {
+    console.error('[TestCleanup] Error:', e.message);
+  }
+}, 20 * 60 * 1000);
 
 // ── SPA fallback — serve index.html for non-API routes ───────────────────────
 app.get('*', (_req, res) => {

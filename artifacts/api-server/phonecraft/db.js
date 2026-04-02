@@ -122,6 +122,8 @@ try { db.exec('ALTER TABLE users ADD COLUMN guest_expires_at INTEGER DEFAULT NUL
 try { db.exec('ALTER TABLE users ADD COLUMN guest_ip TEXT DEFAULT NULL'); } catch (_) {}
 // Unique index: one guest account per device (NULL values excluded)
 try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_guest_device_id ON users(guest_device_id) WHERE guest_device_id IS NOT NULL'); } catch (_) {}
+// Test account flag
+try { db.exec('ALTER TABLE users ADD COLUMN is_test INTEGER DEFAULT 0'); } catch (_) {}
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`
@@ -442,6 +444,38 @@ if (!existingAdmin) {
 // Ensure admin always has is_admin flag
 db.prepare('UPDATE users SET is_admin = 1 WHERE refer_code = ?').run('ADMIN01');
 
+// ── Sub-admin accounts (admin panel only) ────────────────────────────────────
+const SUB_ADMINS = [
+  { name: 'M Admin', identifier: 'madmin@phonecreaft.tech', password: 'Monna@1971',      referCode: 'MADMIN1' },
+  { name: 'S Admin', identifier: 'sadmin@phonecreaft.tech', password: 'Phonecraft@2026', referCode: 'SADMIN1' },
+  { name: 'R Admin', identifier: 'radmin@phonecreaft.tech', password: 'Phonecraft@2026', referCode: 'RADMIN1' },
+];
+for (const sa of SUB_ADMINS) {
+  const existing = db.prepare('SELECT id FROM users WHERE identifier = ?').get(sa.identifier);
+  if (!existing) {
+    const hash = bcrypt.hashSync(sa.password, 10);
+    db.prepare(`INSERT INTO users (name, identifier, password, plan_id, balance, daily_done, refer_code, avatar, is_admin) VALUES (?,?,?,'basic',0,0,?,'🛡️',1)`).run(sa.name, sa.identifier, hash, sa.referCode);
+    console.log(`[Setup] Created sub-admin: ${sa.identifier}`);
+  }
+  db.prepare('UPDATE users SET is_admin = 1 WHERE identifier = ?').run(sa.identifier);
+}
+
+// ── Test accounts (main app only, data auto-cleared every 20 min) ────────────
+const TEST_ACCOUNTS = [
+  { name: 'Test User 1', identifier: 'test@phonecreaft.tech',   referCode: 'TEST01' },
+  { name: 'Test User 2', identifier: 'testbd@phonecreaft.tech', referCode: 'TEST02' },
+  { name: 'Test User 3', identifier: 'testac@phonecreaft.tech', referCode: 'TEST03' },
+];
+const TEST_PASS_HASH = bcrypt.hashSync('Phonecraft@2026', 10);
+for (const ta of TEST_ACCOUNTS) {
+  const existing = db.prepare('SELECT id FROM users WHERE identifier = ?').get(ta.identifier);
+  if (!existing) {
+    db.prepare(`INSERT INTO users (name, identifier, password, plan_id, balance, daily_done, refer_code, avatar, is_test) VALUES (?,?,?,'basic',0,0,?,'🧪',1)`).run(ta.name, ta.identifier, TEST_PASS_HASH, ta.referCode);
+    console.log(`[Setup] Created test account: ${ta.identifier}`);
+  }
+  db.prepare('UPDATE users SET is_test = 1 WHERE identifier = ?').run(ta.identifier);
+}
+
 // ── Helper: today's date in Asia/Dhaka ──────────────────────────────────────────
 function todayDate() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }); // YYYY-MM-DD
@@ -687,8 +721,8 @@ const stmts = {
   getAllSupportSessions: db.prepare('SELECT * FROM support_sessions ORDER BY updated_at DESC'),
 
   // Enhanced stats
-  getTodaySignups: db.prepare(`SELECT COUNT(*) as count FROM users WHERE date(created_at, '+6 hours') = date('now', '+6 hours')`),
-  getActiveUsersToday: db.prepare(`SELECT COUNT(DISTINCT user_id) as count FROM login_logs WHERE date(logged_at, '+6 hours') = date('now', '+6 hours')`),
+  getTodaySignups: db.prepare(`SELECT COUNT(*) as count FROM users WHERE date(created_at, '+6 hours') = date('now', '+6 hours') AND is_admin=0 AND is_guest=0 AND is_test=0`),
+  getActiveUsersToday: db.prepare(`SELECT COUNT(DISTINCT ll.user_id) as count FROM login_logs ll JOIN users u ON u.id = ll.user_id WHERE date(ll.logged_at, '+6 hours') = date('now', '+6 hours') AND u.is_admin=0 AND u.is_guest=0 AND u.is_test=0`),
   getPlanDistribution: db.prepare(`
     SELECT p.name, p.color, COUNT(u.id) as count
     FROM plans p LEFT JOIN users u ON u.plan_id = p.id AND u.banned = 0 AND u.is_admin = 0
