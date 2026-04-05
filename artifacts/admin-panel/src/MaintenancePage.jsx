@@ -5,31 +5,30 @@ export default function MaintenancePage() {
     <div style={styles.wrapper}>
       <div style={styles.card}>
         <div style={styles.iconWrap}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="48"
-            height="48"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#b91c1c"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 64 64" fill="none">
+            <ellipse cx="32" cy="38" rx="22" ry="10" fill="#555" opacity="0.4"/>
+            <ellipse cx="32" cy="28" rx="18" ry="12" fill="#888"/>
+            <ellipse cx="22" cy="30" rx="10" ry="7" fill="#aaa"/>
+            <ellipse cx="42" cy="30" rx="8" ry="6" fill="#aaa"/>
+            <ellipse cx="32" cy="24" rx="14" ry="10" fill="#ccc"/>
+            <circle cx="26" cy="26" r="2.5" fill="#444"/>
+            <circle cx="32" cy="25" r="2.5" fill="#444"/>
+            <circle cx="38" cy="26" r="2.5" fill="#444"/>
+            <ellipse cx="24" cy="38" rx="5" ry="3" fill="#999" opacity="0.7"/>
+            <ellipse cx="40" cy="40" rx="4" ry="2.5" fill="#999" opacity="0.6"/>
           </svg>
         </div>
-        <h1 style={styles.heading}>Website Unavailable</h1>
-        <p style={styles.subheading}>
-          This domain has expired or is temporarily disabled.
+        <h1 style={styles.heading}>Hmmm... can't reach this page</h1>
+        <p style={styles.domain}>
+          <strong>phonecraft.tech's</strong> server IP address could not be found.
         </p>
-        <p style={styles.body}>
-          Please contact support or try again later.
-        </p>
-        <div style={styles.divider} />
-        <p style={styles.footer}>Error&nbsp;521&nbsp;·&nbsp;Site Unavailable</p>
+        <p style={styles.tryLabel}>Try:</p>
+        <ul style={styles.list}>
+          <li>Checking the connection</li>
+          <li>Checking the proxy, firewall, and DNS settings</li>
+        </ul>
+        <p style={styles.errorCode}>ERR_NAME_NOT_RESOLVED</p>
+        <button style={styles.button} onClick={() => window.location.reload()}>Refresh</button>
       </div>
     </div>
   )
@@ -42,47 +41,58 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    backgroundColor: '#2b2b2b',
+    fontFamily: '"Segoe UI", Arial, sans-serif',
     padding: '24px',
     boxSizing: 'border-box',
   },
   card: {
-    textAlign: 'center',
-    maxWidth: '420px',
+    maxWidth: '480px',
     width: '100%',
   },
   iconWrap: {
-    marginBottom: '20px',
+    marginBottom: '24px',
   },
   heading: {
-    fontSize: '22px',
-    fontWeight: '700',
-    color: '#111827',
-    margin: '0 0 10px 0',
-    letterSpacing: '-0.3px',
+    fontSize: '28px',
+    fontWeight: '400',
+    color: '#e8e8e8',
+    margin: '0 0 14px 0',
+    lineHeight: '1.3',
   },
-  subheading: {
+  domain: {
     fontSize: '15px',
-    color: '#374151',
-    margin: '0 0 8px 0',
+    color: '#c8c8c8',
+    margin: '0 0 16px 0',
     lineHeight: '1.5',
   },
-  body: {
+  tryLabel: {
+    fontSize: '15px',
+    fontWeight: '700',
+    color: '#c8c8c8',
+    margin: '0 0 6px 0',
+  },
+  list: {
+    fontSize: '15px',
+    color: '#c8c8c8',
+    margin: '0 0 16px 0',
+    paddingLeft: '20px',
+    lineHeight: '1.8',
+  },
+  errorCode: {
+    fontSize: '11px',
+    color: '#888',
+    margin: '0 0 20px 0',
+    letterSpacing: '0.5px',
+  },
+  button: {
+    backgroundColor: '#0078d4',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    padding: '8px 20px',
     fontSize: '14px',
-    color: '#6b7280',
-    margin: '0',
-    lineHeight: '1.5',
-  },
-  divider: {
-    height: '1px',
-    backgroundColor: '#e5e7eb',
-    margin: '24px 0',
-  },
-  footer: {
-    fontSize: '12px',
-    color: '#9ca3af',
-    margin: '0',
-    letterSpacing: '0.3px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
   },
 }
