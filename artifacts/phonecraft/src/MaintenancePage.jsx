@@ -5,18 +5,7 @@ export default function MaintenancePage() {
     <div style={styles.wrapper}>
       <div style={styles.card}>
         <div style={styles.iconWrap}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 64 64" fill="none">
-            <ellipse cx="32" cy="38" rx="22" ry="10" fill="#555" opacity="0.4"/>
-            <ellipse cx="32" cy="28" rx="18" ry="12" fill="#888"/>
-            <ellipse cx="22" cy="30" rx="10" ry="7" fill="#aaa"/>
-            <ellipse cx="42" cy="30" rx="8" ry="6" fill="#aaa"/>
-            <ellipse cx="32" cy="24" rx="14" ry="10" fill="#ccc"/>
-            <circle cx="26" cy="26" r="2.5" fill="#444"/>
-            <circle cx="32" cy="25" r="2.5" fill="#444"/>
-            <circle cx="38" cy="26" r="2.5" fill="#444"/>
-            <ellipse cx="24" cy="38" rx="5" ry="3" fill="#999" opacity="0.7"/>
-            <ellipse cx="40" cy="40" rx="4" ry="2.5" fill="#999" opacity="0.6"/>
-          </svg>
+          <span style={styles.emoji}>&#128546;</span>
         </div>
         <h1 style={styles.heading}>Hmmm... can't reach this page</h1>
         <p style={styles.domain}>
@@ -52,6 +41,12 @@ const styles = {
   },
   iconWrap: {
     marginBottom: '24px',
+  },
+  emoji: {
+    fontSize: '72px',
+    lineHeight: '1',
+    display: 'block',
+    filter: 'grayscale(1)',
   },
   heading: {
     fontSize: '28px',
