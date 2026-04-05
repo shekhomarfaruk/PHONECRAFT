@@ -5,7 +5,7 @@ export default function MaintenancePage() {
     <div style={styles.wrapper}>
       <div style={styles.card}>
         <div style={styles.iconWrap}>
-          <span style={styles.emoji}>&#128546;</span>
+          <img src="/cloud-error.png" alt="" style={styles.cloudImg} />
         </div>
         <h1 style={styles.heading}>Hmmm... can't reach this page</h1>
         <p style={styles.domain}>
@@ -42,11 +42,10 @@ const styles = {
   iconWrap: {
     marginBottom: '24px',
   },
-  emoji: {
-    fontSize: '72px',
-    lineHeight: '1',
+  cloudImg: {
+    width: '120px',
+    height: 'auto',
     display: 'block',
-    filter: 'grayscale(1)',
   },
   heading: {
     fontSize: '28px',
