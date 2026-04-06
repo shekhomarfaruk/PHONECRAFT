@@ -354,6 +354,17 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
   const [cryptoAmount, setCryptoAmount] = useState('');
   const [cryptoWithdrawWallet, setCryptoWithdrawWallet] = useState('');
 
+  const savedFlat   = user?.payment_account_flat   || '';
+  const savedCrypto = user?.payment_account_crypto || '';
+
+  useEffect(() => {
+    if (savedFlat && !acct)   setAcct(savedFlat);
+  }, [savedFlat]);
+
+  useEffect(() => {
+    if (savedCrypto && !cryptoWithdrawWallet) setCryptoWithdrawWallet(savedCrypto);
+  }, [savedCrypto]);
+
   useEffect(() => {
     authFetch(`${API_URL}/api/deposit-info`)
       .then(r => r.json())
@@ -463,12 +474,18 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
         const data = await res.json();
         if (res.ok) {
           showToast(`${t.withdraw} ${t.request_sent}`);
-          if (data.newBalance !== undefined) setUser(prev => ({ ...prev, balance: data.newBalance }));
+          setUser(prev => ({
+            ...prev,
+            balance: data.newBalance !== undefined ? data.newBalance : prev.balance,
+            ...(data.savedPaymentFlat   ? { payment_account_flat:   data.savedPaymentFlat   } : {}),
+            ...(data.savedPaymentCrypto ? { payment_account_crypto: data.savedPaymentCrypto } : {}),
+          }));
           authFetch(`${API_URL}/api/user/${user.id}/transactions`).then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
         } else { showToast((tErr ? tErr(data.error) : data.error) || t.toast_request_failed); }
       } catch (_) { showToast(t.toast_connection_error); }
       setTimeout(() => setSubmitted(false), 3000);
-      setCryptoAmount(''); setCryptoWithdrawWallet('');
+      setCryptoAmount('');
+      if (!savedCrypto) setCryptoWithdrawWallet('');
       return;
     }
 
@@ -500,13 +517,19 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
       });
       const data = await res.json();
       if (res.ok) {
-        if (data.newBalance !== undefined) setUser(prev => ({ ...prev, balance: data.newBalance }));
+        setUser(prev => ({
+          ...prev,
+          balance: data.newBalance !== undefined ? data.newBalance : prev.balance,
+          ...(data.savedPaymentFlat   ? { payment_account_flat:   data.savedPaymentFlat   } : {}),
+          ...(data.savedPaymentCrypto ? { payment_account_crypto: data.savedPaymentCrypto } : {}),
+        }));
         authFetch(`${API_URL}/api/user/${user.id}/transactions`).then(r => r.json()).then(d => { if (d.transactions) setTransactions(d.transactions); }).catch(() => {});
         setSubmissionCard('withdraw');
       } else { showToast((tErr ? tErr(data.error) : data.error) || t.toast_request_failed); }
     } catch (_) { showToast(t.toast_connection_error); }
     setTimeout(() => setSubmitted(false), 3000);
-    setAmount(''); setAcct('');
+    setAmount('');
+    if (!savedFlat) setAcct('');
   };
 
   // ── Confirm from payment page ────────────────────────────────────────────────
@@ -730,8 +753,32 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
             {tab === 'withdraw' && blockchain && token && (
               <>
                 <div className="input-wrap">
-                  <label className="input-label">{t.crypto_wallet_addr_lbl}</label>
-                  <input className="inp" placeholder={t.crypto_wallet_addr_ph} value={cryptoWithdrawWallet} onChange={e => setCryptoWithdrawWallet(e.target.value)}/>
+                  <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {t.crypto_wallet_addr_lbl}
+                    {savedCrypto && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(239,68,68,.12)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 6, padding: '1px 7px', fontSize: 10, fontWeight: 700, color: '#ef4444' }}>
+                        🔒 {isBn ? 'লক' : 'Locked'}
+                      </span>
+                    )}
+                  </label>
+                  {savedCrypto ? (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input className="inp" value={savedCrypto} readOnly style={{ background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.3)', color: 'var(--text)', cursor: 'not-allowed', flex: 1, marginBottom: 0, fontFamily: 'monospace', fontSize: 12 }}/>
+                        <CopyButton text={savedCrypto} showToast={showToast}/>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        🔐 {isBn ? 'ওয়ালেট পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন' : 'Contact support to change your wallet address'}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <input className="inp" placeholder={t.crypto_wallet_addr_ph} value={cryptoWithdrawWallet} onChange={e => setCryptoWithdrawWallet(e.target.value)} style={{ fontFamily: 'monospace', fontSize: 12 }}/>
+                      <div style={{ fontSize: 11, color: 'rgba(246,173,85,.85)', marginTop: 4 }}>
+                        ⚠️ {isBn ? 'এই ওয়ালেট আপনার প্রথম উইথড্রতে সেভ হবে এবং পরে পরিবর্তন করা যাবে না।' : 'This wallet will be permanently saved after your first withdrawal.'}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="input-wrap">
                   <label className="input-label">{amountLabel}</label>
@@ -746,8 +793,34 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
         {!isCrypto && (
           <>
             <div className="input-wrap">
-              <label className="input-label">{t.account_number}</label>
-              <input className="inp" placeholder={`${method.toUpperCase()} ${t.number_placeholder}`} value={acct} onChange={e => setAcct(e.target.value)}/>
+              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {t.account_number}
+                {tab === 'withdraw' && savedFlat && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(239,68,68,.12)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 6, padding: '1px 7px', fontSize: 10, fontWeight: 700, color: '#ef4444' }}>
+                    🔒 {isBn ? 'লক' : 'Locked'}
+                  </span>
+                )}
+              </label>
+              {tab === 'withdraw' && savedFlat ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input className="inp" value={savedFlat} readOnly style={{ background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.3)', color: 'var(--text)', cursor: 'not-allowed', flex: 1, marginBottom: 0 }}/>
+                    <CopyButton text={savedFlat} showToast={showToast}/>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    🔐 {isBn ? 'নম্বর পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন' : 'Contact support to change your payment number'}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <input className="inp" placeholder={`${method.toUpperCase()} ${t.number_placeholder}`} value={acct} onChange={e => setAcct(e.target.value)}/>
+                  {tab === 'withdraw' && (
+                    <div style={{ fontSize: 11, color: 'rgba(246,173,85,.85)', marginTop: 4 }}>
+                      ⚠️ {isBn ? 'এই নম্বর আপনার প্রথম উইথড্রতে সেভ হবে এবং পরে পরিবর্তন করা যাবে না।' : 'This number will be permanently saved after your first withdrawal.'}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             <div className="input-wrap">
               <label className="input-label">{t.amount_label}</label>

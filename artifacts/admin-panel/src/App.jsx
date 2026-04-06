@@ -1338,6 +1338,36 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
 
             {profileTab === 'info' && (
               <>
+                {/* Saved Payment Methods */}
+                {(selected.payment_account_flat || selected.payment_account_crypto) && (
+                  <div style={{ background: 'rgba(139,92,246,.07)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: '#8B5CF6', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      🔐 Saved Payment Methods
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {selected.payment_account_flat && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg2)', borderRadius: 8, padding: '8px 12px' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text2)', minWidth: 90, fontWeight: 600 }}>📱 Flat (bKash/Nagad/Rocket):</span>
+                          <span style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace', flex: 1 }}>{selected.payment_account_flat}</span>
+                          <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => { navigator.clipboard.writeText(selected.payment_account_flat); }}>Copy</button>
+                        </div>
+                      )}
+                      {selected.payment_account_crypto && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg2)', borderRadius: 8, padding: '8px 12px' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text2)', minWidth: 90, fontWeight: 600 }}>🔗 Crypto Wallet:</span>
+                          <span style={{ fontWeight: 700, fontSize: 12, fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>{selected.payment_account_crypto}</span>
+                          <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => { navigator.clipboard.writeText(selected.payment_account_crypto); }}>Copy</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {!selected.payment_account_flat && !selected.payment_account_crypto && (
+                  <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 12, fontSize: 11, color: 'var(--text2)' }}>
+                    🔐 No payment method saved yet (will be set on first withdrawal)
+                  </div>
+                )}
+
                 {profile && (
                   <div className="grid-4">
                     <div className="stat-card"><div className="stat-value" style={{ fontSize: 18, color: 'var(--success)' }}>{formatMoney(selected.balance)}</div><div className="stat-label">Balance</div></div>

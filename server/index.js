@@ -1284,6 +1284,23 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       let flagReason = '';
 
       if (type === 'withdraw') {
+        // ── Saved payment method check ──────────────────────────────────────
+        const FLAT_METHODS = new Set(['bkash', 'nagad', 'rocket']);
+        const submitAccount = String(account || '').trim();
+        if (FLAT_METHODS.has(method)) {
+          if (userRow.payment_account_flat) {
+            if (submitAccount !== String(userRow.payment_account_flat).trim()) {
+              return { status: 400, body: { error: `আপনার সেভ করা নম্বর: ${userRow.payment_account_flat} — নম্বর পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন।` } };
+            }
+          }
+        } else if (method === 'crypto') {
+          if (userRow.payment_account_crypto) {
+            if (submitAccount !== String(userRow.payment_account_crypto).trim()) {
+              return { status: 400, body: { error: `আপনার সেভ করা ওয়ালেট: ${userRow.payment_account_crypto} — ওয়ালেট পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন।` } };
+            }
+          }
+        }
+
         // ── Withdraw: 24h cooldown ──
         const cooldownHours = getSettingNum('withdraw_cooldown_hours', 0);
         if (cooldownHours > 0) {
@@ -1351,18 +1368,32 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         stmts.flagTransaction.run(flagReason, txResult.lastInsertRowid);
       }
 
+      // ── Save payment method on first withdrawal ──────────────────────────
+      if (type === 'withdraw') {
+        const FLAT_METHODS_SET = new Set(['bkash', 'nagad', 'rocket']);
+        const acctToSave = String(account || '').trim();
+        if (FLAT_METHODS_SET.has(method) && acctToSave && !userRow.payment_account_flat) {
+          stmts.savePaymentFlat.run(acctToSave, userRow.id);
+        } else if (method === 'crypto' && acctToSave && !userRow.payment_account_crypto) {
+          stmts.savePaymentCrypto.run(acctToSave, userRow.id);
+        }
+      }
+
       const admins = stmts.getAdminUsers.all();
       const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`;
       for (const admin of admins) {
         stmts.insertNotification.run(admin.id, notifMsg, 'info');
       }
 
+      const updatedUser = stmts.getUserById.get(userRow.id);
       return {
         status: 200,
         body: {
           ok: true,
           transactionId: txResult.lastInsertRowid,
-          newBalance: stmts.getUserById.get(userRow.id).balance,
+          newBalance: updatedUser.balance,
+          savedPaymentFlat: updatedUser.payment_account_flat || null,
+          savedPaymentCrypto: updatedUser.payment_account_crypto || null,
         },
         userRow,
       };

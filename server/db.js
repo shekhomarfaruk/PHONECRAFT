@@ -232,6 +232,10 @@ db.exec(`
   );
 `);
 
+// Saved payment method columns (locked after first withdrawal)
+try { db.exec('ALTER TABLE users ADD COLUMN payment_account_flat TEXT DEFAULT NULL'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN payment_account_crypto TEXT DEFAULT NULL'); } catch (_) {}
+
 // Add support chat status columns
 try { db.exec('ALTER TABLE support_chats ADD COLUMN status TEXT DEFAULT NULL'); } catch (_) {}
 
@@ -490,6 +494,10 @@ const stmts = {
   getUserMarketItems:  db.prepare('SELECT * FROM marketplace_items WHERE user_id = ? ORDER BY id DESC'),
   getStaleActiveItems: db.prepare(`SELECT * FROM marketplace_items WHERE status = 'active' AND created_at <= datetime('now', '-30 minutes')`),
   markItemSold:        db.prepare(`UPDATE marketplace_items SET status = 'sold', sold_at = datetime('now') WHERE id = ?`),
+
+  // Saved payment methods
+  savePaymentFlat:     db.prepare('UPDATE users SET payment_account_flat = ? WHERE id = ?'),
+  savePaymentCrypto:   db.prepare('UPDATE users SET payment_account_crypto = ? WHERE id = ?'),
 
   // Notification read status
   markNotifRead:       db.prepare('UPDATE notifications SET read = 1 WHERE id = ? AND user_id = ?'),
