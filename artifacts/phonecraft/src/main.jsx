@@ -6,7 +6,7 @@ import { getAuthToken } from './session.js'
 
 // ─── Maintenance mode ──────────────────────────────────────────────────────────
 // Set to false to restore normal app behaviour.
-const MAINTENANCE_MODE = true
+const MAINTENANCE_MODE = false
 // ──────────────────────────────────────────────────────────────────────────────
 
 if (MAINTENANCE_MODE) {
