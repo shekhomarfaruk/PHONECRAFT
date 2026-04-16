@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 72">
+  <rect width="200" height="72" fill="#1B3A6B" rx="6"/>
+  <!-- UKRI bar top -->
+  <rect x="0" y="0" width="200" height="18" fill="#003087" rx="6"/>
+  <rect x="0" y="12" width="200" height="6" fill="#003087"/>
+  <text x="100" y="13" fill="white" font-size="8" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold">UK RESEARCH AND INNOVATION</text>
+  <!-- Innovate UK text -->
+  <text x="100" y="44" fill="#00BFB3" font-size="19" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900">Innovate UK</text>
+  <text x="100" y="62" fill="#8BB8D8" font-size="9" text-anchor="middle" font-family="Arial,sans-serif">UK Government Innovation Agency</text>
+</svg>
