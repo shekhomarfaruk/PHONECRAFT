@@ -81,7 +81,7 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
       await r.json();
       // Admin replies arrive via polling
     } catch {
-      setMessages(p => [...p, { id: Date.now() + 1, sender: 'bot', message: isBn ? '❌ সংযোগ সমস্যা। আবার চেষ্টা করুন।' : '❌ Connection error. Please try again.', created_at: new Date().toISOString() }]);
+      setMessages(p => [...p, { id: Date.now() + 1, sender: 'bot', message: isBn ? 'সংযোগ সমস্যা। আবার চেষ্টা করুন।' : 'Connection error. Please try again.', created_at: new Date().toISOString() }]);
     } finally {
       setSending(false);
     }
@@ -148,7 +148,7 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
                 onKeyDown={e => e.key === 'Enter' && sendMessage()}
               />
               <button onClick={sendMessage} disabled={!input.trim() || sending}>
-                ➤
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </div>
           </div>
