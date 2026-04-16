@@ -1,5 +1,5 @@
 import {
-  Home, Briefcase, Bell, Wallet, Link, Users, MessageCircle, ShoppingBag,
+  Home, Briefcase, Bell, BellOff, Wallet, Link, Users, MessageCircle, ShoppingBag,
   Headphones, BookOpen, Settings, ShieldCheck, Zap, Cpu, Smartphone,
   TrendingUp, Copy, Share2, ArrowRight, Star, CheckCircle, Lock, Mail,
   Package, Bot, ArrowLeftRight, Menu, X, Send, Sun, Moon, LogOut,
@@ -7,7 +7,7 @@ import {
   Globe, MoreVertical, AlertCircle, LifeBuoy, Download, Upload, FileText,
   Wrench, DollarSign, BarChart2, Target, Info, ChevronDown, Shield,
   UserCircle, Store, TrendingDown, Coins, BadgeDollarSign, Landmark,
-  ClipboardList, Layers, Award, Gift, ChevronRight, ChevronUp,
+  ClipboardList, Layers, Award, Gift, ChevronRight, ChevronLeft, ChevronUp,
   Eye, EyeOff, Search, Filter, Plus, Minus, Edit, Trash2, Ban,
   CheckSquare, XSquare, Clock, Calendar, MapPin, Phone, Camera,
   Wifi, Battery, Signal, Volume2, Vibrate, Fingerprint,
@@ -48,6 +48,7 @@ const Icons = {
   Share:        IC(Share2,         '#F472B6', 16),
   ArrowRight:   IC(ArrowRight,     '#23AF91', 16),
   ChevronRight: IC(ChevronRight,   '#23AF91', 16),
+  ChevronLeft:  IC(ChevronLeft,    '#94A3B8', 20),
   ChevronDown:  IC(ChevronDown,    '#23AF91', 16),
   ChevronUp:    IC(ChevronUp,      '#23AF91', 16),
   Star:         IC(Star,           '#FBBF24', 16),
@@ -102,6 +103,7 @@ const Icons = {
   Heart:        IC(Heart,          '#F472B6'),
   Fingerprint:  IC(Fingerprint,    '#23AF91'),
   QrCode:       IC(QrCode,         '#23AF91'),
+  BellOff:      IC(BellOff,        '#94A3B8', 22),
 
   Coin: ({ size = 16 }) => (
     <img
