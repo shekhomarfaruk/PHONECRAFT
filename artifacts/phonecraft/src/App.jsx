@@ -238,7 +238,7 @@ export default function App() {
   }, [auth]);
 
   const [loginForm,     setLoginForm    ] = useState({ identifier: '', password: '' });
-  const [regForm,       setRegForm      ] = useState({ name: '', identifier: '', password: '', plan: '', refCode: '' });
+  const [regForm,       setRegForm      ] = useState({ name: '', identifier: '', password: '', plan: '', refCode: '', paymentMethod: 'referrer', txnHash: '' });
   const [authLoading,   setAuthLoading  ] = useState(false);
   const [pendingRegId,  setPendingRegId ] = useState(null);
   const [showGuestPlanModal, setShowGuestPlanModal] = useState(false);
@@ -290,22 +290,32 @@ export default function App() {
   // ── Poll pending registration status ──────────────────────────────────────
   useEffect(() => {
     if (!pendingRegId) return;
+    let failCount = 0;
     const poll = setInterval(async () => {
       try {
         const res = await fetch(`${API_URL}/api/registration/${pendingRegId}/status`);
         const data = await res.json();
+        failCount = 0;
         if (data.status === 'approved') {
           clearInterval(poll);
           setPendingRegId(null);
-          showToast(lang === 'bn' ? '✅ নিবন্ধন অনুমোদিত হয়েছে! লগইন করুন।' : '✅ Registration approved! Please login.');
+          showToast(lang === 'bn' ? 'নিবন্ধন অনুমোদিত হয়েছে! লগইন করুন।' : 'Registration approved! Please login.', 'success');
           setAuthTab('login');
         } else if (data.status === 'declined') {
           clearInterval(poll);
           setPendingRegId(null);
-          showToast(lang === 'bn' ? '❌ রেফারার নিবন্ধন প্রত্যাখ্যান করেছেন।' : '❌ Registration declined by referrer.');
+          showToast(lang === 'bn' ? 'রেফারার নিবন্ধন প্রত্যাখ্যান করেছেন।' : 'Registration declined by referrer.', 'error');
           setAuthTab('register');
         }
-      } catch (_) {}
+      } catch (_) {
+        failCount++;
+        if (failCount >= 4) {
+          showToast(lang === 'bn' ? 'সংযোগ সমস্যা। পরবর্তীতে আবার চেষ্টা করুন।' : 'Connection lost. Please try again later.', 'warning');
+          clearInterval(poll);
+          setPendingRegId(null);
+          setAuthTab('register');
+        }
+      }
     }, 5000);
     return () => clearInterval(poll);
   }, [pendingRegId, lang]);
@@ -453,7 +463,7 @@ export default function App() {
 
   const doLogin = async () => {
     const t = I18N[lang] || I18N.en;
-    if (!loginForm.identifier || !loginForm.password) { showToast('⚠️ ' + t.auth_fill_all); return; }
+    if (!loginForm.identifier || !loginForm.password) { showToast(t.auth_fill_all, 'warning'); return; }
     setAuthLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/login`, {
@@ -462,22 +472,23 @@ export default function App() {
         body: JSON.stringify(loginForm),
       });
       const data = await res.json();
-      if (!res.ok) { showToast('⚠️ ' + translateServerError(data.error, lang)); return; }
+      if (!res.ok) { showToast(translateServerError(data.error, lang), 'warning'); return; }
       const nextUser = mapApiUser(data.user, data.plan, data.token);
       setUser(nextUser);
       saveStoredSession(nextUser);
       setAuth(true);
       // Init push notifications after login
       if (isPushSupported()) initPush(nextUser.id);
-    } catch { showToast('⚠️ ' + t.auth_conn_error); }
+    } catch { showToast(t.auth_conn_error, 'warning'); }
     finally { setAuthLoading(false); }
   };
 
-  const doRegister = async () => {
+  const doRegister = async (onPending) => {
     const t = I18N[lang] || I18N.en;
     const isGuestMode = String(regForm.refCode).toUpperCase() === 'GUSTMODE';
-    if (!regForm.name || !regForm.identifier || !regForm.password || !regForm.refCode || (!isGuestMode && !regForm.plan)) {
-      showToast('⚠️ ' + t.auth_all_required); return;
+    const isDirectPay = regForm.paymentMethod === 'direct';
+    if (!regForm.name || !regForm.identifier || !regForm.password || (!regForm.refCode && !isDirectPay) || (!isGuestMode && !regForm.plan)) {
+      showToast(t.auth_all_required, 'warning'); return;
     }
     setAuthLoading(true);
     try {
@@ -490,23 +501,24 @@ export default function App() {
       if (!res.ok) {
         if (data.error === 'insufficient_balance') {
           showToast(lang === 'bn'
-            ? `⚠️ রেফারারের ব্যালেন্স অপর্যাপ্ত। প্রয়োজন: ${convertCurrency(data.needed, 'bn')}`
-            : `⚠️ Referrer has insufficient balance. Needed: ${convertCurrency(data.needed, 'en')}`);
+            ? `রেফারারের ব্যালেন্স অপর্যাপ্ত। প্রয়োজন: ${convertCurrency(data.needed, 'bn')}`
+            : `Referrer has insufficient balance. Needed: ${convertCurrency(data.needed, 'en')}`, 'warning');
         } else {
-          showToast('⚠️ ' + translateServerError(data.error, lang));
+          showToast(translateServerError(data.error, lang), 'warning');
         }
         return;
       }
       if (data.pending) {
         setPendingRegId(data.pending_id);
+        if (typeof onPending === 'function') onPending();
         return;
       }
       const nextUser = mapApiUser(data.user, data.plan, data.token);
       setUser(nextUser);
       saveStoredSession(nextUser);
       setAuth(true);
-      showToast('✅ ' + t.auth_welcome);
-    } catch { showToast('⚠️ ' + t.auth_conn_error); }
+      showToast(t.auth_welcome, 'success');
+    } catch { showToast(t.auth_conn_error, 'warning'); }
     finally { setAuthLoading(false); }
   };
 
@@ -544,39 +556,6 @@ export default function App() {
     playNotifSound();
   }, [lang]);
 
-  // ── Pending registration waiting screen ──────────────────────────────────
-  if (!auth && pendingRegId) return (
-    <>
-      <GlobalStyles isDark={isDark} fontSize={fontSize} />
-      <PhoneCraftBackground isDark={isDark} />
-      <div style={{ position:'relative', zIndex:1, height:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-        <div style={{ textAlign:'center', maxWidth:340 }}>
-          <div style={{ fontSize:48, marginBottom:16 }}>⏳</div>
-          <div style={{ fontFamily:'Space Grotesk', fontWeight:900, fontSize:22, marginBottom:10, color:'var(--text)' }}>
-            {lang === 'bn' ? 'অনুমোদনের অপেক্ষায়' : 'Waiting for Approval'}
-          </div>
-          <p style={{ fontSize:14, color:'var(--text2)', lineHeight:1.75, marginBottom:24 }}>
-            {lang === 'bn'
-              ? 'আপনার রেফারার এখন একটি নোটিফিকেশন পেয়েছেন। তিনি অনুমোদন করলে আপনার অ্যাকাউন্ট তৈরি হবে।'
-              : 'Your referrer has been notified. Once they approve, your account will be created automatically.'}
-          </p>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:20 }}>
-            <div style={{ width:8, height:8, borderRadius:'50%', background:'#23AF91', animation:'pulse 1.5s ease-in-out infinite' }} />
-            <div style={{ width:8, height:8, borderRadius:'50%', background:'#23AF91', animation:'pulse 1.5s ease-in-out infinite .3s' }} />
-            <div style={{ width:8, height:8, borderRadius:'50%', background:'#23AF91', animation:'pulse 1.5s ease-in-out infinite .6s' }} />
-          </div>
-          <style>{`@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}`}</style>
-          <button
-            onClick={() => { setPendingRegId(null); setAuthTab('register'); }}
-            style={{ padding:'10px 24px', borderRadius:10, border:'1px solid rgba(112,122,138,.3)', background:'transparent', color:'var(--text2)', fontSize:13, cursor:'pointer', fontFamily:'Inter,sans-serif' }}
-          >
-            {lang === 'bn' ? 'বাতিল করুন' : 'Cancel'}
-          </button>
-        </div>
-      </div>
-    </>
-  );
-
   // ── Wait for settings before rendering anything (prevents flash) ────────────
   if (!settingsLoaded) return (
     <>
@@ -596,7 +575,7 @@ export default function App() {
         alignItems: 'center', justifyContent: 'center',
         padding: 32, textAlign: 'center',
       }}>
-        <div style={{ fontSize: 64, marginBottom: 20 }}>🔧</div>
+        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}><Icons.Wrench size={64} /></div>
         <div style={{ fontFamily: 'Space Grotesk', fontSize: 24, fontWeight: 800, color: 'var(--accent)', marginBottom: 12 }}>
           Under Maintenance
         </div>
@@ -606,7 +585,7 @@ export default function App() {
             : 'PhoneCraft is currently under maintenance. Please check back soon.'}
         </div>
         <div style={{ marginTop: 24, fontSize: 12, color: 'var(--text2)', opacity: .6 }}>
-          {lang === 'bn' ? 'আমরা দ্রুত ফিরে আসছি ⏳' : 'We\'ll be back shortly ⏳'}
+          {lang === 'bn' ? 'আমরা দ্রুত ফিরে আসছি' : 'We\'ll be back shortly'}
         </div>
       </div>
     </>
@@ -649,7 +628,10 @@ export default function App() {
           <AuthScreen isDark={isDark} tab={authTab} setTab={setAuthTab}
             loginForm={loginForm} setLoginForm={setLoginForm}
             regForm={regForm} setRegForm={setRegForm}
-            doLogin={doLogin} doRegister={doRegister} loading={authLoading} lang={lang} />
+            doLogin={doLogin} doRegister={doRegister} loading={authLoading} lang={lang}
+            loginNotice={appSettings.login_notice_active === '1' ? appSettings.login_notice : ''}
+            pendingRegId={pendingRegId} setPendingRegId={setPendingRegId}
+            appSettings={appSettings} />
         </div>
       </div>
       <SupportWidget lang={lang} />
@@ -687,7 +669,7 @@ export default function App() {
                   <Icons.Coin size={14} />{convertCurrency(user.balance, lang, usdRate)}
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-                  <span>💱</span>
+                  <Icons.Transfer size={12} />
                   <span>{t.sidebar_live_rate}: <b style={{ color: 'var(--accent)' }}>৳{usdRate.toFixed(2)}</b></span>
                   <span style={{ fontSize: 8, opacity: 0.55 }}>({t.just_now})</span>
                 </div>
@@ -753,7 +735,7 @@ export default function App() {
                       flexShrink: 0,
                     }}
                   >
-                    <span>⏱</span>
+                    <Icons.Clock size={12} />
                     <span>{String(Math.floor(guestSecsLeft / 60)).padStart(2, '0')}:{String(guestSecsLeft % 60).padStart(2, '0')}</span>
                     <span style={{ fontSize: 10, opacity: .8 }}>{lang === 'bn' ? 'ট্রায়াল' : 'TRIAL'}</span>
                   </button>
@@ -782,18 +764,37 @@ export default function App() {
             </header>
 
             {/* ── ANNOUNCEMENT BANNER ── */}
-            {appSettings.announcement_banner && (
-              <div style={{
-                background: 'linear-gradient(90deg, #f59e0b, #ef4444)',
-                color: '#fff', padding: '10px 16px',
-                fontSize: 13, fontWeight: 600, textAlign: 'center',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                letterSpacing: .2, lineHeight: 1.4,
-              }}>
-                <span>📢</span>
-                {appSettings.announcement_banner}
-              </div>
-            )}
+            {(() => {
+              const isActive = appSettings.announcement_active === '1';
+              const text = appSettings.announcement_text || appSettings.announcement_banner || '';
+              if (!isActive || !text) return null;
+              const type = appSettings.announcement_type || 'info';
+              const typeStyle = {
+                info:    { bg: 'linear-gradient(90deg,#2563EB,#1d4ed8)', icon: <Icons.Info size={15} color="#fff" /> },
+                warning: { bg: 'linear-gradient(90deg,#D97706,#b45309)', icon: <Icons.AlertTriangle size={15} color="#fff" /> },
+                success: { bg: 'linear-gradient(90deg,#059669,#047857)', icon: <Icons.CheckCircle size={15} color="#fff" /> },
+                error:   { bg: 'linear-gradient(90deg,#DC2626,#b91c1c)', icon: <Icons.AlertCircle size={15} color="#fff" /> },
+              }[type] || { bg: 'linear-gradient(90deg,#2563EB,#1d4ed8)', icon: <Icons.Bell size={15} color="#fff" /> };
+              const imageUrl = appSettings.announcement_image
+                ? (appSettings.announcement_image.startsWith('http') ? appSettings.announcement_image : `${API_URL}${appSettings.announcement_image}`)
+                : null;
+              return (
+                <div>
+                  {imageUrl && (
+                    <img src={imageUrl} alt="" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', display: 'block' }} />
+                  )}
+                  <div style={{
+                    background: typeStyle.bg, color: '#fff',
+                    padding: '10px 16px', fontSize: 13, fontWeight: 600,
+                    textAlign: 'center', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', gap: 8, letterSpacing: .2, lineHeight: 1.4,
+                  }}>
+                    <span>{typeStyle.icon}</span>
+                    {text}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ── MAINTENANCE MODE SCREEN ── */}
             {appSettings.maintenance_mode === 'true' && !user?.is_main_admin && (
@@ -803,7 +804,7 @@ export default function App() {
                 alignItems: 'center', justifyContent: 'center',
                 padding: 32, textAlign: 'center',
               }}>
-                <div style={{ fontSize: 64, marginBottom: 20 }}>🔧</div>
+                <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}><Icons.Wrench size={64} /></div>
                 <div style={{ fontFamily: 'Space Grotesk', fontSize: 24, fontWeight: 800, color: 'var(--accent)', marginBottom: 12 }}>
                   Under Maintenance
                 </div>
@@ -813,7 +814,7 @@ export default function App() {
                     : 'PhoneCraft is currently under maintenance. Please check back soon.'}
                 </div>
                 <div style={{ marginTop: 24, fontSize: 12, color: 'var(--text2)', opacity: .6 }}>
-                  {lang === 'bn' ? 'আমরা দ্রুত ফিরে আসছি ⏳' : 'We\'ll be back shortly ⏳'}
+                  {lang === 'bn' ? 'আমরা দ্রুত ফিরে আসছি' : 'We\'ll be back shortly'}
                 </div>
               </div>
             )}
