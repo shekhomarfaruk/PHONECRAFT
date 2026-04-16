@@ -1,5 +1,7 @@
 // ─── Plans ───────────────────────────────────────────────────────────────────
 export const PLANS = [
+  { id:'mini',     name:'MINI',     price:'\u09F33,000',   rate:3000,   perTask:5,   dailyEarn:50,    daily:10, taskTime:2, color:'#F5A623', l1:20, l2:4, l3:1, boishakh:true },
+  { id:'standard', name:'STANDARD', price:'\u09F36,000',   rate:6000,   perTask:10,  dailyEarn:100,   daily:10, taskTime:2, color:'#1A2A6B', l1:20, l2:4, l3:1, boishakh:true },
   { id:'basic',    name:'BASIC',    price:'\u09F312,800',  rate:12800,  perTask:20,  dailyEarn:200,   daily:10, taskTime:2, color:'#23AF91', l1:20, l2:4, l3:1 },
   { id:'premium',  name:'PREMIUM',  price:'\u09F325,500',  rate:25500,  perTask:42,  dailyEarn:420,   daily:10, taskTime:2, color:'#6366F1', l1:20, l2:4, l3:1 },
   { id:'gold',     name:'GOLD',     price:'\u09F350,000',  rate:50000,  perTask:75,  dailyEarn:900,   daily:12, taskTime:2, color:'#FCD535', l1:20, l2:4, l3:1 },
@@ -21,64 +23,86 @@ export const BRAND_MODELS = {
   Realme:  ['Realme GT 5 Pro','Realme GT 5','Realme 12 Pro+','Realme 12 Pro','Realme Narzo 60 Pro'],
 };
 
-// ─── Real device images from GSMArena CDN ────────────────────────────────────
-const GSM = 'https://fdn2.gsmarena.com/vv/pics';
+// ─── Local device images (downloaded to public/phones/) ──────────────────────
+const PH = '/phones';
 export const DEVICE_IMAGES = {
-  // Apple
-  'iPhone 15 Pro Max':   `${GSM}/apple/apple-iphone-15-pro-max-1.jpg`,
-  'iPhone 15 Pro':       `${GSM}/apple/apple-iphone-15-pro-1.jpg`,
-  'iPhone 15 Plus':      `${GSM}/apple/apple-iphone-15-plus-1.jpg`,
-  'iPhone 15':           `${GSM}/apple/apple-iphone-15-1.jpg`,
-  'iPhone 14 Pro':       `${GSM}/apple/apple-iphone-14-pro-1.jpg`,
-  // Samsung
-  'Galaxy S24 Ultra':    `${GSM}/samsung/samsung-galaxy-s24-ultra-5g-sm-s928-1.jpg`,
-  'Galaxy S24+':         `${GSM}/samsung/samsung-galaxy-s24-plus-5g-sm-s926-1.jpg`,
-  'Galaxy S24':          `${GSM}/samsung/samsung-galaxy-s24-5g-sm-s921-1.jpg`,
-  'Galaxy S23 Ultra':    `${GSM}/samsung/samsung-galaxy-s23-ultra-5g-1.jpg`,
-  'Galaxy A54':          'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-a54.jpg',
-  // Google
-  'Pixel 8 Pro':         `${GSM}/google/google-pixel-8-pro-1.jpg`,
-  'Pixel 8':             `${GSM}/google/google-pixel-8-1.jpg`,
-  'Pixel 7 Pro':         `${GSM}/google/google-pixel-7-pro-1.jpg`,
-  'Pixel 7a':            `${GSM}/google/google-pixel-7a-1.jpg`,
-  'Pixel 6a':            `${GSM}/google/google-pixel-6a-1.jpg`,
-  // OnePlus
-  'OnePlus 12':          `${GSM}/oneplus/oneplus-12-1.jpg`,
-  'OnePlus 12R':         `${GSM}/oneplus/oneplus-12r-1.jpg`,
-  'OnePlus 11':          `${GSM}/oneplus/oneplus-11-1.jpg`,
-  'OnePlus Nord 3':      `${GSM}/oneplus/oneplus-nord-3-1.jpg`,
-  'OnePlus Nord CE 3':   `${GSM}/oneplus/oneplus-nord-ce3-1.jpg`,
-  // Xiaomi
-  'Xiaomi 14 Ultra':     `${GSM}/xiaomi/xiaomi-14-ultra-1.jpg`,
-  'Xiaomi 14':           `${GSM}/xiaomi/xiaomi-14-1.jpg`,
-  'Redmi Note 13 Pro+':  `${GSM}/xiaomi/xiaomi-redmi-note-13-pro-plus-1.jpg`,
-  'Redmi Note 13 Pro':   `${GSM}/xiaomi/xiaomi-redmi-note-13-pro-1.jpg`,
-  'Poco X6 Pro':         `${GSM}/xiaomi/xiaomi-poco-x6-pro-1.jpg`,
-  // OPPO
-  'OPPO Find X7 Ultra':  `${GSM}/oppo/oppo-find-x7-ultra-1.jpg`,
-  'OPPO Find X7':        `${GSM}/oppo/oppo-find-x7-1.jpg`,
-  'OPPO Reno 11 Pro':    `${GSM}/oppo/oppo-reno11-pro-1.jpg`,
-  'OPPO Reno 11':        `${GSM}/oppo/oppo-reno11-1.jpg`,
-  'OPPO A98':            `${GSM}/oppo/oppo-a98-1.jpg`,
-  // Vivo
-  'Vivo X100 Pro':       `${GSM}/vivo/vivo-x100-pro-1.jpg`,
-  'Vivo X100':           `${GSM}/vivo/vivo-x100-1.jpg`,
-  'Vivo V29 Pro':        `${GSM}/vivo/vivo-v29-pro-1.jpg`,
-  'Vivo V29':            `${GSM}/vivo/vivo-v29-1.jpg`,
-  'Vivo Y100':           `${GSM}/vivo/vivo-y100-1.jpg`,
-  // Realme
-  'Realme GT 5 Pro':     `${GSM}/realme/realme-gt5-pro-1.jpg`,
-  'Realme GT 5':         `${GSM}/realme/realme-gt5-1.jpg`,
-  'Realme 12 Pro+':      `${GSM}/realme/realme-12-pro-plus-1.jpg`,
-  'Realme 12 Pro':       `${GSM}/realme/realme-12-pro-1.jpg`,
-  'Realme Narzo 60 Pro': `${GSM}/realme/realme-narzo60-pro-1.jpg`,
+  // ── Apple ────────────────────────────────────────────────────────────────────
+  'iPhone 15 Pro Max':   `${PH}/iphone-15-pro-max.jpg`,
+  'iPhone 15 Pro':       `${PH}/iphone-15-pro.jpg`,
+  'iPhone 15 Plus':      `${PH}/iphone-15-plus.jpg`,
+  'iPhone 15':           `${PH}/iphone-15.jpg`,
+  'iPhone 14 Pro':       `${PH}/iphone-14-pro.jpg`,
+  'iPhone 14':           `${PH}/iphone-15.jpg`,
+  'iPhone 13':           `${PH}/iphone-15.jpg`,
+
+  // ── Samsung ──────────────────────────────────────────────────────────────────
+  'Galaxy S24 Ultra':    `${PH}/galaxy-s24-ultra.jpg`,
+  'Galaxy S24+':         `${PH}/galaxy-s24-plus.jpg`,
+  'Galaxy S24':          `${PH}/galaxy-s24.jpg`,
+  'Galaxy S23 Ultra':    `${PH}/galaxy-s23-ultra.jpg`,
+  'Galaxy A54':          `${PH}/galaxy-a54.jpg`,
+  'Galaxy A35':          `${PH}/galaxy-a54.jpg`,
+
+  // ── Google Pixel ─────────────────────────────────────────────────────────────
+  'Pixel 8 Pro':         `${PH}/pixel-8-pro.jpg`,
+  'Pixel 8':             `${PH}/pixel-8.jpg`,
+  'Pixel 7 Pro':         `${PH}/pixel-7-pro.jpg`,
+  'Pixel 7a':            `${PH}/pixel-7a.jpg`,
+  'Pixel 6a':            `${PH}/pixel-6a.jpg`,
+
+  // ── OnePlus ──────────────────────────────────────────────────────────────────
+  'OnePlus 12':          `${PH}/oneplus-12.jpg`,
+  'OnePlus 12R':         `${PH}/oneplus-12r.jpg`,
+  'OnePlus 11':          `${PH}/oneplus-11.jpg`,
+  'OnePlus Nord 3':      `${PH}/oneplus-nord-3.jpg`,
+  'OnePlus Nord CE 3':   `${PH}/oneplus-nord-ce3.jpg`,
+
+  // ── Xiaomi ───────────────────────────────────────────────────────────────────
+  'Xiaomi 14 Ultra':     `${PH}/xiaomi-14-ultra.jpg`,
+  'Xiaomi 14':           `${PH}/xiaomi-14.jpg`,
+  'Redmi Note 13 Pro+':  `${PH}/redmi-note13-pro-plus.jpg`,
+  'Redmi Note 13 Pro':   `${PH}/redmi-note13-pro.jpg`,
+  'Poco X6 Pro':         `${PH}/poco-x6-pro.jpg`,
+  'POCO X6 Pro':         `${PH}/poco-x6-pro.jpg`,
+
+  // ── OPPO ─────────────────────────────────────────────────────────────────────
+  'OPPO Find X7 Ultra':  `${PH}/oppo-find-x7-ultra.jpg`,
+  'OPPO Find X7':        `${PH}/oppo-find-x7.jpg`,
+  'OPPO Reno 11 Pro':    `${PH}/oppo-reno11-pro.jpg`,
+  'OPPO Reno 11':        `${PH}/oppo-reno11.jpg`,
+  'OPPO A98':            `${PH}/oppo-a98.jpg`,
+
+  // ── Vivo ─────────────────────────────────────────────────────────────────────
+  'Vivo X100 Pro':       `${PH}/vivo-x100-pro.jpg`,
+  'Vivo X100':           `${PH}/vivo-x100.jpg`,
+  'Vivo V29 Pro':        `${PH}/vivo-v29-pro.jpg`,
+  'Vivo V29':            `${PH}/vivo-v29.jpg`,
+  'Vivo Y100':           `${PH}/vivo-y100.jpg`,
+
+  // ── Realme ───────────────────────────────────────────────────────────────────
+  'Realme GT 5 Pro':     `${PH}/realme-gt5-pro.jpg`,
+  'Realme GT 5':         `${PH}/realme-gt5.jpg`,
+  'Realme 12 Pro+':      `${PH}/realme-12-pro-plus.jpg`,
+  'Realme 12 Pro':       `${PH}/realme-12-pro.jpg`,
+  'Realme Narzo 60 Pro': `${PH}/realme-narzo60-pro.jpg`,
 };
 
 // ─── Device configuration options ────────────────────────────────────────────
 export const DEVICE_CONFIGS = {
-  rams:   ['4GB', '6GB', '8GB', '12GB'],
-  roms:   ['64GB', '128GB', '256GB', '512GB'],
-  colors: ['Midnight Black', 'Arctic White', 'Ocean Blue', 'Sunset Gold'],
+  rams:   ['4GB', '6GB', '8GB', '12GB', '16GB'],
+  roms:   ['64GB', '128GB', '256GB', '512GB', '1TB'],
+  colors: [
+    'Midnight Black',
+    'Arctic White',
+    'Ocean Blue',
+    'Sunset Gold',
+    'Deep Purple',
+    'Rose Gold',
+    'Forest Green',
+    'Titanium Grey',
+    'Coral Red',
+    'Pearl Silver',
+  ],
 };
 
 // ─── Terminal log line generator (60 lines → 2s each = 120s total) ──────────
