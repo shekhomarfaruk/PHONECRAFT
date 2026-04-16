@@ -122,7 +122,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
           transition: 'all .2s',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 22 }}>{soundOn ? '🔔' : '🔕'}</span>
+            <span style={{ display:'flex', alignItems:'center' }}>{soundOn ? <Icons.Bell size={22} /> : <Icons.BellOff size={22} />}</span>
             <div style={{ fontWeight: 700, fontSize: '0.9em', color: soundOn ? 'var(--accent)' : 'var(--text)' }}>
               {soundOn ? t.settings_sound_on : t.settings_sound_off}
             </div>
