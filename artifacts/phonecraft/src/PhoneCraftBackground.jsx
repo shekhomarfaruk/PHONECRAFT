@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 
-const TEAL   = { r: 35,  g: 175, b: 145 };
+const TEAL   = { r: 30,  g: 95,  b: 212 };
 const INDIGO = { r: 99,  g: 102, b: 241 };
-const GREEN  = { r: 14,  g: 203, b: 129 };
+const GREEN  = { r: 100, g: 160, b: 255 };
 
 const rgba = (r, g, b, a) => `rgba(${r},${g},${b},${a})`;
 const rand = (min, max) => min + Math.random() * (max - min);
@@ -171,9 +171,9 @@ class ScanLine {
   update() { this.y += this.speed; if (this.y > this.h + 10) this.y = -10; }
   draw(ctx, w) {
     const g = ctx.createLinearGradient(0, this.y - 2, 0, this.y + 2);
-    g.addColorStop(0, 'rgba(35,175,145,0)');
-    g.addColorStop(0.5, 'rgba(35,175,145,0.06)');
-    g.addColorStop(1, 'rgba(35,175,145,0)');
+    g.addColorStop(0, 'rgba(30,95,212,0)');
+    g.addColorStop(0.5, 'rgba(30,95,212,0.07)');
+    g.addColorStop(1, 'rgba(30,95,212,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, this.y - 2, w, 4);
   }
@@ -200,7 +200,7 @@ function drawConnections(ctx, particles, maxDist) {
 
 // ── Grid ──────────────────────────────────────────────────────────────────────
 function drawGrid(ctx, w, h, time) {
-  ctx.strokeStyle = rgba(43, 49, 57, 0.12);
+  ctx.strokeStyle = rgba(22, 50, 100, 0.14);
   ctx.lineWidth = 0.5;
   const sp = 60; const off = (time * 6) % sp;
   for (let y = -sp + off; y < h + sp; y += sp) {
@@ -269,7 +269,7 @@ export default function PhoneCraftBackground({ isDark = true }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 0,
-      background: 'linear-gradient(180deg, #0B0E11 0%, #0D1117 45%, #0B0E11 100%)',
+      background: 'linear-gradient(180deg, #07121F 0%, #0C1A2E 45%, #07121F 100%)',
       overflow: 'hidden',
     }}>
       <canvas ref={canvasRef} style={{ display: 'block' }} />
