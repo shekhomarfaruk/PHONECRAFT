@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 72">
+  <rect width="200" height="72" fill="#013B7C" rx="6"/>
+  <rect x="0" y="0" width="200" height="20" fill="#004B87" rx="6"/>
+  <rect x="0" y="14" width="200" height="6" fill="#004B87"/>
+  <!-- Crown shape -->
+  <g transform="translate(14,6)">
+    <polygon points="10,12 0,4 4,0 10,6 16,0 20,4 10,12" fill="#FFD700"/>
+    <rect x="2" y="12" width="16" height="4" fill="#FFD700" rx="1"/>
+  </g>
+  <text x="42" y="17" fill="white" font-size="9" font-family="Arial,sans-serif" font-weight="bold">GOV.UK</text>
+  <text x="100" y="44" fill="white" font-size="13" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold">Companies House</text>
+  <text x="100" y="60" fill="#90B8E0" font-size="9" text-anchor="middle" font-family="Arial,sans-serif">Incorporated in England &amp; Wales</text>
+</svg>
