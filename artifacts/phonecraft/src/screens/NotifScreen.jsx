@@ -20,7 +20,8 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
 
   let parsed = {};
   try { parsed = JSON.parse(notif.meta || '{}'); } catch (_) {}
-  const { pending_id, plan_name, amount, new_user_name } = parsed;
+  const { pending_id, plan_name, amount, new_user_name, payment_method, txn_hash } = parsed;
+  const isDirectPay = payment_method === 'direct';
 
   const act = async (action) => {
     setLoading(action);
@@ -86,7 +87,10 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
             </div>
             <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 700, marginBottom: 20 }}>
               {done === 'approve'
-                ? t.notif_approved_done(convertCurrency(amount, lang))
+                ? (isDirectPay
+                    ? (lang === 'bn' ? 'অ্যাকাউন্ট অ্যাক্টিভ করা হয়েছে!' : 'Account activated!')
+                    : t.notif_approved_done(convertCurrency(amount, lang))
+                  )
                 : (t.notif_declined_short)}
             </div>
             <button
@@ -99,13 +103,19 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
         ) : (
           <>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-              {t.notif_reg_request}
+              {isDirectPay
+                ? (lang === 'bn' ? 'ডাইরেক্ট পেমেন্ট যাচাই' : 'Direct Payment Verification')
+                : t.notif_reg_request
+              }
             </div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>
-              {t.notif_reg_desc}
+              {isDirectPay
+                ? (lang === 'bn' ? 'পেমেন্ট TxID যাচাই করুন এবং অনুমোদন করুন। আপনার ব্যালেন্স থেকে কিছু কাটা হবে না।' : 'Verify the payment TxID and approve. No balance will be deducted from you.')
+                : t.notif_reg_desc
+              }
             </div>
 
-            <div style={{ background: 'rgba(35,175,145,.08)', border: '1px solid rgba(35,175,145,.25)', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+            <div style={{ background: isDirectPay ? 'rgba(99,102,241,.08)' : 'rgba(35,175,145,.08)', border: `1px solid ${isDirectPay ? 'rgba(99,102,241,.25)' : 'rgba(35,175,145,.25)'}`, borderRadius: 10, padding: '12px 14px', marginBottom: isDirectPay && txn_hash ? 10 : 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 12, color: 'var(--text2)' }}>{t.notif_name_lbl}</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{new_user_name}</span>
@@ -115,10 +125,24 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>{plan_name}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: 'var(--text2)' }}>{t.notif_will_deduct}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#F6465D' }}>{convertCurrency(amount, lang)}</span>
+                <span style={{ fontSize: 12, color: 'var(--text2)' }}>
+                  {isDirectPay
+                    ? (lang === 'bn' ? 'পরিমাণ' : 'Amount')
+                    : t.notif_will_deduct
+                  }
+                </span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: isDirectPay ? '#23AF91' : '#F6465D' }}>{convertCurrency(amount, lang)}</span>
               </div>
             </div>
+
+            {isDirectPay && txn_hash && (
+              <div style={{ borderRadius: 9, padding: '10px 13px', marginBottom: 18, background: 'rgba(20,24,32,0.7)', border: '1px solid rgba(99,102,241,0.3)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, marginBottom: 4 }}>
+                  {lang === 'bn' ? 'TxID (যাচাই করুন)' : 'TxID (verify this)'}
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#A5B4FC', wordBreak: 'break-all' }}>{txn_hash}</div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 10 }}>
               <button
@@ -126,7 +150,7 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
                 disabled={!!loading}
                 style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#23AF91,#1a8f75)', color: '#fff', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: loading ? .6 : 1 }}
               >
-                {loading === 'approve' ? '...' : (t.notif_agree)}
+                {loading === 'approve' ? '...' : (isDirectPay ? (lang === 'bn' ? 'যাচাই ও অনুমোদন' : 'Verify & Approve') : t.notif_agree)}
               </button>
               <button
                 onClick={() => act('decline')}
