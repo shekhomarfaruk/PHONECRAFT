@@ -3,10 +3,13 @@ import { playNotifSound } from './sounds.js';
 import {
   LayoutDashboard, Users, CreditCard, MessageSquare, Shield, ShieldOff, Settings,
   LogOut, TrendingUp, Clock, Trophy, BarChart2, User, X, ChevronDown,
-  Download, Send, Lock, RefreshCw, Eye, CheckCircle, Ban, UserCheck,
+  Download, Upload, Send, Lock, RefreshCw, Eye, CheckCircle, Ban, UserCheck,
   Menu, Search, Filter, FileText, Star, AlertTriangle, Reply, Trash2,
   ChevronRight, Edit, ArrowUpRight, ArrowDownRight, Activity,
   Flag, Globe, Bell, BellOff, BellRing, Link, Zap, MessageCircle,
+  Wallet, ArrowLeftRight, PlusCircle, MinusCircle, SlidersHorizontal,
+  Factory, Network, UserPlus, TrendingDown, Package, Megaphone,
+  MapPin, ChevronUp, Cpu, ShieldCheck, BookOpen, Layers,
 } from 'lucide-react';
 
 const BASE = import.meta.env.BASE_URL || '/admin-panel/';
@@ -303,6 +306,662 @@ function urlBase64ToUint8Array(base64String) {
   return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   NEW PAGES
+───────────────────────────────────────────────────────────────────────────── */
+
+function PendingRegistrationsPage({ authFetch, toast, isMain }) {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/users`);
+      const d = await r.json();
+      if (r.ok) {
+        const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const recent = (d.users || []).filter(u => !u.is_admin && new Date(u.created_at + 'Z').getTime() > cutoff);
+        recent.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        setUsers(recent);
+      }
+    } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const banUser = async (id, banned) => {
+    try {
+      const r = await authFetch(`${API}/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify({ banned: !banned }) });
+      if (r.ok) { toast(banned ? 'User unbanned' : 'User banned'); load(); }
+    } catch { toast('Failed', 'error'); }
+  };
+
+  const filtered = users.filter(u => !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.identifier?.toLowerCase().includes(search.toLowerCase()));
+
+  const hoursAgo = (d) => {
+    const ms = Date.now() - new Date(d + 'Z').getTime();
+    const h = Math.floor(ms / 3600000);
+    return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+  };
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1><UserPlus size={20} style={{ verticalAlign: 'middle', marginRight: 8, color: 'var(--accent)' }} />Recent Registrations</h1>
+          <div className="subtitle">Users registered in the last 7 days — {filtered.length} accounts</div>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={load}><RefreshCw size={14} /></button>
+      </div>
+
+      <div className="card" style={{ padding: '14px 16px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <Search size={15} color="var(--text2)" style={{ flexShrink: 0 }} />
+          <input className="inp" style={{ marginBottom: 0 }} placeholder="Search by name or identifier..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading...</div>
+      ) : filtered.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>
+          <UserPlus size={40} style={{ opacity: 0.2, marginBottom: 12 }} />
+          <div>No new registrations in the last 7 days</div>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Refer Code</th>
+                <th>Plan</th>
+                <th>Balance</th>
+                <th>Registered</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(u => (
+                <tr key={u.id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Avatar src={u.avatar_img || u.avatar} name={u.name} size={34} style={{ borderRadius: 8 }} />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{u.name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text2)' }}>{u.identifier}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><code style={{ fontSize: 11, background: 'var(--bg2)', padding: '2px 6px', borderRadius: 4 }}>{u.refer_code}</code></td>
+                  <td><span className="badge badge-blue">{u.plan_type || 'NONE'}</span></td>
+                  <td style={{ fontWeight: 700, color: 'var(--success)' }}>{formatMoney(u.balance || 0)}</td>
+                  <td style={{ fontSize: 11, color: 'var(--text2)' }}>
+                    <div>{fmtDate(u.created_at)}</div>
+                    <div style={{ color: '#3B82F6', fontWeight: 600 }}>{hoursAgo(u.created_at)}</div>
+                  </td>
+                  <td>
+                    <span className={`badge ${u.banned ? 'badge-red' : 'badge-green'}`}>
+                      {u.banned ? 'Banned' : 'Active'}
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      className={`btn btn-sm ${u.banned ? 'btn-success' : 'btn-danger'}`}
+                      onClick={() => banUser(u.id, u.banned)}
+                    >
+                      {u.banned ? <><CheckCircle size={12} /> Unban</> : <><Ban size={12} /> Ban</>}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ReferralNetworkPage({ authFetch, toast }) {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/users`);
+      const d = await r.json();
+      if (r.ok) setUsers((d.users || []).filter(u => !u.is_admin));
+    } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const referralMap = {};
+  users.forEach(u => {
+    if (u.refer_code) {
+      const referrer = users.find(x => x.refer_code === u.referred_by);
+      if (referrer) {
+        if (!referralMap[referrer.id]) referralMap[referrer.id] = { referrer, count: 0, balance: 0 };
+        referralMap[referrer.id].count++;
+        referralMap[referrer.id].balance += Number(u.balance) || 0;
+      }
+    }
+  });
+
+  const referrers = Object.values(referralMap).sort((a, b) => b.count - a.count);
+
+  const filtered = search
+    ? users.filter(u => u.name?.toLowerCase().includes(search.toLowerCase()) || u.identifier?.toLowerCase().includes(search.toLowerCase()) || u.refer_code?.toLowerCase().includes(search.toLowerCase()))
+    : users;
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1><Network size={20} style={{ verticalAlign: 'middle', marginRight: 8, color: 'var(--accent)' }} />Referral Network</h1>
+          <div className="subtitle">{users.length} users · {referrers.length} active referrers</div>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={load}><RefreshCw size={14} /></button>
+      </div>
+
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: 'var(--accent)' }}>{users.length}</div>
+          <div className="stat-label">Total Users</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: 'var(--success)' }}>{referrers.length}</div>
+          <div className="stat-label">Active Referrers</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: 'var(--warning)' }}>
+            {users.filter(u => u.referred_by).length}
+          </div>
+          <div className="stat-label">Referred Users</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title"><Trophy size={16} color="#F59E0B" /> Top Referrers</div>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)' }}>Loading...</div>
+        ) : referrers.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)' }}>No referrals yet</div>
+        ) : referrers.slice(0, 20).map((item, i) => (
+          <div key={item.referrer.id} className="referral-card">
+            <div style={{
+              width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+              background: i === 0 ? 'linear-gradient(135deg,#F59E0B,#FCD34D)' : i === 1 ? 'linear-gradient(135deg,#9CA3AF,#D1D5DB)' : i === 2 ? 'linear-gradient(135deg,#B45309,#D97706)' : 'var(--bg2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12,
+              color: i < 3 ? '#fff' : 'var(--text2)'
+            }}>
+              #{i + 1}
+            </div>
+            <Avatar src={item.referrer.avatar_img || item.referrer.avatar} name={item.referrer.name} size={36} style={{ borderRadius: 10 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>{item.referrer.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--text2)' }}>{item.referrer.refer_code}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--accent)' }}>{item.count}</div>
+              <div style={{ fontSize: 10, color: 'var(--text2)' }}>referrals</div>
+            </div>
+            <div style={{ textAlign: 'right', minWidth: 90 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--success)' }}>{formatMoney(item.referrer.balance || 0)}</div>
+              <div style={{ fontSize: 10, color: 'var(--text2)' }}>balance</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <div className="card-title"><Users size={16} /> All Users with Referral Info</div>
+        <div style={{ marginBottom: 12 }}>
+          <input className="inp" style={{ marginBottom: 0 }} placeholder="Search users..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Refer Code</th><th>Referred By</th><th>Balance</th><th>Plan</th></tr></thead>
+            <tbody>
+              {filtered.slice(0, 50).map(u => {
+                const refBy = users.find(x => x.refer_code === u.referred_by);
+                return (
+                  <tr key={u.id}>
+                    <td>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{u.name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)' }}>{u.identifier}</div>
+                    </td>
+                    <td><code style={{ fontSize: 11 }}>{u.refer_code}</code></td>
+                    <td style={{ fontSize: 12, color: refBy ? 'var(--accent)' : 'var(--text2)' }}>
+                      {refBy ? refBy.name : u.referred_by ? u.referred_by : '—'}
+                    </td>
+                    <td style={{ fontWeight: 700, color: 'var(--success)' }}>{formatMoney(u.balance || 0)}</td>
+                    <td><span className="badge badge-blue">{u.plan_type || '—'}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ManufacturingPage({ authFetch, toast }) {
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [sr, ur] = await Promise.all([
+        authFetch(`${API}/api/admin/stats`),
+        authFetch(`${API}/api/admin/users`),
+      ]);
+      const [sd, ud] = await Promise.all([sr.json(), ur.json()]);
+      if (sr.ok) setStats(sd);
+      if (ur.ok) setUsers((ud.users || []).filter(u => !u.is_admin));
+    } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const topEarners = [...users].sort((a, b) => (Number(b.balance) || 0) - (Number(a.balance) || 0)).slice(0, 10);
+  const topByPlan = (plan) => users.filter(u => u.plan_type === plan);
+
+  const planColors = { BASIC: '#3B82F6', PREMIUM: '#8B5CF6', GOLD: '#F59E0B', PLATINUM: '#10B981' };
+  const planCounts = ['BASIC', 'PREMIUM', 'GOLD', 'PLATINUM'].map(p => ({ plan: p, count: topByPlan(p).length, color: planColors[p] }));
+  const totalWithPlan = planCounts.reduce((s, p) => s + p.count, 0);
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1><Factory size={20} style={{ verticalAlign: 'middle', marginRight: 8, color: 'var(--accent)' }} />Manufacturing Analytics</h1>
+          <div className="subtitle">Platform-wide production stats and worker performance</div>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={load}><RefreshCw size={14} /></button>
+      </div>
+
+      {loading ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading...</div>
+      ) : (
+        <>
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-value" style={{ color: 'var(--accent)' }}>{stats?.totalUsers || users.length}</div>
+              <div className="stat-label">Total Workers</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value" style={{ color: 'var(--success)' }}>{totalWithPlan}</div>
+              <div className="stat-label">Active Plans</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value" style={{ color: 'var(--warning)' }}>{stats?.pendingDeposits || 0}</div>
+              <div className="stat-label">Pending Deposits</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value" style={{ color: 'var(--danger)' }}>{stats?.pendingWithdrawals || 0}</div>
+              <div className="stat-label">Pending Withdrawals</div>
+            </div>
+          </div>
+
+          <div className="grid-2" style={{ gap: 16 }}>
+            <div className="card">
+              <div className="card-title"><Cpu size={16} color="var(--accent)" /> Plan Distribution</div>
+              {planCounts.map(p => (
+                <div key={p.plan} style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: p.color }}>{p.plan}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800 }}>{p.count} workers</span>
+                  </div>
+                  <div className="progress-bar">
+                    <div className="progress-bar-fill" style={{ width: totalWithPlan > 0 ? `${(p.count / totalWithPlan) * 100}%` : '0%', background: p.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="card">
+              <div className="card-title"><BarChart2 size={16} color="var(--success)" /> Platform Overview</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  { label: 'Total Deposits', value: formatMoney(stats?.totalDeposits || 0), color: 'var(--success)' },
+                  { label: 'Total Withdrawals', value: formatMoney(stats?.totalWithdrawals || 0), color: 'var(--danger)' },
+                  { label: 'Active Workers', value: users.filter(u => u.plan_type).length, color: 'var(--accent)' },
+                  { label: 'Banned Users', value: users.filter(u => u.banned).length, color: 'var(--warning)' },
+                  { label: 'Support Tickets', value: stats?.support?.totalSessions || 0, color: 'var(--info)' },
+                  { label: 'Unreplied Tickets', value: stats?.support?.unrepliedSessions || 0, color: 'var(--danger)' },
+                ].map(row => (
+                  <div key={row.label} className="mfg-stat-row">
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>{row.label}</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: row.color }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-title"><Trophy size={16} color="#F59E0B" /> Top 10 Earners</div>
+            {topEarners.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 30, color: 'var(--text2)' }}>No data</div>
+            ) : topEarners.map((u, i) => (
+              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 12px', borderRadius: 10, background: i === 0 ? 'rgba(245,158,11,0.06)' : 'var(--bg2)', border: `1px solid ${i === 0 ? 'rgba(245,158,11,0.2)' : 'var(--border)'}`, marginBottom: 8 }}>
+                <div style={{ width: 26, height: 26, borderRadius: 8, background: i < 3 ? ['linear-gradient(135deg,#F59E0B,#FCD34D)', 'linear-gradient(135deg,#9CA3AF,#D1D5DB)', 'linear-gradient(135deg,#B45309,#D97706)'][i] : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, color: i < 3 ? '#fff' : 'var(--text2)', flexShrink: 0 }}>
+                  {i + 1}
+                </div>
+                <Avatar src={u.avatar_img || u.avatar} name={u.name} size={32} style={{ borderRadius: 8 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{u.name}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text2)' }}>{u.plan_type || 'No Plan'}</div>
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--success)' }}>{formatMoney(u.balance || 0)}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function AnnouncementsPage({ authFetch, toast, isMain }) {
+  const [settings, setSettings] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [imgUploading, setImgUploading] = useState(false);
+  const imgInputRef = useRef(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await authFetch(`${API}/api/admin/settings`);
+      const d = await r.json();
+      if (r.ok && d.settings) setSettings(d.settings);
+    } catch {}
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const keys = ['announcement_active', 'announcement_text', 'announcement_type', 'announcement_image', 'login_notice', 'login_notice_active'];
+      const filtered = Object.fromEntries(keys.filter(k => k in settings).map(k => [k, settings[k]]));
+      const r = await authFetch(`${API}/api/admin/settings`, { method: 'POST', body: JSON.stringify({ settings: filtered }) });
+      if (r.ok) { toast('Announcements saved!'); load(); }
+      else toast('Failed to save', 'error');
+    } catch { toast('Error', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const uploadImage = async (file) => {
+    if (!file) return;
+    setImgUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const r = await authFetch(`${API}/api/admin/settings/upload-announcement-image`, { method: 'POST', body: fd, skipContentType: true });
+      const d = await r.json();
+      if (r.ok && d.url) {
+        setSettings(p => ({ ...p, announcement_image: d.url }));
+        toast('Image uploaded!', 'success');
+      } else toast(d.error || 'Upload failed', 'error');
+    } catch { toast('Upload failed', 'error'); }
+    finally { setImgUploading(false); }
+  };
+
+  const toggle = (key, onVal = '1', offVal = '0') =>
+    setSettings(p => ({ ...p, [key]: p[key] === onVal ? offVal : onVal }));
+
+  const annTypes = ['info', 'warning', 'success', 'error'];
+  const typeColors = { info: '#2563EB', warning: '#D97706', success: '#059669', error: '#DC2626' };
+  const typeIcons = { info: 'ℹ️', warning: '⚠️', success: '✅', error: '❌' };
+
+  const announcementImageFull = settings.announcement_image
+    ? (settings.announcement_image.startsWith('http') ? settings.announcement_image : `${API}${settings.announcement_image}`)
+    : null;
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1><Megaphone size={20} style={{ verticalAlign: 'middle', marginRight: 8, color: 'var(--accent)' }} />Announcements</h1>
+          <div className="subtitle">Manage banners and notices shown to users in the app</div>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving ? 'Saving...' : '💾 Save All'}</button>
+      </div>
+
+      {/* ── App Announcement Banner ── */}
+      <div className="card" style={{ borderColor: settings.announcement_active === '1' ? 'rgba(37,99,235,0.35)' : 'var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div className="card-title" style={{ marginBottom: 0 }}><BellRing size={16} color="var(--accent)" /> App Announcement Banner</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: settings.announcement_active === '1' ? 'var(--success)' : 'var(--text2)' }}>
+              {settings.announcement_active === '1' ? '● LIVE' : '○ OFF'}
+            </span>
+            <div onClick={() => toggle('announcement_active', '1', '0')}
+              style={{ width: 48, height: 26, borderRadius: 13, background: settings.announcement_active === '1' ? 'var(--success)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+              <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: settings.announcement_active === '1' ? 25 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Type selector */}
+        <div style={{ marginBottom: 14 }}>
+          <label className="input-label">Announcement Type</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {annTypes.map(t => (
+              <button key={t} onClick={() => setSettings(p => ({ ...p, announcement_type: t }))}
+                className="btn btn-sm"
+                style={{ background: settings.announcement_type === t ? typeColors[t] : 'transparent', color: settings.announcement_type === t ? '#fff' : typeColors[t], border: `2px solid ${typeColors[t]}`, borderRadius: 8, textTransform: 'capitalize' }}>
+                {typeIcons[t]} {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Message */}
+        <label className="input-label">Announcement Message</label>
+        <textarea className="inp" rows={3} placeholder="Enter announcement message for users..." value={settings.announcement_text || ''} onChange={e => setSettings(p => ({ ...p, announcement_text: e.target.value }))} style={{ marginBottom: 14 }} />
+
+        {/* Image Upload */}
+        <label className="input-label">📸 Announcement Image (optional)</label>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+          {announcementImageFull ? (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <img src={announcementImageFull} alt="Announcement" style={{ width: 140, height: 90, objectFit: 'cover', borderRadius: 10, border: '2px solid var(--accent)', display: 'block' }} />
+              <button
+                onClick={() => setSettings(p => ({ ...p, announcement_image: '' }))}
+                style={{ position: 'absolute', top: -8, right: -8, width: 22, height: 22, borderRadius: '50%', background: 'var(--danger)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, lineHeight: 1 }}
+                title="Remove image"
+              >×</button>
+            </div>
+          ) : (
+            <div
+              onClick={() => imgInputRef.current?.click()}
+              style={{ width: 140, height: 90, borderRadius: 10, border: '2px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', background: 'var(--bg2)', flexShrink: 0, transition: 'border-color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+            >
+              <Upload size={20} color="var(--text2)" />
+              <span style={{ fontSize: 11, color: 'var(--text2)' }}>{imgUploading ? 'Uploading...' : 'Click to upload'}</span>
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+              Upload a banner image for the announcement. Supported formats: JPG, PNG, WebP, GIF.<br/>
+              Recommended size: <b>1200 × 400px</b> or any wide/banner format.
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button className="btn btn-outline btn-sm" onClick={() => imgInputRef.current?.click()} disabled={imgUploading}>
+                <Upload size={13} /> {announcementImageFull ? 'Change Image' : 'Upload Image'}
+              </button>
+              {announcementImageFull && (
+                <button className="btn btn-outline btn-sm" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }} onClick={() => setSettings(p => ({ ...p, announcement_image: '' }))}>
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        <input ref={imgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) uploadImage(e.target.files[0]); e.target.value = ''; }} />
+
+        {/* Live Preview */}
+        {settings.announcement_active === '1' && settings.announcement_text && (
+          <div style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden', border: `1px solid ${typeColors[settings.announcement_type || 'info']}40` }}>
+            <div style={{ fontSize: 11, color: 'var(--text2)', padding: '6px 14px', background: 'var(--bg2)', borderBottom: `1px solid ${typeColors[settings.announcement_type || 'info']}20`, fontWeight: 600 }}>
+              LIVE PREVIEW
+            </div>
+            {announcementImageFull && (
+              <img src={announcementImageFull} alt="" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block' }} />
+            )}
+            <div style={{ padding: '12px 16px', background: `${typeColors[settings.announcement_type || 'info']}12`, color: typeColors[settings.announcement_type || 'info'], fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BellRing size={13} /> {settings.announcement_text}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Login Screen Notice ── */}
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div className="card-title" style={{ marginBottom: 0 }}><BookOpen size={16} color="var(--warning)" /> Login Screen Notice</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: settings.login_notice_active === '1' ? 'var(--success)' : 'var(--text2)' }}>
+              {settings.login_notice_active === '1' ? '● LIVE' : '○ OFF'}
+            </span>
+            <div onClick={() => toggle('login_notice_active', '1', '0')}
+              style={{ width: 48, height: 26, borderRadius: 13, background: settings.login_notice_active === '1' ? 'var(--success)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+              <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: settings.login_notice_active === '1' ? 25 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+            </div>
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, lineHeight: 1.6 }}>
+          This notice appears at the top of the login/register screen. Use it to highlight important updates, promotions, or temporary messages.
+        </div>
+        <label className="input-label">Notice Text</label>
+        <textarea className="inp" rows={3} placeholder="e.g. New plan packages launched! Login to see your options." value={settings.login_notice || ''} onChange={e => setSettings(p => ({ ...p, login_notice: e.target.value }))} />
+        {settings.login_notice_active === '1' && settings.login_notice && (
+          <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(252,213,53,0.1)', border: '1px solid rgba(252,213,53,0.3)', fontSize: 13, color: '#D97706', fontWeight: 600 }}>
+            ⚡ Preview: {settings.login_notice}
+          </div>
+        )}
+      </div>
+
+      <button className="btn btn-primary btn-full" onClick={save} disabled={saving}>
+        {saving ? 'Saving...' : '💾 Save Announcements'}
+      </button>
+    </>
+  );
+}
+
+function ActivityLogPage({ authFetch, toast }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/activity-log`);
+      const d = await r.json();
+      if (r.ok) setLogs(d.logs || []);
+    } catch {}
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const actionCategories = {
+    balance: ['balance', 'credit', 'debit', 'adjust'],
+    user: ['ban', 'unban', 'user', 'register', 'plan'],
+    finance: ['deposit', 'withdrawal', 'transfer', 'approve', 'reject'],
+    settings: ['setting', 'payment', 'config'],
+    security: ['login', 'permission', 'admin'],
+  };
+
+  const filteredLogs = logs.filter(l => {
+    const matchSearch = !search || (l.admin_name || '').toLowerCase().includes(search.toLowerCase()) || (l.action || '').toLowerCase().includes(search.toLowerCase()) || (l.details || '').toLowerCase().includes(search.toLowerCase());
+    if (!matchSearch) return false;
+    if (filter === 'all') return true;
+    const keywords = actionCategories[filter] || [];
+    return keywords.some(kw => (l.action || '').toLowerCase().includes(kw) || (l.details || '').toLowerCase().includes(kw));
+  });
+
+  const actionColor = (action) => {
+    const a = (action || '').toLowerCase();
+    if (a.includes('ban') || a.includes('reject') || a.includes('delete')) return 'var(--danger)';
+    if (a.includes('approve') || a.includes('credit') || a.includes('unban')) return 'var(--success)';
+    if (a.includes('balance') || a.includes('debit')) return 'var(--warning)';
+    if (a.includes('login') || a.includes('permission')) return 'var(--info)';
+    return 'var(--accent)';
+  };
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1><Clock size={20} style={{ verticalAlign: 'middle', marginRight: 8, color: 'var(--accent)' }} />Activity Log</h1>
+          <div className="subtitle">{filteredLogs.length} actions recorded</div>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={load}><RefreshCw size={14} /></button>
+      </div>
+
+      <div className="card" style={{ padding: '14px 16px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+          <Search size={15} color="var(--text2)" style={{ flexShrink: 0 }} />
+          <input className="inp" style={{ marginBottom: 0 }} placeholder="Search by admin, action, or details..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="filter-bar" style={{ marginBottom: 0 }}>
+          {['all', 'balance', 'user', 'finance', 'settings', 'security'].map(f => (
+            <button key={f} className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-outline'}`} onClick={() => setFilter(f)} style={{ textTransform: 'capitalize' }}>{f}</button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading...</div>
+      ) : filteredLogs.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>
+          <Clock size={40} style={{ opacity: 0.2, marginBottom: 12 }} />
+          <div>No activity found</div>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {filteredLogs.slice(0, 200).map((l, i) => (
+            <div key={l.id || i} className="activity-row" style={{ padding: '12px 20px' }}>
+              <div className="activity-dot" style={{ background: actionColor(l.action) }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)' }}>{l.admin_name || 'Admin'}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: actionColor(l.action) }}>{l.action}</span>
+                  {l.details && <span style={{ fontSize: 11, color: 'var(--text2)', wordBreak: 'break-word' }}>— {l.details}</span>}
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text2)', flexShrink: 0, whiteSpace: 'nowrap' }}>{fmtDate(l.created_at)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MAIN APP SHELL
+───────────────────────────────────────────────────────────────────────────── */
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('admin_token') || '');
   const [adminUser, setAdminUser] = useState(null);
@@ -324,8 +983,11 @@ export default function App() {
   };
 
   const authFetch = async (url, opts = {}) => {
-    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
-    const res = await fetch(url, { ...opts, headers });
+    const isFormData = opts.body instanceof FormData;
+    const baseHeaders = isFormData ? {} : { 'Content-Type': 'application/json' };
+    const headers = { ...baseHeaders, ...(opts.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    const { skipContentType, ...restOpts } = opts;
+    const res = await fetch(url, { ...restOpts, headers });
     if (res.status === 401) { localStorage.removeItem('admin_token'); setToken(''); setAdminUser(null); }
     return res;
   };
@@ -355,9 +1017,7 @@ export default function App() {
     const fetchPending = () => {
       authFetch(`${API}/api/admin/stats`).then(r => r.json()).then(d => {
         const n = (d.pendingDeposits || 0) + (d.pendingWithdrawals || 0) + (d.support?.unrepliedSessions || 0);
-        if (prevPendingRef.current !== null && n > prevPendingRef.current) {
-          playNotifSound();
-        }
+        if (prevPendingRef.current !== null && n > prevPendingRef.current) playNotifSound();
         prevPendingRef.current = n;
         setPendingCount(n);
       }).catch(() => {});
@@ -394,32 +1054,84 @@ export default function App() {
   if (!token || !adminUser) return <LoginScreen onLogin={(t, u) => { setToken(t); setAdminUser(u); localStorage.setItem('admin_token', t); initAdminPush(t); }} />;
 
   const isMain = !!adminUser.is_main_admin;
-  const canPayment = isMain || adminPerms.modify_payment_numbers || adminPerms.modify_wallet_addresses;
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'users', label: 'Users', icon: Users },
-    { id: 'finance', label: 'Finance', icon: CreditCard },
-    ...(isMain ? [{ id: 'flagged', label: 'Flagged', icon: Flag }] : []),
-    ...(isMain ? [{ id: 'ip-tracking', label: 'IP Tracking', icon: Globe }] : []),
-    ...(isMain ? [{ id: 'live-locations', label: 'Live Locations', icon: Activity }] : []),
-    { id: 'support', label: 'Support', icon: MessageSquare },
-    { id: 'admin-chat', label: 'Admin Chat', icon: MessageCircle },
-    ...(isMain ? [{ id: 'admins', label: 'Admin & Roles', icon: Shield }] : []),
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    ...(isMain ? [{ id: 'controls', label: 'Quick Controls', icon: Zap }] : []),
-    ...(isMain ? [{ id: 'settings', label: 'Settings', icon: Settings }] : []),
-    ...(!isMain && canPayment ? [{ id: 'payment-settings', label: 'Payment Settings', icon: CreditCard }] : []),
+
+  const canAccess = (item) => {
+    if (isMain) return true;
+    if (item.mainOnly) return false;
+    if (!item.perm) return true;
+    if (Array.isArray(item.perm)) return item.perm.some(p => !!adminPerms[p]);
+    return !!adminPerms[item.perm];
+  };
+
+  const NAV_GROUPS = [
+    {
+      label: 'Overview',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'view_reports' },
+      ],
+    },
+    {
+      label: 'Users',
+      items: [
+        { id: 'users', label: 'User Management', icon: Users, perm: 'view_users' },
+        { id: 'pending-regs', label: 'Recent Registrations', icon: UserPlus, perm: 'view_users' },
+        { id: 'referrals', label: 'Referral Network', icon: Network, perm: 'view_users' },
+      ],
+    },
+    {
+      label: 'Finance',
+      items: [
+        { id: 'finance', label: 'Transactions', icon: CreditCard, perm: ['approve_deposits', 'approve_withdrawals'] },
+        { id: 'wallet', label: 'Wallet Control', icon: Wallet, perm: 'edit_user_balance' },
+        { id: 'payment-settings', label: 'Payment Accounts', icon: Layers, perm: ['modify_payment_numbers', 'modify_wallet_addresses'] },
+      ],
+    },
+    {
+      label: 'Engagement',
+      items: [
+        { id: 'support', label: 'Support Center', icon: MessageSquare, perm: 'access_support' },
+        { id: 'admin-chat', label: 'Admin Chat', icon: MessageCircle, perm: null },
+        { id: 'notifications', label: 'Notifications', icon: Bell, perm: null },
+        { id: 'announcements', label: 'Announcements', icon: Megaphone, perm: 'change_settings' },
+      ],
+    },
+    {
+      label: 'Security',
+      items: [
+        { id: 'flagged', label: 'Flagged Activity', icon: Flag, mainOnly: true },
+        { id: 'ip-tracking', label: 'IP Tracking', icon: Globe, mainOnly: true },
+        { id: 'live-locations', label: 'Live Locations', icon: MapPin, mainOnly: true },
+      ],
+    },
+    {
+      label: 'Operations',
+      items: [
+        { id: 'controls', label: 'Quick Controls', icon: Zap, mainOnly: true },
+        { id: 'manufacturing', label: 'Manufacturing Stats', icon: Factory, perm: 'view_reports' },
+      ],
+    },
+    {
+      label: 'System',
+      items: [
+        { id: 'settings', label: 'App Settings', icon: Settings, mainOnly: true },
+        { id: 'admins', label: 'Admin & Roles', icon: Shield, mainOnly: true },
+        { id: 'activity-log', label: 'Activity Log', icon: Clock, mainOnly: true },
+      ],
+    },
   ];
 
-  const activePage = navItems.find(n => n.id === page) ? page : navItems[0]?.id || 'users';
-  if (activePage !== page) setPage(activePage);
+  const allItems = NAV_GROUPS.flatMap(g => g.items);
+  const currentItem = allItems.find(i => i.id === page);
+  const currentGroup = NAV_GROUPS.find(g => g.items.some(i => i.id === page));
 
-  const pageLabels = {
-    dashboard: 'Dashboard', users: 'Users', finance: 'Finance', flagged: 'Flagged',
-    'ip-tracking': 'IP Tracking', 'live-locations': 'Live Locations', support: 'Support',
-    'admin-chat': 'Admin Chat', admins: 'Admin & Roles', notifications: 'Notification Settings',
-    controls: 'Quick Controls', settings: 'Settings', 'payment-settings': 'Payment Settings',
+  const navigate = (id) => {
+    const item = allItems.find(i => i.id === id);
+    if (item && !canAccess(item)) return;
+    setPage(id);
+    setSidebarOpen(false);
   };
+
+  const pageLabels = Object.fromEntries(allItems.map(i => [i.id, i.label]));
 
   return (
     <div className="app-layout">
@@ -433,90 +1145,140 @@ export default function App() {
         adminUser={adminUser}
         lang={adminLang}
       />
+
       <div className="hamburger" onClick={() => setSidebarOpen(p => !p)}><Menu size={20} /></div>
       <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} />
+
+      {/* ── DARK SIDEBAR ── */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-brand">
             <div className="sidebar-brand-icon">
-              <Shield size={20} color="#fff" />
+              <Cpu size={20} color="#fff" />
             </div>
             <div>
               <h2>PhoneCraft</h2>
               <div className="user-info">Admin Console</div>
             </div>
           </div>
-          <div className="sidebar-admin-badge">
-            <Shield size={9} /> Admin
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <div className="sidebar-admin-badge">
+              <Shield size={9} />
+              {isMain ? 'Main Admin' : 'Sub Admin'}
+            </div>
           </div>
-          <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
-            {adminUser.name}
-          </div>
+          <div className="sidebar-admin-name">{adminUser.name}</div>
         </div>
+
         <nav className="sidebar-nav">
-          {navItems.map(n => {
-            const Icon = n.icon;
+          {NAV_GROUPS.map(group => {
+            const visibleItems = isMain ? group.items : group.items.filter(item => {
+              if (item.mainOnly) return true;
+              return true;
+            });
             return (
-              <div key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => { setPage(n.id); setSidebarOpen(false); }}>
-                <Icon size={17} /> {n.label}
+              <div key={group.label} className="nav-group">
+                <div className="nav-section-label">{group.label}</div>
+                {visibleItems.map(item => {
+                  const Icon = item.icon;
+                  const accessible = canAccess(item);
+                  const isActive = page === item.id;
+                  const isPending = item.id === 'finance' && pendingCount > 0;
+                  const isSupportPending = item.id === 'support' && pendingCount > 0;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`nav-item ${isActive ? 'active' : ''} ${!accessible ? 'locked' : ''}`}
+                      onClick={() => accessible && navigate(item.id)}
+                      title={!accessible ? (item.mainOnly ? 'Main admin only' : 'Permission required') : item.label}
+                    >
+                      <Icon size={16} className="nav-icon" />
+                      <span className="nav-label">{item.label}</span>
+                      {!accessible && <Lock size={11} className="nav-lock-icon" />}
+                      {accessible && isPending && <span className="badge-count">{pendingCount > 9 ? '9+' : pendingCount}</span>}
+                      {accessible && isSupportPending && !isPending && <span className="badge-count">!</span>}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
         </nav>
+
         <div className="sidebar-footer">
-          <div className="nav-item" onClick={logout} style={{ color: 'var(--danger)' }}><LogOut size={17} /> Logout</div>
+          {isMain && treasuryBalance !== null && (
+            <div onClick={() => { setPage('dashboard'); setSidebarOpen(false); }}
+              style={{ padding: '8px 12px', borderRadius: 9, background: 'rgba(14,203,129,0.12)', border: '1px solid rgba(14,203,129,0.2)', cursor: 'pointer', marginBottom: 6 }}>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>Treasury</div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#0ECB81' }}>{formatMoney(treasuryBalance)}</div>
+            </div>
+          )}
+          <div className="nav-item logout-btn" onClick={logout}>
+            <LogOut size={16} className="nav-icon" />
+            <span className="nav-label">Logout</span>
+          </div>
         </div>
       </aside>
+
+      {/* ── MAIN CONTENT ── */}
       <main className="main-content" onClick={() => sidebarOpen && setSidebarOpen(false)}>
         <div className="admin-topbar">
           <div className="topbar-left">
-            <div className="topbar-page-title">{pageLabels[page] || page}</div>
-          </div>
-          <div className="topbar-right">
-            {isMain && treasuryBalance !== null && (
-              <div
-                title="Admin Treasury Balance (live)"
-                onClick={() => { setPage('dashboard'); refreshTreasury(); }}
-                style={{ background: 'linear-gradient(135deg,rgba(14,203,129,0.15),rgba(14,203,129,0.05))', border: '1px solid rgba(14,203,129,0.3)', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <span style={{ fontSize: 10, color: 'var(--text2)' }}>Treasury</span>
-                <span style={{ fontWeight: 800, fontSize: 14, color: '#0ECB81' }}>{formatMoney(treasuryBalance)}</span>
+            <div className="topbar-breadcrumb">
+              {currentGroup && (
+                <>
+                  <span className="topbar-section">{currentGroup.label}</span>
+                  <span className="topbar-sep">/</span>
+                </>
+              )}
+              <span className="topbar-page-title">{pageLabels[page] || page}</span>
+            </div>
+            {!isMain && currentItem && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: canAccess(currentItem) ? 'rgba(5,150,105,0.1)' : 'rgba(220,38,38,0.1)', border: `1px solid ${canAccess(currentItem) ? 'rgba(5,150,105,0.2)' : 'rgba(220,38,38,0.2)'}`, fontSize: 10, fontWeight: 700, color: canAccess(currentItem) ? '#059669' : '#DC2626' }}>
+                {canAccess(currentItem) ? <><ShieldCheck size={10} /> Access Granted</> : <><Lock size={10} /> Restricted</>}
               </div>
             )}
+          </div>
+          <div className="topbar-right">
             <div style={{ display: 'flex', gap: 2, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: 2 }}>
-              <button onClick={() => { setAdminLang('en'); localStorage.setItem('admin-lang', 'en'); }} title="English" style={{ background: adminLang === 'en' ? 'var(--primary)' : 'none', color: adminLang === 'en' ? '#fff' : 'var(--text2)', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>EN</button>
-              <button onClick={() => { setAdminLang('bn'); localStorage.setItem('admin-lang', 'bn'); }} title="বাংলা" style={{ background: adminLang === 'bn' ? 'var(--primary)' : 'none', color: adminLang === 'bn' ? '#fff' : 'var(--text2)', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>বাং</button>
+              <button onClick={() => { setAdminLang('en'); localStorage.setItem('admin-lang', 'en'); }} style={{ background: adminLang === 'en' ? 'var(--accent)' : 'none', color: adminLang === 'en' ? '#fff' : 'var(--text2)', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>EN</button>
+              <button onClick={() => { setAdminLang('bn'); localStorage.setItem('admin-lang', 'bn'); }} style={{ background: adminLang === 'bn' ? 'var(--accent)' : 'none', color: adminLang === 'bn' ? '#fff' : 'var(--text2)', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>বাং</button>
             </div>
-            <button
-              onClick={toggleCurrency}
-              title={adminCurrency === 'bdt' ? 'Switch to USD ($)' : 'Switch to BDT (৳)'}
-              style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: adminCurrency === 'usd' ? '#22C55E' : '#F59E0B', display: 'flex', alignItems: 'center', gap: 4 }}
-            >
+            <button onClick={toggleCurrency} title={adminCurrency === 'bdt' ? 'Switch to USD' : 'Switch to BDT'}
+              style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: adminCurrency === 'usd' ? '#22C55E' : '#F59E0B', display: 'flex', alignItems: 'center', gap: 4 }}>
               {adminCurrency === 'bdt' ? '৳ BDT' : '$ USD'}
             </button>
-            <div className="topbar-icon-btn" onClick={(e) => { e.stopPropagation(); setNotifOpen(p => !p); }} title="Activity & Alerts">
+            <div className="topbar-icon-btn" onClick={(e) => { e.stopPropagation(); setNotifOpen(p => !p); }} title="Alerts">
               <Bell size={18} />
               {pendingCount > 0 && <span className="topbar-badge">{pendingCount > 9 ? '9+' : pendingCount}</span>}
             </div>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#1E40AF,#3B82F6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-              {adminUser.name?.[0] || 'A'}
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: isMain ? 'linear-gradient(135deg,#1E40AF,#3B82F6)' : 'linear-gradient(135deg,#7C3AED,#8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}
+              title={`${adminUser.name} · ${isMain ? 'Main Admin' : 'Sub Admin'}`}>
+              {adminUser.name?.[0]?.toUpperCase() || 'A'}
             </div>
           </div>
         </div>
 
+        {/* ── SUB-ADMIN ACCESS MATRIX (shown on admins page for main admin) ── */}
         {page === 'dashboard' && <DashboardPage authFetch={authFetch} toast={toast} isMain={isMain} treasuryBalance={treasuryBalance} refreshTreasury={refreshTreasury} />}
         {page === 'users' && <UsersPage authFetch={authFetch} toast={toast} isMain={isMain} adminUser={adminUser} adminPerms={adminPerms} />}
+        {page === 'pending-regs' && <PendingRegistrationsPage authFetch={authFetch} toast={toast} isMain={isMain} />}
+        {page === 'referrals' && <ReferralNetworkPage authFetch={authFetch} toast={toast} />}
         {page === 'finance' && <FinancePage authFetch={authFetch} toast={toast} isMain={isMain} adminPerms={adminPerms} />}
+        {page === 'wallet' && <WalletManagementPage authFetch={authFetch} toast={toast} isMain={isMain} />}
+        {page === 'payment-settings' && <PaymentSettingsPage authFetch={authFetch} toast={toast} adminPerms={isMain ? { modify_payment_numbers: true, modify_wallet_addresses: true } : adminPerms} />}
+        {page === 'support' && <SupportPage authFetch={authFetch} toast={toast} />}
+        {page === 'admin-chat' && <AdminChatPage authFetch={authFetch} toast={toast} adminUser={adminUser} />}
+        {page === 'notifications' && <NotificationsPage authFetch={authFetch} toast={toast} token={token} />}
+        {page === 'announcements' && <AnnouncementsPage authFetch={authFetch} toast={toast} isMain={isMain} />}
         {page === 'flagged' && <FlaggedPage authFetch={authFetch} toast={toast} />}
         {page === 'ip-tracking' && <IpTrackingPage authFetch={authFetch} toast={toast} />}
         {page === 'live-locations' && <LiveLocationsPage authFetch={authFetch} toast={toast} />}
-        {page === 'support' && <SupportPage authFetch={authFetch} toast={toast} />}
-        {page === 'admin-chat' && <AdminChatPage authFetch={authFetch} toast={toast} adminUser={adminUser} />}
-        {page === 'admins' && <AdminsPage authFetch={authFetch} toast={toast} adminUser={adminUser} />}
-        {page === 'notifications' && <NotificationsPage authFetch={authFetch} toast={toast} token={token} />}
         {page === 'controls' && <ControlsPage authFetch={authFetch} toast={toast} />}
+        {page === 'manufacturing' && <ManufacturingPage authFetch={authFetch} toast={toast} />}
         {page === 'settings' && <SettingsPage authFetch={authFetch} toast={toast} />}
-        {page === 'payment-settings' && <PaymentSettingsPage authFetch={authFetch} toast={toast} adminPerms={adminPerms} />}
+        {page === 'admins' && <AdminsPage authFetch={authFetch} toast={toast} adminUser={adminUser} navGroups={NAV_GROUPS} />}
+        {page === 'activity-log' && <ActivityLogPage authFetch={authFetch} toast={toast} />}
       </main>
     </div>
   );
@@ -749,220 +1511,233 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bkModal, setBkModal] = useState(null);
-  const [balSummary, setBalSummary] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const fetches = [authFetch(`${API}/api/admin/stats`), authFetch(`${API}/api/admin/balance-summary`)];
-      const [r, r2] = await Promise.all(fetches);
+      const r = await authFetch(`${API}/api/admin/stats`);
       const d = await r.json();
       if (r.ok) setStats(d);
-      if (r2) {
-        const d2 = await r2.json();
-        if (r2.ok) setBalSummary(d2);
-      }
     } catch {}
     finally { setLoading(false); }
-  }, [isMain]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading || !stats) return <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading dashboard...</div>;
+  if (loading || !stats) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 14 }}>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid var(--accent)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ color: 'var(--text2)', fontSize: 14 }}>Loading dashboard...</div>
+    </div>
+  );
 
-  const chartData = (stats.revenueChart || []).slice(-14);
-  const chartMax = Math.max(...chartData.map(d => Math.max(d.deposits || 0, d.withdrawals || 0)), 1);
+  const profitPositive = (stats.profitLoss || 0) >= 0;
 
   return (
     <>
       <div className="page-header">
-        <div><h1>Dashboard</h1><div className="subtitle">Platform overview & analytics</div></div>
+        <div>
+          <h1>Dashboard</h1>
+          <div className="subtitle">Platform overview — {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+        </div>
         <button className="btn btn-outline btn-sm" onClick={load}><RefreshCw size={14} /> Refresh</button>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card"><div className="stat-value" style={{ color: 'var(--accent)' }}>{stats.totalUsers || 0}</div><div className="stat-label">Total Users</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: 'var(--info)' }}>{stats.activeToday || 0}</div><div className="stat-label">Active Today</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: 'var(--success)' }}>{stats.newUsersToday || 0}</div><div className="stat-label">New Today</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: stats.profitLoss >= 0 ? 'var(--success)' : 'var(--danger)' }}>{stats.profitLoss >= 0 ? '+' : ''}{formatMoney(stats.profitLoss || 0)}</div><div className="stat-label">Net Profit</div></div>
+      {/* ── Hero KPI Row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Total Users', value: stats.totalUsers || 0, color: 'var(--accent)', icon: '👥', fmt: 'int' },
+          { label: 'Active Today', value: stats.activeToday || 0, color: '#60a5fa', icon: '⚡', fmt: 'int' },
+          { label: 'New Today', value: stats.newUsersToday || 0, color: 'var(--success)', icon: '✨', fmt: 'int' },
+          { label: 'Total Deposits', value: stats.deposits?.sum || 0, color: 'var(--success)', icon: '💰', fmt: 'money' },
+          { label: 'Total Withdrawals', value: stats.withdrawals?.sum || 0, color: 'var(--danger)', icon: '💸', fmt: 'money' },
+          { label: 'Net Profit', value: stats.profitLoss || 0, color: profitPositive ? 'var(--success)' : 'var(--danger)', icon: profitPositive ? '📈' : '📉', fmt: 'money', prefix: profitPositive ? '+' : '' },
+        ].map(({ label, value, color, icon, fmt, prefix = '' }) => (
+          <div key={label} className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 20 }}>{icon}</div>
+            <div style={{ fontSize: fmt === 'money' ? (value > 99999 ? 18 : 22) : 28, fontWeight: 900, color, lineHeight: 1.1 }}>
+              {prefix}{fmt === 'money' ? formatMoney(value) : value.toLocaleString()}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, letterSpacing: 0.3 }}>{label}</div>
+          </div>
+        ))}
       </div>
 
-      {isMain && treasuryBalance !== null && (
-        <div className="card" style={{ borderColor: 'rgba(14,203,129,0.3)', background: 'linear-gradient(135deg,rgba(14,203,129,0.07),rgba(14,203,129,0.02))', marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, letterSpacing: 1, marginBottom: 4 }}>ADMIN TREASURY BALANCE</div>
-              <div style={{ fontSize: 36, fontWeight: 900, color: '#0ECB81', lineHeight: 1 }}>{formatMoney(treasuryBalance)}</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 6 }}>
-                Auto-updated: deposits credit treasury, withdrawals debit treasury
-              </div>
+      {/* ── Treasury + Pending Row ── */}
+      <div className="grid-2" style={{ marginBottom: 20 }}>
+        {isMain && treasuryBalance !== null && (
+          <div className="card" style={{ borderColor: 'rgba(14,203,129,0.35)', background: 'linear-gradient(135deg,rgba(14,203,129,0.06),transparent)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0ECB81' }} />
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', letterSpacing: 0.5, textTransform: 'uppercase' }}>Admin Treasury</div>
             </div>
-            <button className="btn btn-sm btn-outline" onClick={refreshTreasury}><RefreshCw size={13} /> Refresh</button>
-          </div>
-        </div>
-      )}
-
-      {balSummary && (
-        <div className="grid-2" style={{ marginBottom: 20 }}>
-          <div className="card" style={{ borderColor: balSummary.userBalance >= 0 ? 'rgba(14,203,129,0.3)' : 'rgba(246,70,93,0.3)', background: balSummary.userBalance >= 0 ? 'linear-gradient(135deg,rgba(14,203,129,0.07),rgba(14,203,129,0.02))' : 'linear-gradient(135deg,rgba(246,70,93,0.07),rgba(246,70,93,0.02))' }}>
-            <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, letterSpacing: 1, marginBottom: 4 }}>USER BALANCE</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color: balSummary.userBalance >= 0 ? '#0ECB81' : '#F6465D', lineHeight: 1 }}>{formatMoney(balSummary.userBalance)}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(14,203,129,0.12)', color: '#0ECB81', fontWeight: 600 }}>Plan Buy +{formatMoney(balSummary.planBuy)}</span>
-              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(14,203,129,0.12)', color: '#0ECB81', fontWeight: 600 }}>Deposit +{formatMoney(balSummary.deposits)}</span>
-              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(246,70,93,0.12)', color: '#F6465D', fontWeight: 600 }}>Withdraw −{formatMoney(balSummary.withdrawals)}</span>
-              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(246,70,93,0.12)', color: '#F6465D', fontWeight: 600 }}>Daily Earn −{formatMoney(balSummary.dailyEarn)}</span>
-              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(246,70,93,0.12)', color: '#F6465D', fontWeight: 600 }}>Referral Bonus −{formatMoney(balSummary.referralBonus)}</span>
+            <div style={{ fontSize: 34, fontWeight: 900, color: '#0ECB81', lineHeight: 1 }}>{formatMoney(treasuryBalance)}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 6 }}>≈ {formatMoneyUSD(treasuryBalance)} USD</div>
+            <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 6, lineHeight: 1.5 }}>
+              Deposits credit, approved withdrawals debit
             </div>
+            <button className="btn btn-outline btn-sm" style={{ marginTop: 12, width: 'fit-content' }} onClick={refreshTreasury}><RefreshCw size={12} /> Refresh</button>
           </div>
+        )}
 
-          <div className="card" style={{ borderColor: 'rgba(30,177,253,0.3)', background: 'linear-gradient(135deg,rgba(30,177,253,0.07),rgba(30,177,253,0.02))' }}>
-            <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, letterSpacing: 1, marginBottom: 4 }}>MAIN APP BALANCE</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color: balSummary.mainAppBalance >= 0 ? '#0ECB81' : '#F6465D', lineHeight: 1 }}>{formatMoney(balSummary.mainAppBalance)}</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>≈{formatMoneyUSD(balSummary.mainAppBalance)} USD</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(30,177,253,0.12)', color: '#1EB1FD', fontWeight: 600 }}>Initial {formatMoneyUSD(balSummary.initialBDT)} / ৳{(Number(balSummary.initialBDT) || 0).toLocaleString()}</span>
-              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(14,203,129,0.12)', color: '#0ECB81', fontWeight: 600 }}>+Deposits {formatMoney(balSummary.deposits)}</span>
-              <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(246,70,93,0.12)', color: '#F6465D', fontWeight: 600 }}>−Withdrawals {formatMoney(balSummary.withdrawals)}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="grid-2">
-        <div className="card">
-          <div className="card-title"><ArrowDownRight size={16} color="var(--success)" /> Deposits</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--success)' }}>{formatMoney(stats.deposits?.sum || 0)}</div>
-          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>{stats.deposits?.count || 0} total transactions</div>
-        </div>
-        <div className="card">
-          <div className="card-title"><ArrowUpRight size={16} color="var(--danger)" /> Withdrawals</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--danger)' }}>{formatMoney(stats.withdrawals?.sum || 0)}</div>
-          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>{stats.withdrawals?.count || 0} total transactions</div>
-        </div>
-      </div>
-
-      <div className="grid-2">
         <div className="card" style={{ borderColor: 'rgba(252,213,53,0.3)' }}>
-          <div className="card-title"><Clock size={16} color="var(--warning)" /> Pending Actions</div>
-          <div className="grid-2" style={{ marginTop: 8 }}>
-            <div style={{ padding: 14, borderRadius: 10, background: 'rgba(14,203,129,0.08)', textAlign: 'center' }}>
-              <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--success)' }}>{stats.pendingDeposits || 0}</div>
-              <div style={{ fontSize: 11, color: 'var(--text2)' }}>Deposits</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <Clock size={15} color="var(--warning)" />
+            <div style={{ fontSize: 13, fontWeight: 700 }}>Pending Approvals</div>
+          </div>
+          <div className="grid-2" style={{ gap: 10 }}>
+            <div style={{ padding: '14px 12px', borderRadius: 12, background: 'rgba(14,203,129,0.07)', border: '1px solid rgba(14,203,129,0.18)', textAlign: 'center' }}>
+              <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>{stats.pendingDeposits || 0}</div>
+              <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4, fontWeight: 600 }}>Deposits</div>
             </div>
-            <div style={{ padding: 14, borderRadius: 10, background: 'rgba(246,70,93,0.08)', textAlign: 'center' }}>
-              <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--danger)' }}>{stats.pendingWithdrawals || 0}</div>
-              <div style={{ fontSize: 11, color: 'var(--text2)' }}>Withdrawals</div>
+            <div style={{ padding: '14px 12px', borderRadius: 12, background: 'rgba(246,70,93,0.07)', border: '1px solid rgba(246,70,93,0.18)', textAlign: 'center' }}>
+              <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--danger)', lineHeight: 1 }}>{stats.pendingWithdrawals || 0}</div>
+              <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4, fontWeight: 600 }}>Withdrawals</div>
             </div>
           </div>
+          {((stats.pendingDeposits || 0) + (stats.pendingWithdrawals || 0)) > 0 && (
+            <div style={{ marginTop: 10, padding: '7px 10px', borderRadius: 8, background: 'rgba(252,213,53,0.08)', border: '1px solid rgba(252,213,53,0.2)', fontSize: 11, color: '#D97706', fontWeight: 600 }}>
+              ⚡ {(stats.pendingDeposits || 0) + (stats.pendingWithdrawals || 0)} requests awaiting your review
+            </div>
+          )}
         </div>
 
-        {stats.support && (
+        {!isMain && (
           <div className="card">
-            <div className="card-title"><MessageSquare size={16} color="var(--info)" /> Support Summary</div>
-            <div className="grid-3" style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: 'var(--text2)' }}>Platform Summary</div>
+            <div className="grid-2" style={{ gap: 10 }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--info)' }}>{stats.support.totalSessions}</div>
-                <div style={{ fontSize: 10, color: 'var(--text2)' }}>Sessions</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--success)' }}>{formatMoney(stats.deposits?.sum || 0)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)' }}>Total Deposits</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--danger)' }}>{stats.support.unrepliedSessions}</div>
-                <div style={{ fontSize: 10, color: 'var(--text2)' }}>Unanswered</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--success)' }}>{stats.support.adminReplies}</div>
-                <div style={{ fontSize: 10, color: 'var(--text2)' }}>Replies</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--danger)' }}>{formatMoney(stats.withdrawals?.sum || 0)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)' }}>Total Withdrawals</div>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      <AnalyticsChart authFetch={authFetch} />
+      {/* ── Support + Plan Distribution ── */}
+      <div className="grid-2" style={{ marginBottom: 20 }}>
+        {stats.support && (
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <MessageSquare size={15} color="var(--info)" />
+              <div style={{ fontSize: 13, fontWeight: 700 }}>Support Center</div>
+            </div>
+            <div style={{ display: 'flex', gap: 0 }}>
+              {[
+                { val: stats.support.totalSessions, label: 'Sessions', color: '#60a5fa' },
+                { val: stats.support.unrepliedSessions, label: 'Unanswered', color: 'var(--danger)' },
+                { val: stats.support.adminReplies, label: 'Replies', color: 'var(--success)' },
+              ].map(({ val, label, color }, i) => (
+                <div key={label} style={{ flex: 1, textAlign: 'center', padding: '12px 6px', borderRight: i < 2 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color }}>{val}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 2, fontWeight: 600 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-      <div className="grid-2">
         {stats.planDistribution?.length > 0 && (
           <div className="card">
-            <div className="card-title"><BarChart2 size={16} /> Plan Distribution</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <BarChart2 size={15} />
+              <div style={{ fontSize: 13, fontWeight: 700 }}>Plan Distribution</div>
+            </div>
             {stats.planDistribution.map((p, i) => {
               const total = stats.planDistribution.reduce((s, x) => s + x.count, 0) || 1;
               const pct = Math.round((p.count / total) * 100);
               return (
-                <div key={i} style={{ marginBottom: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                <div key={i} style={{ marginBottom: 9 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
                     <span style={{ fontWeight: 700, color: p.color }}>{p.name}</span>
-                    <span style={{ color: 'var(--text2)' }}>{p.count} ({pct}%)</span>
+                    <span style={{ color: 'var(--text2)' }}>{p.count} users ({pct}%)</span>
                   </div>
-                  <div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${pct}%`, background: p.color }} /></div>
+                  <div className="progress-bar" style={{ height: 6 }}><div className="progress-bar-fill" style={{ width: `${pct}%`, background: p.color }} /></div>
                 </div>
               );
             })}
           </div>
         )}
+      </div>
 
-        {stats.topEarners?.length > 0 && (
+      {/* ── Analytics Chart ── */}
+      <AnalyticsChart authFetch={authFetch} />
+
+      {/* ── Top Earners + Recent Activity ── */}
+      <div className="grid-2" style={{ marginTop: 20 }}>
+        {stats.topEarners?.filter(u => (u.earned || 0) > 0).length > 0 && (
           <div className="card">
-            <div className="card-title"><Trophy size={16} color="var(--warning)" /> Top Earners <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 400 }}>(Task + Referral income)</span></div>
-            {stats.topEarners.filter(u => (u.earned || 0) > 0).map((u, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 8, background: 'rgba(35,175,145,0.05)', marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Trophy size={15} color="var(--warning)" />
+              <div style={{ fontSize: 13, fontWeight: 700 }}>Top Earners</div>
+              <span style={{ fontSize: 10, color: 'var(--text2)', marginLeft: 'auto' }}>Task + Referral</span>
+            </div>
+            {stats.topEarners.filter(u => (u.earned || 0) > 0).slice(0, 8).map((u, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 10px', borderRadius: 8, background: i % 2 === 0 ? 'var(--bg2)' : 'transparent', marginBottom: 2 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontWeight: 800, color: i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : 'var(--warning)', minWidth: 24 }}>#{i + 1}</span>
-                  <span style={{ fontWeight: 600 }}>{u.name}</span>
+                  <span style={{ fontWeight: 900, fontSize: 15, color: i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : 'var(--text2)', minWidth: 22 }}>
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{u.name}</span>
                 </div>
-                <span style={{ fontWeight: 700, color: 'var(--success)' }}>{formatMoney(u.earned)}</span>
+                <span style={{ fontWeight: 700, color: 'var(--success)', fontSize: 13 }}>{formatMoney(u.earned)}</span>
               </div>
             ))}
           </div>
         )}
+
+        {stats.recentActivity?.length > 0 && (
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Activity size={15} />
+              <div style={{ fontSize: 13, fontWeight: 700 }}>Recent Activity</div>
+            </div>
+            <div style={{ overflowY: 'auto', maxHeight: 340 }}>
+              {stats.recentActivity.slice(0, 12).map((a, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                  <span style={{ fontSize: 15, marginTop: 1, flexShrink: 0 }}>
+                    {a.type === 'signup' ? '👤' : a.type === 'deposit' ? '💰' : '💸'}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700 }}>{a.user_name}</span>
+                      <span style={{ fontSize: 10, color: 'var(--text2)' }}>#{a.user_id}</span>
+                    </div>
+                    {a.type === 'signup' ? (
+                      <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 1 }}>
+                        Joined {a.plan_name ? `· ${a.plan_name} plan` : ''}
+                        {a.referrer_name ? ` · Ref: ${a.referrer_name}` : ''}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 11, marginTop: 1 }}>
+                        <span style={{ color: a.type === 'deposit' ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>
+                          {a.type === 'deposit' ? '+' : '-'}৳{Number(a.amount).toLocaleString()}
+                        </span>
+                        <span style={{ color: 'var(--text2)' }}> via {a.method}</span>
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ color: 'var(--text2)', fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0 }}>{fmtDate(a.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {stats.recentActivity?.length > 0 && (
-        <div className="card">
-          <div className="card-title"><Activity size={16} /> Recent Activity</div>
-          <div style={{ overflowY: 'auto', maxHeight: 420 }}>
-            {stats.recentActivity.map((a, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-                <span style={{ fontSize: 18, marginTop: 1, flexShrink: 0 }}>
-                  {a.type === 'signup' ? '👤' : a.type === 'deposit' ? '💰' : '💸'}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {/* User name + ID */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700 }}>{a.user_name}</span>
-                    <span style={{ fontSize: 10, color: 'var(--text2)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 5px' }}>#{a.user_id}</span>
-                    {a.type === 'signup' && <span style={{ fontSize: 11, color: 'var(--text2)' }}>joined</span>}
-                  </div>
-                  {/* Signup extras: referrer + plan */}
-                  {a.type === 'signup' && (
-                    <div style={{ marginTop: 3, display: 'flex', flexWrap: 'wrap', gap: '4px 10px', fontSize: 11, color: 'var(--text2)' }}>
-                      {a.referrer_name
-                        ? <span>Referred by: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{a.referrer_name}</span> <span style={{ opacity: 0.6 }}>#{a.referrer_id}</span></span>
-                        : <span style={{ opacity: 0.5 }}>No referrer</span>}
-                      {a.plan_name && <span>Plan: <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{a.plan_name}</span></span>}
-                      {a.plan_rate > 0 && <span>Cost: <span style={{ fontWeight: 600 }}>৳{Number(a.plan_rate).toLocaleString()}</span></span>}
-                    </div>
-                  )}
-                  {/* Deposit / Withdraw extras */}
-                  {(a.type === 'deposit' || a.type === 'withdraw') && (
-                    <div style={{ marginTop: 3, display: 'flex', flexWrap: 'wrap', gap: '4px 10px', fontSize: 11, color: 'var(--text2)' }}>
-                      <span style={{ color: a.type === 'deposit' ? 'var(--success)' : 'var(--danger)', fontWeight: 700, fontSize: 13 }}>
-                        {a.type === 'deposit' ? '+' : '-'}৳{Number(a.amount).toLocaleString()}
-                      </span>
-                      <span>via <span style={{ fontWeight: 600, color: 'var(--text1)', textTransform: 'uppercase' }}>{a.method}</span></span>
-                      {a.account && <span title={a.account} style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {a.account}</span>}
-                    </div>
-                  )}
-                </div>
-                <span style={{ color: 'var(--text2)', fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0 }}>{fmtDate(a.created_at)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* ── Payment Method Breakdown ── */}
       {stats.methodBreakdown?.length > 0 && (
-        <div className="card">
-          <div className="card-title"><CreditCard size={16} /> Payment Method Breakdown</div>
+        <div className="card" style={{ marginTop: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <CreditCard size={15} />
+            <div style={{ fontSize: 13, fontWeight: 700 }}>Payment Method Breakdown</div>
+            <span style={{ fontSize: 10, color: 'var(--text2)', marginLeft: 'auto' }}>Click a row to see transactions</span>
+          </div>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Method</th><th>Type</th><th>Count</th><th>Total</th><th></th></tr></thead>
@@ -973,20 +1748,11 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
                     try {
                       const r = await authFetch(`${API}/api/admin/transactions`);
                       const d = await r.json();
-                      const filtered = (d.transactions || []).filter(t =>
-                        t.method?.toLowerCase() === m.method?.toLowerCase() && t.type === m.type
-                      );
+                      const filtered = (d.transactions || []).filter(t => t.method?.toLowerCase() === m.method?.toLowerCase() && t.type === m.type);
                       setBkModal({ method: m.method, type: m.type, loading: false, txList: filtered });
-                    } catch {
-                      setBkModal(prev => prev ? { ...prev, loading: false, error: true } : null);
-                    }
+                    } catch { setBkModal(prev => prev ? { ...prev, loading: false, error: true } : null); }
                   }}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <MethodIcon method={m.method} />
-                        <span style={{ fontWeight: 700, fontSize: 13 }}>{METHOD_META[m.method?.toLowerCase()]?.label || m.method?.toUpperCase()}</span>
-                      </div>
-                    </td>
+                    <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MethodIcon method={m.method} /><span style={{ fontWeight: 700, fontSize: 13 }}>{METHOD_META[m.method?.toLowerCase()]?.label || m.method?.toUpperCase()}</span></div></td>
                     <td><span className={`badge ${m.type === 'deposit' ? 'badge-green' : 'badge-red'}`}>{m.type}</span></td>
                     <td>{m.count}</td>
                     <td style={{ fontWeight: 700, color: m.type === 'deposit' ? 'var(--success)' : 'var(--danger)' }}>{formatMoney(m.total)}</td>
@@ -1021,9 +1787,7 @@ function DashboardPage({ authFetch, toast, isMain, treasuryBalance, refreshTreas
               <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                 {bkModal.txList.map(tx => (
                   <div key={tx.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                    <div style={{ flexShrink: 0, marginTop: 2 }}>
-                      <MethodIcon method={tx.method} />
-                    </div>
+                    <div style={{ flexShrink: 0, marginTop: 2 }}><MethodIcon method={tx.method} /></div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
                         <span style={{ fontWeight: 600, fontSize: 13 }}>{tx.user_name}</span>
@@ -1164,6 +1928,16 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
       const r = await authFetch(`${API}/api/admin/users/${uid}/force-password-reset`, { method: 'POST', body: JSON.stringify({ newPassword: pw }) });
       if (r.ok) toast('Password reset done');
       else toast('Failed', 'error');
+    } catch { toast('Failed', 'error'); }
+  };
+
+  const resetWithdrawAccount = async (uid, method) => {
+    const label = method === 'all' ? 'ALL withdrawal accounts' : `${method.toUpperCase()} withdrawal account`;
+    if (!confirm(`Reset ${label} for this user? They will be able to set a new account on their next withdrawal.`)) return;
+    try {
+      const r = await authFetch(`${API}/api/admin/users/${uid}/withdraw-accounts`, { method: 'DELETE', body: JSON.stringify({ method }) });
+      if (r.ok) toast(`${label} reset successfully`);
+      else toast((await r.json()).error || 'Failed', 'error');
     } catch { toast('Failed', 'error'); }
   };
 
@@ -1338,36 +2112,6 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
 
             {profileTab === 'info' && (
               <>
-                {/* Saved Payment Methods */}
-                {(selected.payment_account_flat || selected.payment_account_crypto) && (
-                  <div style={{ background: 'rgba(139,92,246,.07)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12, color: '#8B5CF6', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      🔐 Saved Payment Methods
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {selected.payment_account_flat && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg2)', borderRadius: 8, padding: '8px 12px' }}>
-                          <span style={{ fontSize: 11, color: 'var(--text2)', minWidth: 90, fontWeight: 600 }}>📱 Flat (bKash/Nagad/Rocket):</span>
-                          <span style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace', flex: 1 }}>{selected.payment_account_flat}</span>
-                          <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => { navigator.clipboard.writeText(selected.payment_account_flat); }}>Copy</button>
-                        </div>
-                      )}
-                      {selected.payment_account_crypto && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg2)', borderRadius: 8, padding: '8px 12px' }}>
-                          <span style={{ fontSize: 11, color: 'var(--text2)', minWidth: 90, fontWeight: 600 }}>🔗 Crypto Wallet:</span>
-                          <span style={{ fontWeight: 700, fontSize: 12, fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>{selected.payment_account_crypto}</span>
-                          <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => { navigator.clipboard.writeText(selected.payment_account_crypto); }}>Copy</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {!selected.payment_account_flat && !selected.payment_account_crypto && (
-                  <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 12, fontSize: 11, color: 'var(--text2)' }}>
-                    🔐 No payment method saved yet (will be set on first withdrawal)
-                  </div>
-                )}
-
                 {profile && (
                   <div className="grid-4">
                     <div className="stat-card"><div className="stat-value" style={{ fontSize: 18, color: 'var(--success)' }}>{formatMoney(selected.balance)}</div><div className="stat-label">Balance</div></div>
@@ -1406,6 +2150,18 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
                     }}><ShieldOff size={14} /> Remove Admin</button>
                   )}
                   {isMain && <button className="btn btn-outline btn-sm" onClick={() => resetPw(selected.id)}><Lock size={14} /> Reset Password</button>}
+                  {isMain && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                      {['bkash','nagad','rocket','crypto'].map(m => (
+                        <button key={m} className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => resetWithdrawAccount(selected.id, m)}>
+                          🔓 Reset {m.toUpperCase()} Account
+                        </button>
+                      ))}
+                      <button className="btn btn-danger btn-sm" style={{ fontSize: 11 }} onClick={() => resetWithdrawAccount(selected.id, 'all')}>
+                        🔓 Reset ALL Withdraw Accounts
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -1536,6 +2292,366 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
   );
 }
 
+function WalletManagementPage({ authFetch, toast, isMain }) {
+  const [tab, setTab] = useState('balance');
+  // ── Balance Adjustment ────────────────────────────────────────────────────
+  const [userSearch, setUserSearch] = useState('');
+  const [foundUser, setFoundUser] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [adjMode, setAdjMode] = useState('set'); // set | credit | debit
+  const [adjAmount, setAdjAmount] = useState('');
+  const [adjNote, setAdjNote] = useState('');
+  const [adjLoading, setAdjLoading] = useState(false);
+  // ── Transfer History ──────────────────────────────────────────────────────
+  const [transfers, setTransfers] = useState([]);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txSearch, setTxSearch] = useState('');
+  // ── Balance Overview ──────────────────────────────────────────────────────
+  const [overview, setOverview] = useState(null);
+  const [ovLoading, setOvLoading] = useState(false);
+
+  const searchUser = async () => {
+    if (!userSearch.trim()) return;
+    setSearchLoading(true); setFoundUser(null);
+    try {
+      const r = await authFetch(`${API}/api/admin/users`);
+      const d = await r.json();
+      const users = d.users || [];
+      const q = userSearch.trim().toLowerCase();
+      const match = users.find(u =>
+        String(u.id) === q || u.identifier?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q)
+      );
+      if (match) setFoundUser(match);
+      else toast('User not found', 'error');
+    } catch { toast('Search failed', 'error'); }
+    finally { setSearchLoading(false); }
+  };
+
+  const applyBalance = async () => {
+    if (!foundUser || !adjAmount) return;
+    const num = Number(adjAmount);
+    if (isNaN(num) || num < 0) return toast('Invalid amount', 'error');
+    let newBalance;
+    if (adjMode === 'set') newBalance = num;
+    else if (adjMode === 'credit') newBalance = (Number(foundUser.balance) || 0) + num;
+    else newBalance = Math.max(0, (Number(foundUser.balance) || 0) - num);
+    setAdjLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/users/${foundUser.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ balance: newBalance }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        toast(`Balance updated → ${formatMoney(newBalance)}`);
+        setFoundUser(u => ({ ...u, balance: newBalance }));
+        setAdjAmount(''); setAdjNote('');
+      } else toast(d.error || 'Failed', 'error');
+    } catch { toast('Failed', 'error'); }
+    finally { setAdjLoading(false); }
+  };
+
+  const loadTransfers = useCallback(async () => {
+    setTxLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/transactions`);
+      const d = await r.json();
+      const all = d.transactions || [];
+      setTransfers(all.filter(t => t.type === 'transfer_sent' || t.type === 'transfer_received'));
+    } catch {}
+    finally { setTxLoading(false); }
+  }, []);
+
+  const loadOverview = useCallback(async () => {
+    setOvLoading(true);
+    try {
+      const r = await authFetch(`${API}/api/admin/users`);
+      const d = await r.json();
+      const users = d.users || [];
+      const totalBal = users.reduce((s, u) => s + (Number(u.balance) || 0), 0);
+      const topUsers = [...users].sort((a, b) => (b.balance || 0) - (a.balance || 0)).slice(0, 10);
+      setOverview({ totalBal, count: users.length, topUsers });
+    } catch {}
+    finally { setOvLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'transfers') loadTransfers();
+    if (tab === 'overview') loadOverview();
+  }, [tab, loadTransfers, loadOverview]);
+
+  const filteredTx = transfers.filter(t => {
+    const q = txSearch.toLowerCase();
+    return !q || t.user_name?.toLowerCase().includes(q) || t.user_identifier?.toLowerCase().includes(q) || String(t.user_id).includes(q);
+  });
+
+  const TABS = [
+    { id: 'balance', label: '⚖️ Balance Adjust' },
+    { id: 'transfers', label: '↔️ Transfers' },
+    { id: 'overview', label: '📊 Overview' },
+  ];
+
+  return (
+    <>
+      <div className="page-header">
+        <div><h1>Wallet Control</h1><div className="subtitle">Manage user balances and monitor transfers</div></div>
+      </div>
+
+      {/* Tabs */}
+      <div className="card" style={{ padding: '10px 16px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {TABS.map(t => (
+            <button key={t.id} className={`btn btn-sm ${tab === t.id ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab(t.id)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Balance Adjustment ─────────────────────────────────────────── */}
+      {tab === 'balance' && (
+        <>
+          <div className="card">
+            <div className="card-title"><SlidersHorizontal size={16} /> Balance Adjustment</div>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
+              Search a user, then set their exact balance, or credit/debit an amount. All changes are logged.
+            </p>
+
+            {/* Search */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <input
+                className="inp" style={{ flex: 1, marginBottom: 0 }}
+                placeholder="Search by name, email/ID or user ID..."
+                value={userSearch} onChange={e => setUserSearch(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && searchUser()}
+              />
+              <button className="btn btn-primary" onClick={searchUser} disabled={searchLoading}>
+                {searchLoading ? <RefreshCw size={14} /> : <Search size={14} />} Find
+              </button>
+            </div>
+
+            {/* Found user card */}
+            {foundUser && (
+              <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{foundUser.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>ID: {foundUser.id} · {foundUser.identifier}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>Plan: <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{foundUser.plan_id?.toUpperCase()}</span></div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text2)' }}>Current Balance</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--accent)' }}>{formatMoney(foundUser.balance)}</div>
+                  </div>
+                </div>
+
+                {/* Adjustment controls */}
+                <div style={{ marginTop: 16, display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {[
+                    { v: 'set', icon: <SlidersHorizontal size={13} />, label: 'Set Exact', color: '#818CF8' },
+                    { v: 'credit', icon: <PlusCircle size={13} />, label: 'Credit (+)', color: '#0ECB81' },
+                    { v: 'debit', icon: <MinusCircle size={13} />, label: 'Debit (−)', color: '#F6465D' },
+                  ].map(m => (
+                    <button
+                      key={m.v}
+                      onClick={() => setAdjMode(m.v)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8,
+                        border: `1.5px solid ${adjMode === m.v ? m.color : 'var(--border)'}`,
+                        background: adjMode === m.v ? `${m.color}22` : 'transparent',
+                        color: adjMode === m.v ? m.color : 'var(--text2)',
+                        cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                      }}
+                    >
+                      {m.icon} {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: 120 }}>
+                    <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text2)', fontWeight: 700 }}>৳</span>
+                    <input
+                      className="inp" type="number" min="0"
+                      style={{ paddingLeft: 28, marginBottom: 0 }}
+                      placeholder={adjMode === 'set' ? 'New balance amount' : 'Amount to ' + adjMode}
+                      value={adjAmount} onChange={e => setAdjAmount(e.target.value)}
+                    />
+                  </div>
+                  <input
+                    className="inp" style={{ flex: 2, minWidth: 140, marginBottom: 0 }}
+                    placeholder="Reason / note (optional)"
+                    value={adjNote} onChange={e => setAdjNote(e.target.value)}
+                  />
+                  <button
+                    className={`btn ${adjMode === 'credit' ? 'btn-success' : adjMode === 'debit' ? 'btn-danger' : 'btn-primary'}`}
+                    disabled={adjLoading || !adjAmount}
+                    onClick={applyBalance}
+                  >
+                    {adjLoading ? <RefreshCw size={14} /> : <CheckCircle size={14} />}
+                    {adjMode === 'set' ? 'Set Balance' : adjMode === 'credit' ? 'Credit' : 'Debit'}
+                  </button>
+                </div>
+
+                {/* Preview */}
+                {adjAmount && !isNaN(Number(adjAmount)) && (
+                  <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text2)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span>Preview:</span>
+                    <span style={{ fontWeight: 700, color: 'var(--text)' }}>{formatMoney(foundUser.balance)}</span>
+                    <span>→</span>
+                    <span style={{ fontWeight: 800, color: adjMode === 'credit' ? 'var(--success)' : adjMode === 'debit' ? 'var(--danger)' : '#818CF8' }}>
+                      {adjMode === 'set' ? formatMoney(Number(adjAmount))
+                        : adjMode === 'credit' ? formatMoney((Number(foundUser.balance) || 0) + Number(adjAmount))
+                        : formatMoney(Math.max(0, (Number(foundUser.balance) || 0) - Number(adjAmount)))}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Quick tips */}
+          <div className="card" style={{ background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.15)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>ℹ️ How Balance Adjustment Works</div>
+              <div>• <strong>Set Exact</strong> — Overwrite the balance to a specific value (e.g. set to ৳0 to clear)</div>
+              <div>• <strong>Credit (+)</strong> — Add an amount on top of the current balance</div>
+              <div>• <strong>Debit (−)</strong> — Subtract from the current balance (won't go below ৳0)</div>
+              <div>• All changes appear in the admin activity log with the admin's name</div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Transfers ──────────────────────────────────────────────────── */}
+      {tab === 'transfers' && (
+        <>
+          <div className="card" style={{ padding: '12px 16px', marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Search size={15} color="var(--text2)" />
+            <input
+              className="inp" style={{ flex: 1, marginBottom: 0, background: 'transparent', border: 'none', padding: 0 }}
+              placeholder="Filter by user name, email, or ID..."
+              value={txSearch} onChange={e => setTxSearch(e.target.value)}
+            />
+            <button className="btn btn-outline btn-sm" onClick={loadTransfers}><RefreshCw size={14} /></button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+            <div className="stat-card">
+              <div className="stat-value">{transfers.filter(t => t.type === 'transfer_sent').length}</div>
+              <div className="stat-label">Total Outgoing</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{transfers.filter(t => t.type === 'transfer_received').length}</div>
+              <div className="stat-label">Total Incoming</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value" style={{ color: 'var(--accent)' }}>
+                {formatMoney(transfers.filter(t => t.type === 'transfer_sent').reduce((s, t) => s + Math.abs(t.amount || 0), 0))}
+              </div>
+              <div className="stat-label">Total Volume</div>
+            </div>
+          </div>
+
+          {txLoading ? (
+            <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading transfers…</div>
+          ) : filteredTx.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>No transfers found</div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Direction</th>
+                    <th>User</th>
+                    <th>Amount</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTx.map(tx => (
+                    <tr key={tx.id}>
+                      <td>
+                        {tx.type === 'transfer_sent'
+                          ? <span style={{ color: '#F59E0B', fontWeight: 700 }}>➡️ Sent</span>
+                          : <span style={{ color: '#60A5FA', fontWeight: 700 }}>⬅️ Received</span>}
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{tx.user_name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text2)' }}>ID: {tx.user_id} · {tx.user_identifier}</div>
+                      </td>
+                      <td style={{ fontWeight: 700, color: tx.amount > 0 ? 'var(--success)' : 'var(--danger)' }}>
+                        {tx.amount > 0 ? '+' : ''}{formatMoney(Math.abs(tx.amount))}
+                      </td>
+                      <td><span className="badge badge-blue">{tx.method?.toUpperCase() || 'INTERNAL'}</span></td>
+                      <td><span className={`badge ${tx.status === 'approved' ? 'badge-green' : tx.status === 'rejected' ? 'badge-red' : 'badge-yellow'}`}>{tx.status}</span></td>
+                      <td style={{ fontSize: 11, color: 'var(--text2)' }}>{fmtDate(tx.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Overview ───────────────────────────────────────────────────── */}
+      {tab === 'overview' && (
+        <>
+          {ovLoading ? (
+            <div className="card" style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Loading…</div>
+          ) : overview ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
+                <div className="stat-card">
+                  <div className="stat-value" style={{ color: 'var(--accent)' }}>{formatMoney(overview.totalBal)}</div>
+                  <div className="stat-label">Total User Balance</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value">{overview.count}</div>
+                  <div className="stat-label">Total Users</div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-title"><Trophy size={15} /> Top 10 Balances</div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Rank</th><th>User</th><th>Plan</th><th>Balance</th></tr>
+                    </thead>
+                    <tbody>
+                      {overview.topUsers.map((u, i) => (
+                        <tr key={u.id}>
+                          <td style={{ fontWeight: 800, color: i === 0 ? '#F59E0B' : i === 1 ? '#94A3B8' : i === 2 ? '#CD7F32' : 'var(--text2)' }}>
+                            #{i + 1}
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{u.name}</div>
+                            <div style={{ fontSize: 10, color: 'var(--text2)' }}>ID: {u.id} · {u.identifier}</div>
+                          </td>
+                          <td><span className="badge badge-blue">{u.plan_id?.toUpperCase()}</span></td>
+                          <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{formatMoney(u.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text2)' }}>
+              <button className="btn btn-primary" onClick={loadOverview}>Load Overview</button>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
 function FinancePage({ authFetch, toast, isMain, adminPerms }) {
   const [transactions, setTx] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1613,9 +2729,15 @@ function FinancePage({ authFetch, toast, isMain, adminPerms }) {
             </button>
           ))}
           <div style={{ width: 1, background: 'var(--border)', margin: '0 4px' }} />
-          {['all', 'deposit', 'withdraw'].map(f => (
-            <button key={f} className={`btn btn-sm ${typeFilter === f ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTypeFilter(f)}>
-              {f === 'all' ? 'All Types' : f.charAt(0).toUpperCase() + f.slice(1)}
+          {[
+            { v: 'all', label: 'All Types' },
+            { v: 'deposit', label: '💰 Deposit' },
+            { v: 'withdraw', label: '💸 Withdraw' },
+            { v: 'transfer_sent', label: '➡️ Transfer Out' },
+            { v: 'transfer_received', label: '⬅️ Transfer In' },
+          ].map(f => (
+            <button key={f.v} className={`btn btn-sm ${typeFilter === f.v ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTypeFilter(f.v)}>
+              {f.label}
             </button>
           ))}
         </div>
@@ -1630,7 +2752,12 @@ function FinancePage({ authFetch, toast, isMain, adminPerms }) {
                 const isCrypto = tx.method === 'crypto';
                 return (
                 <tr key={tx.id} style={{ background: tx.status === 'pending' ? 'rgba(252,213,53,0.03)' : undefined }}>
-                  <td>{tx.type === 'deposit' ? <span style={{ color: 'var(--success)' }}>💰 Deposit</span> : <span style={{ color: 'var(--danger)' }}>💸 Withdraw</span>}</td>
+                  <td>
+                    {tx.type === 'deposit' ? <span style={{ color: 'var(--success)' }}>💰 Deposit</span>
+                     : tx.type === 'transfer_sent' ? <span style={{ color: '#F59E0B' }}>➡️ Transfer Out</span>
+                     : tx.type === 'transfer_received' ? <span style={{ color: '#60A5FA' }}>⬅️ Transfer In</span>
+                     : <span style={{ color: 'var(--danger)' }}>💸 Withdraw</span>}
+                  </td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{tx.user_name}</div>
                     <div style={{ fontSize: 10, color: 'var(--text2)' }}>ID: {tx.user_id} · {tx.user_identifier}</div>
@@ -2145,7 +3272,7 @@ function SelectiveResetCard({ authFetch, toast }) {
   );
 }
 
-function AdminsPage({ authFetch, toast, adminUser }) {
+function AdminsPage({ authFetch, toast, adminUser, navGroups = [] }) {
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(true);
@@ -2268,28 +3395,44 @@ function AdminsPage({ authFetch, toast, adminUser }) {
         </div>
       )}
 
-      <div className="card">
-        <div className="card-title"><Clock size={16} /> Activity Log</div>
-        {logsLoading ? <div style={{ textAlign: 'center', padding: 30, color: 'var(--text2)' }}>Loading...</div> : logs.length === 0 ? <div style={{ textAlign: 'center', padding: 30, color: 'var(--text2)' }}>No activity yet</div> : (
-          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>Admin</th><th>Action</th><th>Details</th><th>Date</th></tr></thead>
-                <tbody>
-                  {logs.slice(0, 100).map(l => (
-                    <tr key={l.id}>
-                      <td style={{ fontWeight: 600, color: 'var(--accent)' }}>{l.admin_name || 'Admin'}</td>
-                      <td>{l.action}</td>
-                      <td style={{ fontSize: 11, color: 'var(--text2)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.details || '—'}</td>
-                      <td style={{ fontSize: 11, color: 'var(--text2)' }}>{fmtDate(l.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {/* ── Screen Access Matrix (shows which screens sub-admins can access) ── */}
+      {navGroups.length > 0 && editPerms && (() => {
+        const targetAdmin = users.find(u => u.id === editPerms);
+        const checkAccess = (item) => {
+          if (item.mainOnly) return false;
+          if (!item.perm) return true;
+          if (Array.isArray(item.perm)) return item.perm.some(p => !!perms[p]);
+          return !!perms[item.perm];
+        };
+        return (
+          <div className="card" style={{ borderColor: 'rgba(99,102,241,0.2)', background: 'rgba(99,102,241,0.02)' }}>
+            <div className="card-title"><Layers size={16} color="var(--info)" /> Screen Access Preview — {targetAdmin?.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>Based on selected permissions, this admin will see:</div>
+            {navGroups.map(group => {
+              const accessible = group.items.filter(i => checkAccess(i));
+              const locked = group.items.filter(i => !checkAccess(i));
+              return (
+                <div key={group.label} style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>{group.label}</div>
+                  <div className="perm-matrix-grid">
+                    {group.items.map(item => {
+                      const can = checkAccess(item);
+                      const Icon = item.icon;
+                      return (
+                        <div key={item.id} className={`perm-matrix-item ${can ? 'granted' : 'denied'}`}>
+                          <Icon size={13} />
+                          <span style={{ flex: 1 }}>{item.label}</span>
+                          {item.mainOnly ? <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.7 }}>MAIN ONLY</span> : can ? <CheckCircle size={12} /> : <Lock size={11} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* Access Link — visible to main admin only */}
       {isMain && (
@@ -2866,156 +4009,18 @@ function SettingsPage({ authFetch, toast }) {
         ) : null}
       </div>
 
-      <div className="card" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
-        <div className="card-title"><AlertTriangle size={16} color="var(--danger)" /> App Control</div>
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14, padding: '8px 12px', background: 'rgba(59,130,246,0.06)', borderRadius: 8, border: '1px solid rgba(59,130,246,0.15)' }}>
-          💡 Switch keys (Maintenance, Guest Mode, Work Time, Withdraw rules) have moved to <b>Quick Controls</b> in the sidebar.
+      <div className="card" style={{ borderColor: 'rgba(99,102,241,0.2)' }}>
+        <div className="card-title"><Globe size={16} color="var(--primary)" /> Geographic Restrictions</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4, lineHeight: 1.6 }}>
+          Block specific countries from accessing manufacturing/work features. Users from these countries will see a "Work Not Available" message.
         </div>
-
-        <label className="input-label">Announcement Banner</label>
-        <input className="inp" placeholder="Shows to all users" value={settings.announcement_banner || ''} onChange={e => setSettings(p => ({ ...p, announcement_banner: e.target.value }))} />
-
-        <div style={{ marginTop: 16 }}>
-          <label className="input-label">🌍 Work Blocked Countries</label>
-          <input className="inp" placeholder="Comma-separated ISO codes, e.g: US,IN,PK" value={settings.work_blocked_countries || ''} onChange={e => setSettings(p => ({ ...p, work_blocked_countries: e.target.value }))} />
-          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
-            Users from these countries will see a "Work Not Available" overlay. Leave blank to allow all countries.
-          </div>
+        <label className="input-label" style={{ marginTop: 10 }}>🌍 Work Blocked Countries</label>
+        <input className="inp" placeholder="Comma-separated ISO codes, e.g: US,IN,PK" value={settings.work_blocked_countries || ''} onChange={e => setSettings(p => ({ ...p, work_blocked_countries: e.target.value }))} />
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
+          Leave blank to allow all countries. Use ISO 3166-1 alpha-2 codes (e.g. <b>BD</b>=Bangladesh, <b>IN</b>=India, <b>US</b>=USA).
         </div>
-      </div>
-
-      <div className="card">
-        <div className="card-title"><CreditCard size={16} /> Payment Accounts</div>
-        <div className="grid-2">
-          {['bkash', 'nagad', 'rocket'].map(m => (
-            <div key={m}>
-              <label className="input-label">{m.charAt(0).toUpperCase() + m.slice(1)} Number</label>
-              <input className="inp" value={settings[`deposit_${m}`] || ''} onChange={e => setSettings(p => ({ ...p, [`deposit_${m}`]: e.target.value }))} />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div className="card-title" style={{ color: 'var(--accent)', margin: 0 }}>💎 Crypto Wallet Addresses</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: settings.crypto_enabled === 'false' ? 'var(--danger)' : 'var(--accent)' }}>
-              {settings.crypto_enabled === 'false' ? 'OFF' : 'ON'}
-            </span>
-            <div
-              onClick={() => setSettings(p => ({ ...p, crypto_enabled: p.crypto_enabled === 'false' ? 'true' : 'false' }))}
-              style={{
-                width: 48, height: 26, borderRadius: 13,
-                background: settings.crypto_enabled === 'false' ? 'var(--border)' : 'var(--accent)',
-                cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-              }}
-            >
-              <div style={{
-                width: 22, height: 22, borderRadius: '50%', background: '#fff',
-                position: 'absolute', top: 2,
-                left: settings.crypto_enabled === 'false' ? 2 : 24,
-                transition: 'left 0.2s',
-              }} />
-            </div>
-          </div>
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>
-          {settings.crypto_enabled === 'false'
-            ? '⛔ Crypto is DISABLED — users cannot deposit or withdraw via crypto.'
-            : 'Enter wallet addresses per blockchain and token. Leave blank to hide from users.'}
-        </div>
-        {[
-          { chain: 'eth',      label: 'Ethereum'      },
-          { chain: 'op',       label: 'Optimism (OP)' },
-          { chain: 'base',     label: 'Base'          },
-          { chain: 'polygon',  label: 'Polygon'       },
-          { chain: 'arbitrum', label: 'Arbitrum'      },
-        ].map(({ chain, label }) => {
-          const usdtVal = settings[`crypto_${chain}_usdt`] || '';
-          const usdcVal = settings[`crypto_${chain}_usdc`] || '';
-          const sameAddr = usdtVal && usdcVal && usdtVal === usdcVal;
-          return (
-            <div key={chain} style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 10, background: 'var(--bg2)', border: `1px solid ${sameAddr ? 'var(--yellow,#f59e0b)' : 'var(--border)'}` }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                ⛓ {label}
-              </div>
-              {sameAddr && (
-                <div style={{ fontSize: 11, color: '#f59e0b', background: 'rgba(245,158,11,.1)', border: '1px solid rgba(245,158,11,.3)', borderRadius: 6, padding: '6px 10px', marginBottom: 10 }}>
-                  ⚠️ USDT and USDC have the SAME address. Enter different addresses below if needed.
-                </div>
-              )}
-              <div className="grid-2">
-                {['usdt', 'usdc'].map(tok => {
-                  const key = `crypto_${chain}_${tok}`;
-                  return (
-                    <div key={tok}>
-                      <label className="input-label">{tok.toUpperCase()} Address</label>
-                      <input
-                        className="inp"
-                        placeholder="0x..."
-                        value={settings[key] || ''}
-                        onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Rotating Deposit Wallet Addresses ── */}
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <div className="card-title" style={{ color: '#f59e0b', margin: 0 }}>🔄 Rotating Deposit Wallets (10 slots)</div>
-          {settings.wallet_rotation_index !== undefined && settings.wallet_rotation_index !== '' && (
-            <span style={{ fontSize: 11, background: 'rgba(245,158,11,.15)', border: '1px solid rgba(245,158,11,.4)', color: '#f59e0b', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>
-              Current Slot: #{parseInt(settings.wallet_rotation_index || 0) + 1}
-            </span>
-          )}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.6 }}>
-          Set up to 10 deposit wallet addresses. Each user visit will show the next address in rotation (Round-Robin).<br/>
-          <span style={{ color: '#f59e0b' }}>⚡ Empty slots will be skipped automatically.</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[1,2,3,4,5,6,7,8,9,10].map(i => {
-            const key = `deposit_wallet_${i}`;
-            const val = settings[key] || '';
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                  background: val ? 'rgba(0,210,180,.15)' : 'var(--bg2)',
-                  border: `1px solid ${val ? 'var(--accent)' : 'var(--border)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 800, fontSize: 12,
-                  color: val ? 'var(--accent)' : 'var(--text2)',
-                }}>
-                  {i}
-                </div>
-                <input
-                  className="inp"
-                  style={{ flex: 1, borderColor: val ? 'rgba(0,210,180,.5)' : undefined }}
-                  placeholder={`Wallet Address #${i} (0x... or any crypto address)`}
-                  value={val}
-                  onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))}
-                />
-                {val && (
-                  <button
-                    type="button"
-                    onClick={() => setSettings(p => ({ ...p, [key]: '' }))}
-                    style={{ background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 6, padding: '4px 8px', color: '#ef4444', cursor: 'pointer', fontSize: 12, flexShrink: 0 }}
-                  >✕</button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 8, fontSize: 11, color: 'var(--text2)' }}>
-          💡 <b>How it works:</b> When a user opens Crypto Deposit, the system automatically shows the next wallet from this list. Each visit shows a different wallet.
+        <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(99,102,241,0.06)', borderRadius: 8, border: '1px solid rgba(99,102,241,0.15)', fontSize: 12, color: 'var(--text2)' }}>
+          💡 Announcements → <b>Announcements</b> screen &nbsp;|&nbsp; Payment Numbers → <b>Payment Accounts</b> screen &nbsp;|&nbsp; Toggle switches → <b>Quick Controls</b>
         </div>
       </div>
 
@@ -3387,6 +4392,62 @@ function IpTrackingPage({ authFetch, toast }) {
   );
 }
 
+function AutoVerifierWallets({ settings, setSettings }) {
+  const VERIFIER_WALLETS = [
+    { key: 'crypto_tron_usdt', label: 'TRC20 (Tron USDT)', placeholder: 'T...', hint: 'Starts with T — Tron mainnet' },
+    { key: 'crypto_eth_usdt',  label: 'ERC20 (Ethereum USDT)', placeholder: '0x...', hint: 'Starts with 0x — Ethereum mainnet' },
+    { key: 'crypto_bsc_usdt',  label: 'BEP20 (BSC USDT)', placeholder: '0x...', hint: 'Starts with 0x — Binance Smart Chain' },
+  ];
+  const [editingKey, setEditingKey] = useState(null);
+
+  function maskAddr(val) {
+    if (!val || val.length <= 10) return val;
+    return val.slice(0, 6) + '••••••••' + val.slice(-4);
+  }
+
+  return (
+    <div className="card" style={{ borderColor: 'rgba(38,161,123,0.3)' }}>
+      <div className="card-title" style={{ color: '#26A17B' }}>🔐 Auto-Verifier Deposit Wallets (USDT)</div>
+      <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.6 }}>
+        These addresses are used for <b>automatic on-chain verification</b>. When a user submits a TRC20, ERC20, or BEP20 deposit, the system confirms the transaction hash against these wallets and auto-credits the balance instantly.
+      </div>
+      {VERIFIER_WALLETS.map(({ key, label, placeholder, hint }) => {
+        const val = settings[key] || '';
+        const isEditing = editingKey === key;
+        return (
+          <div key={key} style={{ marginBottom: 14, padding: '12px 14px', borderRadius: 10, background: 'var(--bg2)', border: `1px solid ${val ? 'rgba(38,161,123,0.3)' : 'var(--border)'}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <label className="input-label" style={{ margin: 0, color: val ? '#26A17B' : 'var(--text2)', fontWeight: 700 }}>{label}</label>
+              {val && !isEditing && (
+                <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={() => setEditingKey(key)}>
+                  <Edit size={11} /> Edit
+                </button>
+              )}
+            </div>
+            {(!val || isEditing) ? (
+              <input
+                className="inp"
+                style={{ marginBottom: 4, fontFamily: 'monospace', fontSize: 12 }}
+                placeholder={placeholder}
+                value={val}
+                onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))}
+                onBlur={() => setEditingKey(null)}
+                autoFocus={isEditing}
+              />
+            ) : (
+              <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#26A17B', fontWeight: 600, padding: '6px 0', wordBreak: 'break-all' }}>{maskAddr(val)}</div>
+            )}
+            <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{hint}</div>
+          </div>
+        );
+      })}
+      <div style={{ padding: '8px 12px', background: 'rgba(38,161,123,0.06)', borderRadius: 8, fontSize: 12, color: 'var(--text2)' }}>
+        ⚡ Auto-verification works for TRC20, ERC20, and BEP20 only. Other networks still require manual admin approval.
+      </div>
+    </div>
+  );
+}
+
 function PaymentSettingsPage({ authFetch, toast, adminPerms }) {
   const [settings, setSettings] = useState({});
   const [saving, setSaving] = useState(false);
@@ -3406,6 +4467,7 @@ function PaymentSettingsPage({ authFetch, toast, adminPerms }) {
     try {
       const MANAGED_KEYS = [
         'deposit_bkash', 'deposit_nagad', 'deposit_rocket',
+        'crypto_tron_usdt', 'crypto_eth_usdt', 'crypto_bsc_usdt',
         ...['eth','op','base','polygon','arbitrum'].flatMap(c => [`crypto_${c}_usdt`, `crypto_${c}_usdc`]),
         ...Array.from({length:10}, (_, i) => `deposit_wallet_${i+1}`),
       ];
@@ -3440,6 +4502,8 @@ function PaymentSettingsPage({ authFetch, toast, adminPerms }) {
 
       {adminPerms?.modify_wallet_addresses && (
         <>
+          <AutoVerifierWallets settings={settings} setSettings={setSettings} />
+
           <div className="card">
             <div className="card-title" style={{ color: 'var(--accent)' }}>💎 Crypto Wallet Addresses</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>
