@@ -12,10 +12,92 @@ const BRAND_COLORS = {
   Vivo: '#415FFF', Realme: '#FFE600',
 };
 
+const DAILY_DEVICES = [
+  { brand:'Samsung', models:['Galaxy S24','Galaxy A54','Galaxy M34','Galaxy S23 FE','Galaxy A35','Galaxy F55','Galaxy S24+','Galaxy A15','Galaxy M54','Galaxy A25'] },
+  { brand:'Apple', models:['iPhone 15','iPhone 14','iPhone 13','iPhone 15 Pro','iPhone 12','iPhone SE 3','iPhone 15 Plus','iPhone 14 Pro','iPhone 13 mini','iPhone 11'] },
+  { brand:'Xiaomi', models:['Redmi Note 13','Redmi 13C','POCO X6','Redmi Note 12','POCO M6 Pro','Redmi 12','Redmi Note 13 Pro','POCO F6','Redmi A3','POCO X6 Pro'] },
+  { brand:'Oppo', models:['Reno 11','A98','Find X7','Reno 10','A78','Find N3 Flip','Reno 11 Pro','A58','Reno 8T','A17'] },
+  { brand:'Vivo', models:['V30','Y200','X100','V29','Y100','X90 Pro','V27','Y02s','V30 Pro','Y16'] },
+  { brand:'OnePlus', models:['12','Nord CE 4','11','Nord 3','Open','12R','Nord N30','10 Pro','Nord CE 3 Lite','Ace 3'] },
+  { brand:'Google', models:['Pixel 8','Pixel 8 Pro','Pixel 7a','Pixel 8a','Pixel 7 Pro','Pixel Fold','Pixel 6a','Pixel 7','Pixel 8 Fold','Pixel 6 Pro'] },
+  { brand:'Realme', models:['GT 6','Narzo 70','12 Pro+','GT Neo 6','C67','11 Pro','GT 5','C55','12+','Narzo 60'] },
+];
+
+const SELLER_NAMES = [
+  'Rahul_S','Ahmad_R','James_O','Wei_L','Maria_S','Carlos_M','Aisha_K','David_M',
+  'Priya_P','Samuel_A','Fatima_Z','Kevin_O','Li_M','Emmanuel_B','Sofia_R','Yusuf_I',
+  'Grace_A','Tariq_H','Amara_D','Nguyen_L','Daniel_O','Blessing_C','Arjun_N','Zainab_M',
+  'Roberto_S','Olu_B','Siti_R','Kwame_A','Amira_K','Jason_T','Adaeze_O','Raj_K',
+  'Patience_A','Ali_H','Chiamaka_E','Hamid_R','Nkechi_O','Vikram_S','Josephine_N','Abdullah_F',
+  'Chidi_O','Lakshmi_D','Moussa_C','Tina_B','Omar_F','Irene_W','Babatunde_A','Ananya_D',
+  'Frank_A','Habib_D','Michael_T','Sandra_K','Ahmed_B','Lucy_N','Chen_X','Fatou_S',
+  'Ibrahim_K','Stella_O','Rajesh_M','Hannah_A','Kwesi_D','Nadia_F','Victor_E','Cynthia_O',
+];
+
+const SPECS_LIST = [
+  '6.7" AMOLED, 12GB RAM, 256GB','6.1" OLED, 8GB RAM, 128GB','6.5" LCD, 4GB RAM, 64GB',
+  '6.8" Dynamic AMOLED, 12GB RAM, 512GB','6.4" Super AMOLED, 8GB RAM, 256GB',
+  '6.6" IPS, 6GB RAM, 128GB','6.3" OLED, 8GB RAM, 256GB','6.9" LTPO, 16GB RAM, 512GB',
+  '6.2" AMOLED, 12GB RAM, 256GB','6.7" pOLED, 8GB RAM, 128GB',
+];
+
+function seededRandom(seed) {
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+
+function generateDailyPosts(count = 300) {
+  const today = new Date();
+  const daySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const rand = seededRandom(daySeed);
+  const posts = [];
+  for (let i = 0; i < count; i++) {
+    const brandEntry = DAILY_DEVICES[Math.floor(rand() * DAILY_DEVICES.length)];
+    const model = brandEntry.models[Math.floor(rand() * brandEntry.models.length)];
+    const seller = SELLER_NAMES[Math.floor(rand() * SELLER_NAMES.length)];
+    const specs = SPECS_LIST[Math.floor(rand() * SPECS_LIST.length)];
+    const price = (rand() * 9 + 1).toFixed(2);
+    const isSold = rand() < 0.15;
+    posts.push({
+      id: `daily-${daySeed}-${i}`,
+      name: `${brandEntry.brand} ${model}`,
+      brand: brandEntry.brand,
+      specs,
+      price: parseFloat(price),
+      seller,
+      status: isSold ? 'sold' : 'active',
+      isMine: false,
+      isDaily: true,
+    });
+  }
+  return posts;
+}
+
+// Try multiple key strategies to find a device image:
+// 1. Exact name (e.g. "OnePlus 12", "Vivo X100", "Realme GT 5 Pro")
+// 2. Strip leading brand word (e.g. "Samsung Galaxy S24" → "Galaxy S24")
+// 3. For Oppo: replace "Oppo " with "OPPO " (stored with OPPO prefix)
+function resolveDeviceImage(name, brand) {
+  if (!name) return null;
+  if (DEVICE_IMAGES[name]) return DEVICE_IMAGES[name];
+  // Strip leading brand prefix (handles Apple/Samsung/Google/Xiaomi daily posts)
+  const prefix = brand + ' ';
+  if (name.startsWith(prefix)) {
+    const stripped = name.slice(prefix.length);
+    if (DEVICE_IMAGES[stripped]) return DEVICE_IMAGES[stripped];
+    // For Oppo: "Oppo Reno 11" → strip → "Reno 11" → try "OPPO Reno 11"
+    if (brand === 'Oppo') {
+      const oppoKey = 'OPPO ' + stripped;
+      if (DEVICE_IMAGES[oppoKey]) return DEVICE_IMAGES[oppoKey];
+    }
+  }
+  return null;
+}
+
 function DevicePhoto({ name, brand, size = 100 }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError]   = useState(false);
-  const src   = DEVICE_IMAGES[name];
+  const src   = resolveDeviceImage(name, brand);
   const color = BRAND_COLORS[brand] || '#23AF91';
 
   return (
@@ -145,7 +227,7 @@ function MarketplaceScreen({ user, lang }) {
     status: item.status, isMine: true,
   }));
 
-  const marketItems = allItems
+  const realMarketItems = allItems
     .filter(item => item.user_id !== user?.id)
     .map(item => ({
       id: item.id, name: item.device_name, brand: item.brand,
@@ -153,6 +235,9 @@ function MarketplaceScreen({ user, lang }) {
       seller: item.username || item.user_name || 'User',
       status: item.status, isMine: false,
     }));
+
+  const dailyPosts = generateDailyPosts(300);
+  const marketItems = [...realMarketItems, ...dailyPosts];
 
   return (
     <>
