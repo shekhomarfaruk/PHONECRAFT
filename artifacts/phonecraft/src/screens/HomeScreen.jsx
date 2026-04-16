@@ -4,8 +4,10 @@ import { PLANS, AVATARS, COUNTRIES, RANDOM_NAMES, maskName, randItem } from "../
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
 import PwaInstallGuideModal from "../components/PwaInstallGuideModal.jsx";
+import BoishakhOfferModal from "../components/BoishakhOfferModal.jsx";
 import { RegistrationModal } from "./NotifScreen.jsx";
 import { authFetch } from "../session.js";
+import WithdrawalTicker from "../components/WithdrawalTicker.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -179,6 +181,11 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
   const t      = I18N[lang] || I18N.en;
   const plan   = PLANS.find(p => p.id === user.plan);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [showBoishakh, setShowBoishakh] = useState(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const seen = localStorage.getItem('boishakh_seen_date');
+    return seen !== today;
+  });
   const [regModalNotif, setRegModalNotif] = useState(null);
   const shownIds = useRef(new Set());
   const [weekEarnings, setWeekEarnings] = useState([]);
@@ -208,6 +215,11 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
   return (
     <>
       <PwaInstallGuideModal open={showInstallGuide} onClose={() => setShowInstallGuide(false)} lang={lang} />
+      {showBoishakh && <BoishakhOfferModal onClose={() => {
+        const today = new Date().toISOString().slice(0, 10);
+        localStorage.setItem('boishakh_seen_date', today);
+        setShowBoishakh(false);
+      }} />}
 
       {regModalNotif && (
         <RegistrationModal
@@ -277,39 +289,6 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
         );
       })}
 
-      <div
-        className="card"
-        onClick={() => setShowInstallGuide(true)}
-        style={{
-          cursor: 'pointer',
-          background: 'linear-gradient(135deg, rgba(35,175,145,.18), rgba(99,102,241,.16))',
-          borderColor: 'rgba(35,175,145,.36)',
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <div style={{
-          width: 44, height: 44, borderRadius: 12,
-          background: 'rgba(10,12,16,.45)',
-          border: '1px solid rgba(35,175,145,.28)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', flexShrink: 0,
-        }}>
-          <img src="/logo.png" alt="" style={{ width: 30, height: 30, objectFit: 'contain' }} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'Space Grotesk', fontWeight: 800, fontSize: 14 }}>
-            {t.home_install_app}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
-            {t.home_install_sub}
-          </div>
-        </div>
-        <div style={{ color: 'var(--accent)', fontWeight: 900, fontSize: 18, flexShrink: 0 }}>›</div>
-      </div>
-
       {/* ── Welcome card ── */}
       <div className="card" style={{background:'linear-gradient(135deg,rgba(35,175,145,.12),rgba(99,102,241,.12))',borderColor:'rgba(35,175,145,.3)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12}}>
@@ -350,10 +329,18 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
           {PLANS.map(p=>(
             <div key={p.id} style={{
               background: user.plan===p.id ? `${p.color}18` : 'var(--input-bg)',
-              border:`1px solid ${user.plan===p.id ? p.color : 'var(--border)'}`,
-              borderRadius:10,padding:'10px 12px',
+              border:`1px solid ${user.plan===p.id ? p.color : p.boishakh ? `${p.color}88` : 'var(--border)'}`,
+              borderRadius:10,padding:'10px 12px',position:'relative',overflow:'hidden',
             }}>
-              <div style={{fontFamily:'Space Grotesk',fontSize:10,color:p.color,marginBottom:4}}>{p.name}</div>
+              {p.boishakh && (
+                <div style={{
+                  position:'absolute',top:0,right:0,
+                  background:'linear-gradient(135deg,#F5A623,#CC1B1B)',
+                  fontSize:8,fontWeight:900,color:'#fff',
+                  padding:'2px 7px 2px 10px',borderBottomLeftRadius:8,letterSpacing:0.5,
+                }}>🎊 Boishakh Offer</div>
+              )}
+              <div style={{fontFamily:'Space Grotesk',fontSize:10,color:p.color,marginBottom:4,marginTop:p.boishakh?10:0}}>{p.name}</div>
               <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>{convertCurrency(p.rate, lang)}</div>
               <div style={{fontSize:10,color:'var(--text2)'}}>{t.home_daily}: {convertCurrency(p.dailyEarn, lang)} ({p.daily} {t.home_tasks_plural})</div>
               <div style={{fontSize:10,color:'var(--text2)',marginTop:2}}>{t.home_per_task}: {convertCurrency(p.perTask, lang)}</div>
@@ -422,6 +409,8 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
       <WeekEarningsBar earnings={weekEarnings} lang={lang} />
 
       <EarningsTicker lang={lang} />
+
+      <WithdrawalTicker lang={lang} />
 
       <LiveActivityTicker t={t} />
     </>
