@@ -208,12 +208,20 @@ app.use((req, res, next) => {
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) {
-      callback(null, true);
-      return;
+    if (!origin) { callback(null, true); return; }
+    if (allowedOrigins.has(origin)) { callback(null, true); return; }
+    // Allow all Replit preview / dev domains
+    if (/\.replit\.dev$/.test(origin) || /\.worf\.replit\.dev$/.test(origin) || /\.replit\.app$/.test(origin)) {
+      callback(null, true); return;
+    }
+    // Allow localhost on any port in dev
+    if (!IS_PRODUCTION && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      callback(null, true); return;
     }
     callback(null, false);
   },
+  methods: ['GET','POST','PATCH','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Authorization','Content-Type','X-Device-Id'],
 }));
 app.use(express.json({ limit: '5mb' }));
 app.set('trust proxy', true);
@@ -501,27 +509,23 @@ function syncDailyDoneWithCompletedJobs(userId) {
 // ── Register ─────────────────────────────────────────────────────────────────
 app.post('/api/register', registerLimiter, (req, res) => {
   try {
-    const { name, identifier, password, plan, refCode } = req.body || {};
+    const { name, identifier, password, plan, refCode, paymentMethod, txnHash } = req.body || {};
+    const isDirectPay = paymentMethod === 'direct' && txnHash && String(txnHash).trim().length >= 4;
 
-    if (!name || !identifier || !password || !plan || !refCode)
-      return res.status(400).json({ error: 'All fields are required including referral code' });
+    if (!name || !identifier || !password || !plan)
+      return res.status(400).json({ error: 'All fields are required' });
+
+    if (!isDirectPay && !refCode)
+      return res.status(400).json({ error: 'Referral code required when not paying directly' });
 
     if (stmts.getUserByIdentifier.get(identifier))
       return res.status(400).json({ error: 'This email/phone is already registered' });
-
-    const referrer = stmts.getUserByReferCode.get(refCode);
-    if (!referrer)
-      return res.status(404).json({ error: 'Invalid referral code' });
 
     const planRow = stmts.getPlan.get(plan);
     if (!planRow)
       return res.status(400).json({ error: 'Invalid plan selected' });
 
-    if (referrer.balance < planRow.rate)
-      return res.status(400).json({ error: 'insufficient_balance', needed: planRow.rate, plan_name: planRow.name });
-
-    const hash = bcrypt.hashSync(password, 10);
-
+    // ── Generate unique refer code for new user ───────────────────────────────
     const prefix = name.trim().split(' ')[0].substring(0, 3).toUpperCase();
     let newReferCode;
     let attempts = 0;
@@ -529,6 +533,114 @@ app.post('/api/register', registerLimiter, (req, res) => {
       newReferCode = prefix + Math.random().toString(36).substr(2, 4).toUpperCase();
       attempts++;
     } while (stmts.getUserByReferCode.get(newReferCode) && attempts < 20);
+
+    const hash = bcrypt.hashSync(password, 10);
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // DIRECT PAYMENT PATH — create user immediately, no approval needed
+    // ════════════════════════════════════════════════════════════════════════════
+    if (isDirectPay) {
+      const referrer = refCode ? stmts.getUserByReferCode.get(refCode) : null;
+      if (refCode && !referrer)
+        return res.status(404).json({ error: 'Invalid referral code' });
+
+      const directTx = db.transaction(() => {
+        // 1. Create the new user
+        const result = stmts.insertUser.run({
+          name: name.trim(), identifier: identifier.trim(),
+          password: hash, plan_id: plan,
+          balance: 0, daily_done: 0,
+          refer_code: newReferCode,
+          referred_by: referrer ? refCode : null,
+          avatar: '🧑',
+        });
+        const newUserId = result.lastInsertRowid;
+
+        // 2. Log the TxID in balance_log for admin records
+        stmts.insertBalanceLog.run({
+          user_id: newUserId, type: 'direct_payment',
+          amount: planRow.rate,
+          note: `সরাসরি পেমেন্ট — ${planRow.name} প্ল্যান | TxID: ${String(txnHash).trim()}`,
+        });
+
+        const pushQueue = [];
+
+        // 3. Credit referral commission chain (no balance deduction from referrer)
+        if (referrer) {
+          const bonusLevels = [planRow.l1, planRow.l2, planRow.l3];
+          let currentUser = referrer;
+          for (let lvl = 1; lvl <= 3; lvl++) {
+            const pct = bonusLevels[lvl - 1];
+            const bonus = Math.floor(planRow.rate * pct / 100);
+            if (bonus > 0 && currentUser) {
+              stmts.creditBalance.run(bonus, currentUser.id);
+              const logType = lvl === 1 ? 'referral_bonus' : 'team_bonus';
+              stmts.insertReferralActivity.run({
+                user_id: currentUser.id, type: 'bonus', level: lvl,
+                amount: bonus,
+                description: `${name.trim()}-এর সরাসরি পেমেন্ট থেকে L${lvl} বোনাস (${pct}%)`,
+                related_user_name: name.trim(),
+              });
+              stmts.insertBalanceLog.run({
+                user_id: currentUser.id, type: logType, amount: bonus,
+                note: `${name.trim()}-এর সরাসরি পেমেন্ট থেকে L${lvl} কমিশন (${pct}%)`,
+              });
+              const notifMsg = `🎁 রেফারেল বোনাস: ${name.trim()}-এর নিবন্ধন থেকে L${lvl} কমিশন +৳${bonus.toLocaleString()} আপনার ব্যালেন্সে যোগ হয়েছে।`;
+              stmts.insertNotification.run(currentUser.id, notifMsg, 'success');
+              pushQueue.push({ userId: currentUser.id, lvl, bonus, msg: notifMsg });
+            }
+            if (!currentUser.referred_by) break;
+            currentUser = stmts.getUserByReferCode.get(currentUser.referred_by);
+            if (!currentUser) break;
+          }
+        }
+
+        return { newUserId, pushQueue };
+      });
+
+      const { newUserId, pushQueue } = directTx();
+      const newUser = stmts.getUserById.get(newUserId);
+
+      // Fire push notifications async
+      for (const item of pushQueue) {
+        sendPush(item.userId, {
+          title: `🎁 L${item.lvl} রেফারেল বোনাস`,
+          body: item.msg, icon: '/logo.png',
+          tag: `referral-${item.userId}-${Date.now()}`,
+        });
+      }
+
+      // Alert admins on Telegram for TxID verification (fire-and-forget)
+      sendTelegram([
+        `💳 <b>নতুন Direct Payment Registration</b>`,
+        `━━━━━━━━━━━━━━━━━━━`,
+        `👤 নাম: <b>${name.trim()}</b>`,
+        `📋 প্ল্যান: <b>${planRow.name}</b> (৳${planRow.rate.toLocaleString()})`,
+        `🔗 রেফারার: <b>${referrer ? referrer.name : 'কেউ নেই'}</b>`,
+        `🧾 TxID: <code>${String(txnHash).trim()}</code>`,
+        `🕐 সময়: ${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })}`,
+        `━━━━━━━━━━━━━━━━━━━`,
+        `⚠️ অ্যাকাউন্ট সক্রিয় হয়েছে। TxID যাচাই করুন।`,
+      ].join('\n')).catch(() => {});
+
+      notifyAdmins({
+        title: '💳 Direct Payment Registration',
+        body: `${name.trim()} — ${planRow.name} | TxID: ${String(txnHash).trim().substring(0, 20)}`,
+        icon: '/logo.png', tag: 'admin-direct-reg', url: '/xpc-ctrl-7f3b/',
+      });
+
+      return res.json({ user: toClientUser(newUser), plan: planRow, token: issueAuthToken(newUser) });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // REFERRER PAYMENT PATH — create pending, referrer must approve
+    // ════════════════════════════════════════════════════════════════════════════
+    const referrer = stmts.getUserByReferCode.get(refCode);
+    if (!referrer)
+      return res.status(404).json({ error: 'Invalid referral code' });
+
+    if (referrer.balance < planRow.rate)
+      return res.status(400).json({ error: 'insufficient_balance', needed: planRow.rate, plan_name: planRow.name });
 
     const pending = stmts.insertPendingReg.run({
       name: name.trim(), identifier: identifier.trim(),
@@ -546,7 +658,6 @@ app.post('/api/register', registerLimiter, (req, res) => {
       meta
     );
 
-    // Alert admins on Telegram (fire-and-forget)
     sendTelegram([
       `🔔 <b>নতুন Registration Request</b>`,
       `━━━━━━━━━━━━━━━━━━━`,
@@ -559,7 +670,6 @@ app.post('/api/register', registerLimiter, (req, res) => {
       `✅ রেফারারের নোটিফিকেশনে Approve/Decline অপশন আছে।`,
     ].join('\n')).catch(() => {});
 
-    // Push notification to all admins
     notifyAdmins({
       title: '👤 নতুন Registration Request',
       body: `${name.trim()} — ${planRow.name} (৳${planRow.rate.toLocaleString()})`,
@@ -619,6 +729,7 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
 
       // ── 3. Walk referral chain and credit bonuses (up to 3 levels) ────────
       const bonusLevels = planRow ? [planRow.l1, planRow.l2, planRow.l3] : [20, 4, 1];
+      const pushQueue = []; // collected outside tx for async push
       let currentUser = referrer;
       for (let lvl = 1; lvl <= 3; lvl++) {
         const pct = bonusLevels[lvl - 1];
@@ -636,11 +747,9 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
             user_id: currentUser.id, type: logType, amount: bonus,
             note: `${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন (${pct}%)`,
           });
-          stmts.insertNotification.run(
-            currentUser.id,
-            `🎁 রেফারেল বোনাস: ${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন +৳${bonus.toLocaleString()} আপনার ব্যালেন্সে যোগ হয়েছে।`,
-            'success'
-          );
+          const notifMsg = `🎁 রেফারেল বোনাস: ${pending.name}-এর নিবন্ধন থেকে L${lvl} কমিশন +৳${bonus.toLocaleString()} আপনার ব্যালেন্সে যোগ হয়েছে।`;
+          stmts.insertNotification.run(currentUser.id, notifMsg, 'success');
+          pushQueue.push({ userId: currentUser.id, lvl, bonus, msg: notifMsg });
         }
         // Move up the chain
         if (!currentUser.referred_by) break;
@@ -649,19 +758,29 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
       }
 
       // ── 4. Notify direct referrer of approval ────────────────────────────
-      stmts.insertNotification.run(
-        referrer.id,
-        `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ৳${pending.plan_rate.toLocaleString()} কাটা হয়েছে।`,
-        'success'
-      );
+      const approvalMsg = `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ৳${pending.plan_rate.toLocaleString()} কাটা হয়েছে।`;
+      stmts.insertNotification.run(referrer.id, approvalMsg, 'success');
+      pushQueue.push({ userId: referrer.id, lvl: 0, bonus: 0, msg: approvalMsg });
 
-      return stmts.getUserById.get(referrer.id);
+      return { updatedReferrer: stmts.getUserById.get(referrer.id), pushQueue };
     });
 
-    const newUser = approveTx();
-    if (newUser?.alreadyProcessed)
+    const txResult = approveTx();
+    if (txResult?.alreadyProcessed)
       return res.status(409).json({ error: 'Already processed' });
-    res.json({ ok: true, user: toClientUser(newUser), plan: planRow, token: issueAuthToken(newUser) });
+
+    // ── Send push notifications async (after transaction committed) ──────────
+    const { updatedReferrer, pushQueue } = txResult;
+    for (const item of pushQueue || []) {
+      sendPush(item.userId, {
+        title: item.lvl > 0 ? `🎁 L${item.lvl} রেফারেল বোনাস` : '✅ নিবন্ধন অনুমোদিত',
+        body:  item.msg,
+        icon:  '/logo.png',
+        tag:   `referral-${item.userId}-${Date.now()}`,
+      });
+    }
+
+    res.json({ ok: true, user: toClientUser(updatedReferrer), plan: planRow, token: issueAuthToken(updatedReferrer) });
   } catch (err) {
     console.error('Approve error:', err.message);
     res.status(500).json({ error: 'Approval failed' });
@@ -761,6 +880,44 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     console.error('Login error:', err.message);
     res.status(500).json({ error: 'Login failed' });
   }
+});
+
+// ── Admin-specific login ─────────────────────────────────────────────────────
+app.post('/api/admin/login', loginLimiter, async (req, res) => {
+  try {
+    const { identifier, password } = req.body || {};
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+    const user = stmts.getUserByIdentifier.get(identifier.trim());
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    if (!user.is_admin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    if (user.banned) {
+      return res.status(403).json({ error: 'Account suspended' });
+    }
+    const token = issueAuthToken(user);
+    res.json({ token, user: toClientUser(user), requires2FA: false });
+  } catch (err) {
+    console.error('Admin login error:', err.message);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// ── 2FA verify (stub — not yet configured) ───────────────────────────────────
+app.post('/api/admin/2fa/verify-login', (req, res) => {
+  res.status(501).json({ error: '2FA not configured' });
+});
+
+// ── Sub-admin permissions for current user ───────────────────────────────────
+app.get('/api/admin/my-permissions', authRequired, (req, res) => {
+  const user = stmts.getUserById.get(req.auth.userId);
+  if (!user || !user.is_admin) return res.status(403).json({ error: 'Forbidden' });
+  const perms = getSubAdminPerms(user.id);
+  res.json({ permissions: perms, is_main_admin: isMainAdminUser(user) });
 });
 
 app.get('/api/me', authRequired, (req, res) => {
@@ -1067,6 +1224,75 @@ app.get('/api/user/:id/referral-activity', authRequired, requireSelfOrAdmin('id'
   }
 });
 
+// ── GET /api/user/:id/referral-tree — 3-level tree with is_active ─────────────
+app.get('/api/user/:id/referral-tree', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId  = Number(req.params.id);
+    const userRow = stmts.getUserById.get(userId);
+    if (!userRow) return res.status(404).json({ error: 'User not found' });
+
+    const todayDhaka = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+
+    const rawTree = stmts.getReferralTreeMembers.all(userRow.refer_code);
+    const mapMember = (m) => ({
+      id:         m.id,
+      name:       m.name,
+      identifier: m.identifier,
+      plan_id:    m.plan_id,
+      refer_code: m.refer_code,
+      created_at: m.created_at,
+      is_active:  !m.banned && m.last_task_reset === todayDhaka && (m.daily_done || 0) > 0,
+      banned:     !!m.banned,
+    });
+
+    res.json({
+      user: {
+        id: userRow.id, name: userRow.name,
+        identifier: userRow.identifier, plan_id: userRow.plan_id,
+      },
+      level1: rawTree.filter(m => m.level === 1).map(mapMember),
+      level2: rawTree.filter(m => m.level === 2).map(mapMember),
+      level3: rawTree.filter(m => m.level === 3).map(mapMember),
+    });
+  } catch (err) {
+    console.error('Referral tree error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch referral tree' });
+  }
+});
+
+// ── GET /api/user/:id/referral-stats — counts + total commission ──────────────
+app.get('/api/user/:id/referral-stats', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId  = Number(req.params.id);
+    const userRow = stmts.getUserById.get(userId);
+    if (!userRow) return res.status(404).json({ error: 'User not found' });
+
+    const members = stmts.getReferralMemberCounts.get(
+      userRow.refer_code, userRow.refer_code, userRow.refer_code
+    );
+    const stats = stmts.getReferralStats.get(userId);
+
+    const l1 = members?.l1_count || 0;
+    const l2 = members?.l2_count || 0;
+    const l3 = members?.l3_count || 0;
+    const totalCommission = (stats?.l1_total || 0) + (stats?.l2_total || 0) + (stats?.l3_total || 0);
+
+    res.json({
+      total_referrals:       l1 + l2 + l3,
+      level1_count:          l1,
+      level2_count:          l2,
+      level3_count:          l3,
+      total_commission_earned: totalCommission,
+      l1_commission:         stats?.l1_total || 0,
+      l2_commission:         stats?.l2_total || 0,
+      l3_commission:         stats?.l3_total || 0,
+    });
+  } catch (err) {
+    console.error('Referral stats error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch referral stats' });
+  }
+});
+
 // ── Work country access check ─────────────────────────────────────────────────
 app.get('/api/work/access', authRequired, async (req, res) => {
   try {
@@ -1144,16 +1370,22 @@ app.get('/api/deposit-info', (req, res) => {
       nagad:  info.deposit_nagad  || '',
       rocket: info.deposit_rocket || '',
       bank:   info.deposit_bank   || '',
+      // Canonical per-chain keys (stored in admin settings)
       crypto_eth_usdt:      info.crypto_eth_usdt      || '',
       crypto_eth_usdc:      info.crypto_eth_usdc      || '',
-      crypto_op_usdt:       info.crypto_op_usdt       || '',
-      crypto_op_usdc:       info.crypto_op_usdc       || '',
-      crypto_base_usdt:     info.crypto_base_usdt     || '',
-      crypto_base_usdc:     info.crypto_base_usdc     || '',
-      crypto_polygon_usdt:  info.crypto_polygon_usdt  || '',
-      crypto_polygon_usdc:  info.crypto_polygon_usdc  || '',
-      crypto_arbitrum_usdt: info.crypto_arbitrum_usdt || '',
-      crypto_arbitrum_usdc: info.crypto_arbitrum_usdc || '',
+      crypto_op_usdt:       info.crypto_op_usdt        || '',
+      crypto_op_usdc:       info.crypto_op_usdc        || '',
+      crypto_base_usdt:     info.crypto_base_usdt      || '',
+      crypto_base_usdc:     info.crypto_base_usdc      || '',
+      crypto_polygon_usdt:  info.crypto_polygon_usdt   || '',
+      crypto_polygon_usdc:  info.crypto_polygon_usdc   || '',
+      crypto_arbitrum_usdt: info.crypto_arbitrum_usdt  || '',
+      crypto_arbitrum_usdc: info.crypto_arbitrum_usdc  || '',
+      // Aliases expected by the frontend (crypto_${blockchain}_usdt pattern)
+      crypto_trc20_usdt:    info.crypto_trc20_usdt  || info.crypto_tron_usdt  || '',
+      crypto_erc20_usdt:    info.crypto_erc20_usdt  || info.crypto_eth_usdt   || '',
+      crypto_bep20_usdt:    info.crypto_bep20_usdt  || info.crypto_bsc_usdt   || '',
+      crypto_avax_usdt:     info.crypto_avax_usdt   || '',
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch deposit info' });
@@ -1284,23 +1516,6 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       let flagReason = '';
 
       if (type === 'withdraw') {
-        // ── Saved payment method check ──────────────────────────────────────
-        const FLAT_METHODS = new Set(['bkash', 'nagad', 'rocket']);
-        const submitAccount = String(account || '').trim();
-        if (FLAT_METHODS.has(method)) {
-          if (userRow.payment_account_flat) {
-            if (submitAccount !== String(userRow.payment_account_flat).trim()) {
-              return { status: 400, body: { error: `আপনার সেভ করা নম্বর: ${userRow.payment_account_flat} — নম্বর পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন।` } };
-            }
-          }
-        } else if (method === 'crypto') {
-          if (userRow.payment_account_crypto) {
-            if (submitAccount !== String(userRow.payment_account_crypto).trim()) {
-              return { status: 400, body: { error: `আপনার সেভ করা ওয়ালেট: ${userRow.payment_account_crypto} — ওয়ালেট পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন।` } };
-            }
-          }
-        }
-
         // ── Withdraw: 24h cooldown ──
         const cooldownHours = getSettingNum('withdraw_cooldown_hours', 0);
         if (cooldownHours > 0) {
@@ -1368,32 +1583,18 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         stmts.flagTransaction.run(flagReason, txResult.lastInsertRowid);
       }
 
-      // ── Save payment method on first withdrawal ──────────────────────────
-      if (type === 'withdraw') {
-        const FLAT_METHODS_SET = new Set(['bkash', 'nagad', 'rocket']);
-        const acctToSave = String(account || '').trim();
-        if (FLAT_METHODS_SET.has(method) && acctToSave && !userRow.payment_account_flat) {
-          stmts.savePaymentFlat.run(acctToSave, userRow.id);
-        } else if (method === 'crypto' && acctToSave && !userRow.payment_account_crypto) {
-          stmts.savePaymentCrypto.run(acctToSave, userRow.id);
-        }
-      }
-
       const admins = stmts.getAdminUsers.all();
       const notifMsg = `New ${type} request: ৳${numAmount.toLocaleString()} from ${userRow.name} (${method})`;
       for (const admin of admins) {
         stmts.insertNotification.run(admin.id, notifMsg, 'info');
       }
 
-      const updatedUser = stmts.getUserById.get(userRow.id);
       return {
         status: 200,
         body: {
           ok: true,
           transactionId: txResult.lastInsertRowid,
-          newBalance: updatedUser.balance,
-          savedPaymentFlat: updatedUser.payment_account_flat || null,
-          savedPaymentCrypto: updatedUser.payment_account_crypto || null,
+          newBalance: stmts.getUserById.get(userRow.id).balance,
         },
         userRow,
       };
@@ -2754,6 +2955,390 @@ app.post('/api/team-chat/upload', authRequired, upload.single('file'), async (re
   res.json({ ok: true, media_url, media_type });
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// MISSING ENDPOINTS — restored from frontend audit
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Language preference ───────────────────────────────────────────────────────
+app.patch('/api/user/:id/lang', authRequired, requireSelfOrAdmin('id'), (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const { lang } = req.body || {};
+    if (!lang) return res.status(400).json({ error: 'lang required' });
+    const safe = String(lang).slice(0, 10);
+    stmts.updateUserLang.run(safe, userId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update language' });
+  }
+});
+
+// ── Live location (GPS from app) ──────────────────────────────────────────────
+app.post('/api/user/location', authRequired, (req, res) => {
+  try {
+    const { lat, lng, accuracy } = req.body || {};
+    if (lat == null || lng == null) return res.status(400).json({ error: 'lat and lng required' });
+    const safeLat = Number(lat);
+    const safeLng = Number(lng);
+    const safeAcc = accuracy ? Number(accuracy) : null;
+    if (isNaN(safeLat) || isNaN(safeLng)) return res.status(400).json({ error: 'Invalid coordinates' });
+    stmts.updateUserLocation.run(safeLat, safeLng, safeAcc, req.auth.userId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save location' });
+  }
+});
+
+// ── Deposit next-wallet (rotating wallet for non-auto-verified networks) ──────
+app.get('/api/deposit/next-wallet', (req, res) => {
+  try {
+    const rows = stmts.getAllSettings.all();
+    const info = {};
+    rows.forEach(r => { info[r.key] = r.value; });
+    // Collect configured rotation wallets (deposit_wallet_1..10)
+    const wallets = [];
+    for (let i = 1; i <= 10; i++) {
+      const w = info[`deposit_wallet_${i}`];
+      if (w && w.trim()) wallets.push(w.trim());
+    }
+    if (!wallets.length) return res.json({ wallet: '' });
+    // Round-robin rotation using stored index
+    const idx = (Number(info.deposit_wallet_rotation_index) || 0) % wallets.length;
+    const wallet = wallets[idx];
+    // Advance index
+    stmts.setSetting.run('deposit_wallet_rotation_index', String((idx + 1) % wallets.length));
+    res.json({ wallet });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get wallet' });
+  }
+});
+
+// ── Withdraw accounts (previously used by this user) ─────────────────────────
+app.get('/api/withdraw-accounts', authRequired, (req, res) => {
+  try {
+    const rows = stmts.getUserWithdrawAccounts.all(req.auth.userId);
+    // Build accounts map: { bkash: '01700...', nagad: '01800...' }
+    const accounts = {};
+    rows.forEach(r => {
+      if (!accounts[r.method]) accounts[r.method] = r.account;
+    });
+    res.json({ accounts });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch withdraw accounts' });
+  }
+});
+
+// ── Forgot password ────────────────────────────────────────────────────────────
+app.post('/api/forgot-password', async (req, res) => {
+  try {
+    const { identifier } = req.body || {};
+    if (!identifier) return res.status(400).json({ error: 'identifier required' });
+    stmts.cleanExpiredTokens.run();
+    const user = stmts.getUserByIdentifier.get(String(identifier).trim());
+    if (user) {
+      const token = Math.floor(100000 + Math.random() * 900000).toString();
+      stmts.insertResetToken.run(user.id, token);
+      const msg = `🔑 <b>Password Reset Request</b>\n\nUser: <b>${user.name}</b> (<code>${user.identifier}</code>)\nReset Code: <code>${token}</code>\nExpires in: 1 hour\n\n⚠️ Share this code ONLY with the verified user via support chat.`;
+      telegramService.sendMessage(msg, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS }).catch(() => {});
+    }
+    // Always return success to prevent user enumeration
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+// ── Reset password ─────────────────────────────────────────────────────────────
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body || {};
+    if (!token || !newPassword) return res.status(400).json({ error: 'token and newPassword required' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    stmts.cleanExpiredTokens.run();
+    const record = stmts.getResetToken.get(String(token).trim());
+    if (!record) return res.status(400).json({ error: 'Invalid or expired code' });
+    const hash = bcrypt.hashSync(newPassword, 10);
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, record.user_id);
+    stmts.markResetTokenUsed.run(token);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// ── Team room (referral-based private team chat) ───────────────────────────────
+app.get('/api/team/room', authRequired, (req, res) => {
+  try {
+    const user = stmts.getUserById.get(req.auth.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Find room owner: the user's referrer if they have one, otherwise the user themselves
+    let roomOwner = user;
+    let isOwnRoom = true;
+    if (user.referred_by) {
+      const referrer = stmts.getUserByReferCode.get(user.referred_by);
+      if (referrer) { roomOwner = referrer; isOwnRoom = false; }
+    }
+
+    // Get all L1 members of the room owner
+    const l1Members = stmts.getUserL1Referrals.all(roomOwner.refer_code);
+    // Build members list: room owner + their L1 referrals
+    const memberMap = new Map();
+    const addMember = (u) => memberMap.set(u.id, {
+      id: u.id, name: u.name, identifier: u.identifier,
+      avatar: u.avatar || '🧑', avatar_img: u.avatar_img || null,
+      refer_code: u.refer_code, plan_id: u.plan_id, banned: u.banned || 0,
+      isOwner: u.id === roomOwner.id,
+    });
+    addMember(roomOwner);
+    l1Members.forEach(addMember);
+
+    // Get recent team chat messages from these members only
+    const memberIds = [...memberMap.keys()];
+    const placeholders = memberIds.map(() => '?').join(',');
+    const messages = memberIds.length > 0
+      ? db.prepare(`
+          SELECT tc.id, tc.user_id, tc.username as sender_name, tc.avatar,
+                 tc.message, tc.media_url, tc.media_type, tc.created_at,
+                 u.avatar_img
+          FROM team_chat tc
+          LEFT JOIN users u ON u.id = tc.user_id
+          WHERE tc.user_id IN (${placeholders})
+          ORDER BY tc.id DESC LIMIT 80
+        `).all(...memberIds).reverse()
+      : [];
+
+    res.json({
+      roomId: roomOwner.id,
+      roomOwnerName: roomOwner.name,
+      isOwnRoom,
+      members: [...memberMap.values()],
+      messages,
+    });
+  } catch (err) {
+    console.error('Team room error:', err.message);
+    res.status(500).json({ error: 'Failed to load team room' });
+  }
+});
+
+// ── Team message (send to team chat, only team members see it) ────────────────
+app.post('/api/team/message', authRequired, (req, res) => {
+  try {
+    const { message } = req.body || {};
+    if (!message || String(message).trim().length === 0) return res.status(400).json({ error: 'Empty message' });
+    const txt = String(message).trim().slice(0, 500);
+    const user = stmts.getUserById.get(req.auth.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    stmts.insertTeamChat.run({
+      user_id: user.id, username: user.name,
+      avatar: user.avatar || '🧑', message: txt,
+      media_url: null, media_type: null,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// ── Admin: group chat ─────────────────────────────────────────────────────────
+app.get('/api/admin/group-chat', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const messages = stmts.getAdminChatMessages.all().reverse();
+    res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch chat' });
+  }
+});
+
+app.post('/api/admin/group-chat/send', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { message } = req.body || {};
+    if (!message || String(message).trim().length === 0) return res.status(400).json({ error: 'Empty message' });
+    const admin = stmts.getUserById.get(req.auth.userId);
+    if (!admin) return res.status(404).json({ error: 'Admin not found' });
+    // Main admin is read-only (they have a bot for broadcast; chat is for sub-admins)
+    if (admin.refer_code === MAIN_ADMIN_REFER_CODE) {
+      return res.status(403).json({ error: 'Main admin is read-only in group chat' });
+    }
+    const txt = String(message).trim().slice(0, 1000);
+    stmts.insertAdminChatMessage.run(admin.id, admin.name, txt);
+    // Log activity
+    try { logActivity(admin.id, 'admin_chat_message', { preview: txt.slice(0, 60) }); } catch {}
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+});
+
+// ── Admin: live locations ─────────────────────────────────────────────────────
+app.get('/api/admin/live-locations', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const users = stmts.getUsersWithLocation.all();
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch locations' });
+  }
+});
+
+// ── Admin: manufacturing stats ────────────────────────────────────────────────
+app.get('/api/admin/manufacturing', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const total = db.prepare("SELECT COUNT(*) as cnt FROM manufacturing_jobs").get()?.cnt || 0;
+    const completed = db.prepare("SELECT COUNT(*) as cnt FROM manufacturing_jobs WHERE status='completed'").get()?.cnt || 0;
+    const todayDhaka = new Date(Date.now() + 6*3600000).toISOString().slice(0,10);
+    const todayCount = db.prepare("SELECT COUNT(*) as cnt FROM manufacturing_jobs WHERE date(created_at,'+6 hours')=?").get(todayDhaka)?.cnt || 0;
+    const topEarners = db.prepare(`
+      SELECT u.name, u.plan_id, COUNT(j.id) as jobs, SUM(j.earned) as total_earned
+      FROM manufacturing_jobs j JOIN users u ON u.id=j.user_id
+      WHERE j.status='completed'
+      GROUP BY j.user_id ORDER BY total_earned DESC LIMIT 10
+    `).all();
+    const byBrand = db.prepare("SELECT brand, COUNT(*) as cnt FROM manufacturing_jobs WHERE status='completed' GROUP BY brand ORDER BY cnt DESC LIMIT 10").all();
+    res.json({ total, completed, today: todayCount, topEarners, byBrand });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch manufacturing stats' });
+  }
+});
+
+// ── Admin: announcements ──────────────────────────────────────────────────────
+app.get('/api/admin/announcements', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const rows = stmts.getAllSettings.all();
+    const info = {};
+    rows.forEach(r => { info[r.key] = r.value; });
+    res.json({
+      announcement_banner: info.announcement_banner || '',
+      announcement_banner_en: info.announcement_banner_en || '',
+      maintenance_mode: info.maintenance_mode || '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed' });
+  }
+});
+
+app.post('/api/admin/announcements', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { announcement_banner, announcement_banner_en, maintenance_mode } = req.body || {};
+    if (announcement_banner !== undefined) stmts.setSetting.run('announcement_banner', String(announcement_banner));
+    if (announcement_banner_en !== undefined) stmts.setSetting.run('announcement_banner_en', String(announcement_banner_en));
+    if (maintenance_mode !== undefined) stmts.setSetting.run('maintenance_mode', String(maintenance_mode));
+    logAdminAction(req, 'update_announcements', 'settings', 0, '');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ALIAS ROUTES (task list requirements — both old and new paths work)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// /api/work/* → /api/manufacture/* aliases
+app.post('/api/work/start', authRequired, (req, res) => {
+  try {
+    const result = startManufactureTx({ ...(req.body || {}), userId: req.auth.userId });
+    res.status(result.status).json(result.body);
+  } catch (err) {
+    console.error('Work start error:', err.message);
+    res.status(500).json({ error: 'Failed to start manufacturing' });
+  }
+});
+
+app.post('/api/work/complete', authRequired, (req, res) => {
+  try {
+    const result = completeManufactureTx({ ...(req.body || {}), userId: req.auth.userId });
+    res.status(result.status).json(result.body);
+  } catch (err) {
+    console.error('Work complete error:', err.message);
+    res.status(500).json({ error: 'Failed to complete manufacturing' });
+  }
+});
+
+// /api/team-chat/messages → alias for GET /api/team-chat
+app.get('/api/team-chat/messages', authRequired, (req, res) => {
+  const rows = stmts.getTeamChat.all().reverse();
+  res.json({ messages: rows });
+});
+
+// /api/push-subscribe → alias for POST /api/push/subscribe
+app.post('/api/push-subscribe', authRequired, (req, res) => {
+  const { endpoint, p256dh, auth } = req.body || {};
+  if (!endpoint || !p256dh || !auth) return res.status(400).json({ error: 'Invalid subscription' });
+  stmts.upsertPushSubscription.run({ user_id: req.auth.userId, endpoint, p256dh, auth });
+  res.json({ ok: true });
+});
+
+// Telegram webhook aliases at /api/telegram/...
+app.post('/api/telegram/finance/webhook', (req, res) => {
+  res.sendStatus(200);
+  if (req.body) telegramService.handleAdminCommands(req.body).catch(() => {});
+});
+
+app.post('/api/telegram/support/webhook', (req, res) => {
+  res.sendStatus(200);
+  if (req.body) telegramService.handleSupportUpdate(req.body).catch(() => {});
+});
+
+// GET /api/marketplace — public item listing (alias for /api/marketplace/all)
+app.get('/api/marketplace', authRequired, (req, res) => {
+  try {
+    const items = db.prepare(`
+      SELECT m.*, u.name as seller_name
+      FROM marketplace_items m
+      LEFT JOIN users u ON u.id = m.user_id
+      ORDER BY m.id DESC LIMIT 200
+    `).all();
+    res.json({ items });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch marketplace items' });
+  }
+});
+
+// POST /api/marketplace/buy/:id — buy a marketplace item
+app.post('/api/marketplace/buy/:id', authRequired, (req, res) => {
+  try {
+    const itemId = Number(req.params.id);
+    const item = db.prepare('SELECT * FROM marketplace_items WHERE id = ? AND status = ?').get(itemId, 'active');
+    if (!item) return res.status(404).json({ error: 'Item not found or already sold' });
+    if (item.user_id === req.auth.userId) return res.status(400).json({ error: 'Cannot buy your own item' });
+    stmts.markItemSold.run(itemId);
+    res.json({ ok: true, item });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to buy item' });
+  }
+});
+
+// POST /api/admin/transaction/action — alias for PATCH /api/admin/transactions/:id
+app.post('/api/admin/transaction/action', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const { txId, status, admin_note } = req.body || {};
+    if (!txId) return res.status(400).json({ error: 'txId required' });
+    const result = processTransactionAction({ txId: Number(txId), status, adminNote: admin_note || '' });
+    res.status(result.status).json(result.body);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process transaction' });
+  }
+});
+
+// /sw.js — no-op service worker (served before SPA fallback)
+app.get('/sw.js', (_req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.send('self.addEventListener("push", () => {}); self.addEventListener("notificationclick", () => {});');
+});
+
+// ── /api/* JSON 404 catch (must be before SPA fallback) ───────────────────────
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'not_found' });
+});
+
 // ── SPA fallback (admin panel + main app) ──────────────────────────────────────
 app.get('/xpc-ctrl-7f3b', (req, res) => res.redirect('/xpc-ctrl-7f3b/'));
 app.get('/xpc-ctrl-7f3b/*', (req, res) => {
@@ -2761,6 +3346,15 @@ app.get('/xpc-ctrl-7f3b/*', (req, res) => {
 });
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+});
+
+// ── Global error handler (must be last middleware) ────────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  console.error('Unhandled error:', err?.message || err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'internal_server_error' });
+  }
 });
 
 app.listen(PORT, '0.0.0.0', () => {
