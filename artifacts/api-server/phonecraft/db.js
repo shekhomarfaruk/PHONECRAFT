@@ -109,12 +109,27 @@ try { db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_user_status ON manufacturing_
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_user_created ON manufacturing_jobs(user_id, created_at)'); } catch (_) {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)'); } catch (_) {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_balance_log_user ON balance_log(user_id)'); } catch (_) {}
+// One-time cleanup: 'direct_payment' was a deprecated balance_log type used by an
+// old version of the direct-pay registration flow. Those entries were written to
+// the NEW user's ledger without a matching balance credit, creating phantom rows
+// that break balance_log ↔ users.balance consistency. The current code uses
+// 'treasury_deposit_in' on the admin treasury instead, which is correct.
+try {
+  const stale = db.prepare("SELECT COUNT(*) AS n FROM balance_log WHERE type='direct_payment'").get();
+  if (stale && stale.n > 0) {
+    db.prepare("DELETE FROM balance_log WHERE type='direct_payment'").run();
+    console.log(`[DB migration] Purged ${stale.n} orphaned 'direct_payment' balance_log rows`);
+  }
+} catch (_) {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users(referred_by)'); } catch (_) {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)'); } catch (_) {}
 // Pending registration expiry column (48-hour window)
 try { db.exec("ALTER TABLE pending_registrations ADD COLUMN expires_at TEXT DEFAULT (datetime('now', '+48 hours'))"); } catch (_) {}
 // Backfill: existing rows without expires_at get 48h from created_at
 try { db.exec("UPDATE pending_registrations SET expires_at = datetime(created_at, '+48 hours') WHERE expires_at IS NULL AND status = 'pending'"); } catch (_) {}
+// Direct payment support: user pays themselves instead of referrer covering the cost
+try { db.exec('ALTER TABLE pending_registrations ADD COLUMN payment_method TEXT DEFAULT "referrer"'); } catch (_) {}
+try { db.exec('ALTER TABLE pending_registrations ADD COLUMN txn_hash TEXT DEFAULT ""'); } catch (_) {}
 // Guest mode columns
 try { db.exec('ALTER TABLE users ADD COLUMN is_guest INTEGER DEFAULT 0'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN guest_device_id TEXT DEFAULT NULL'); } catch (_) {}
@@ -124,6 +139,21 @@ try { db.exec('ALTER TABLE users ADD COLUMN guest_ip TEXT DEFAULT NULL'); } catc
 try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_guest_device_id ON users(guest_device_id) WHERE guest_device_id IS NOT NULL'); } catch (_) {}
 // Test account flag
 try { db.exec('ALTER TABLE users ADD COLUMN is_test INTEGER DEFAULT 0'); } catch (_) {}
+
+// ── Locked withdrawal accounts ────────────────────────────────────────────────
+// Each user gets ONE locked address per method (set on first withdrawal).
+// Same address cannot be used by a different user (unique on method+account).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_withdraw_accounts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    method     TEXT NOT NULL,
+    account    TEXT NOT NULL,
+    locked_at  TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, method)
+  );
+`);
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_uwa_method_account ON user_withdraw_accounts(method, account)'); } catch (_) {}
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`
@@ -275,10 +305,6 @@ db.exec(`
   );
 `);
 
-// Saved payment method columns (locked after first withdrawal)
-try { db.exec('ALTER TABLE users ADD COLUMN payment_account_flat TEXT DEFAULT NULL'); } catch (_) {}
-try { db.exec('ALTER TABLE users ADD COLUMN payment_account_crypto TEXT DEFAULT NULL'); } catch (_) {}
-
 // Add support chat status columns
 try { db.exec('ALTER TABLE support_chats ADD COLUMN status TEXT DEFAULT NULL'); } catch (_) {}
 
@@ -310,7 +336,8 @@ const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposi
   'require_tasks_for_withdraw', 'require_withdraw_proof', 'work_blocked_countries',
   'deposit_wallet_1','deposit_wallet_2','deposit_wallet_3','deposit_wallet_4','deposit_wallet_5',
   'deposit_wallet_6','deposit_wallet_7','deposit_wallet_8','deposit_wallet_9','deposit_wallet_10',
-  'wallet_rotation_index', 'guest_mode_enabled', 'crypto_enabled'];
+  'wallet_rotation_index', 'guest_mode_enabled', 'crypto_enabled',
+  'crypto_tron_usdt', 'crypto_eth_usdt', 'crypto_bsc_usdt'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
 // Ensure withdrawal limits have sensible defaults on fresh installs
@@ -607,8 +634,8 @@ const stmts = {
 
   // Pending registrations
   insertPendingReg:    db.prepare(`
-    INSERT INTO pending_registrations (name, identifier, password_hash, plan_id, refer_code_used, referrer_id, new_refer_code, plan_rate)
-    VALUES (@name, @identifier, @password_hash, @plan_id, @refer_code_used, @referrer_id, @new_refer_code, @plan_rate)
+    INSERT INTO pending_registrations (name, identifier, password_hash, plan_id, refer_code_used, referrer_id, new_refer_code, plan_rate, payment_method, txn_hash)
+    VALUES (@name, @identifier, @password_hash, @plan_id, @refer_code_used, @referrer_id, @new_refer_code, @plan_rate, @payment_method, @txn_hash)
   `),
   getPendingReg:       db.prepare('SELECT * FROM pending_registrations WHERE id = ?'),
   updatePendingStatus: db.prepare('UPDATE pending_registrations SET status = ? WHERE id = ?'),
@@ -617,10 +644,6 @@ const stmts = {
   getUserMarketItems:  db.prepare('SELECT * FROM marketplace_items WHERE user_id = ? ORDER BY id DESC'),
   getStaleActiveItems: db.prepare(`SELECT * FROM marketplace_items WHERE status = 'active' AND created_at <= datetime('now', '-30 minutes')`),
   markItemSold:        db.prepare(`UPDATE marketplace_items SET status = 'sold', sold_at = datetime('now') WHERE id = ?`),
-
-  // Saved payment methods
-  savePaymentFlat:     db.prepare('UPDATE users SET payment_account_flat = ? WHERE id = ?'),
-  savePaymentCrypto:   db.prepare('UPDATE users SET payment_account_crypto = ? WHERE id = ?'),
 
   // Notification read status
   markNotifRead:       db.prepare('UPDATE notifications SET read = 1 WHERE id = ? AND user_id = ?'),
@@ -872,6 +895,14 @@ const stmts = {
     WHERE user_id = ? AND type = 'withdraw' AND status != 'rejected'
       AND date(created_at, '+6 hours') = date('now', '+6 hours')
   `),
+
+  // Locked withdrawal accounts
+  getLockedWithdrawAccount:    db.prepare('SELECT * FROM user_withdraw_accounts WHERE user_id = ? AND method = ?'),
+  getAllLockedWithdrawAccounts: db.prepare('SELECT * FROM user_withdraw_accounts WHERE user_id = ?'),
+  getLockedWithdrawByMethodAccount: db.prepare('SELECT * FROM user_withdraw_accounts WHERE method = ? AND account = ?'),
+  insertLockedWithdrawAccount: db.prepare('INSERT INTO user_withdraw_accounts (user_id, method, account) VALUES (?, ?, ?)'),
+  deleteLockedWithdrawAccount: db.prepare('DELETE FROM user_withdraw_accounts WHERE user_id = ? AND method = ?'),
+  deleteAllLockedWithdrawAccounts: db.prepare('DELETE FROM user_withdraw_accounts WHERE user_id = ?'),
 
   // Security: flag transactions
   flagTransaction: db.prepare(`UPDATE transactions SET flagged = 1, flag_reason = ? WHERE id = ?`),
