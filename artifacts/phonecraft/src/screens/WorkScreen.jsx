@@ -1,120 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Icons from "../Icons.jsx";
-import { PLANS, BRANDS, BRAND_MODELS, DEVICE_CONFIGS, DEVICE_IMAGES, generateTerminalLines } from "../data.jsx";
+import { PLANS, BRANDS, BRAND_MODELS, DEVICE_CONFIGS, generateTerminalLines } from "../data.jsx";
 import { I18N } from "../i18n.js";
 import { convertCurrency } from "../currency.js";
 import { authFetch } from "../session.js";
+import PhoneMockup, { BRAND_ACCENT, COLOR_SWATCHES } from "../PhoneMockup.jsx";
+import { useSound } from "../useSound.js";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-// ── Brand accent colors ────────────────────────────────────────────────────
-const BRAND_COLORS = {
-  Apple:   '#A0A0A0',
-  Samsung: '#1428A0',
-  Google:  '#4285F4',
-  OnePlus: '#F5010C',
-  Xiaomi:  '#FF6900',
-  Oppo:    '#1F8EFA',
-  Vivo:    '#415FFF',
-  Realme:  '#FFE600',
-};
+const BRAND_COLORS = BRAND_ACCENT;
 
-// ── Real Device Image Component ────────────────────────────────────────────
-function DeviceImage({ brand, model, animating = false, size = 160 }) {
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError]   = useState(false);
-  const accentColor = BRAND_COLORS[brand] || '#23AF91';
-  const imgSrc = DEVICE_IMAGES[model];
-
-  return (
-    <div style={{
-      position: 'relative',
-      width: size,
-      height: size * 1.22,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      {/* Glow ring */}
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        background: `radial-gradient(circle, ${accentColor}22 0%, transparent 70%)`,
-        animation: animating ? 'deviceGlowPulse 1.4s ease-in-out infinite' : undefined,
-      }} />
-
-      {/* Skeleton loader */}
-      {!loaded && !error && imgSrc && (
-        <div style={{
-          width: size * 0.55, height: size * 1.05,
-          borderRadius: size * 0.08,
-          background: 'linear-gradient(135deg,var(--card) 25%,var(--border) 50%,var(--card) 75%)',
-          backgroundSize: '200% 100%',
-          animation: 'shimmer 1.5s infinite',
-        }} />
-      )}
-
-      {/* Real device photo */}
-      {imgSrc && !error && (
-        <img
-          src={imgSrc}
-          alt={model}
-          onLoad={() => setLoaded(true)}
-          onError={() => setError(true)}
-          style={{
-            maxWidth: size * 0.65,
-            maxHeight: size * 1.1,
-            objectFit: 'contain',
-            display: loaded ? 'block' : 'none',
-            filter: animating
-              ? `drop-shadow(0 0 14px ${accentColor}99)`
-              : `drop-shadow(0 8px 24px rgba(0,0,0,0.5)) drop-shadow(0 0 8px ${accentColor}44)`,
-            transition: 'filter .4s',
-          }}
-        />
-      )}
-
-      {/* Fallback — CSS device silhouette */}
-      {(error || !imgSrc) && (
-        <div style={{
-          width: size * 0.52, height: size * 1.0,
-          borderRadius: size * 0.08,
-          background: `linear-gradient(160deg, ${accentColor}22, ${accentColor}08)`,
-          border: `2px solid ${accentColor}55`,
-          boxShadow: `0 8px 32px rgba(0,0,0,0.4), 0 0 20px ${accentColor}33`,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-        }}>
-          <Icons.Smartphone size={28} color={accentColor} />
-          <div style={{ fontSize: 9, color: accentColor, fontWeight: 700, textAlign: 'center', padding: '0 6px', lineHeight: 1.3 }}>
-            {brand}
-          </div>
-        </div>
-      )}
-
-      {/* Manufacturing pulse overlay */}
-      {animating && loaded && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: `radial-gradient(circle, ${accentColor}30 0%, transparent 65%)`,
-          borderRadius: '50%',
-          animation: 'deviceGlowPulse 1.4s ease-in-out infinite',
-          pointerEvents: 'none',
-        }} />
-      )}
-
-      <style>{`
-        @keyframes deviceGlowPulse {
-          0%,100%{opacity:.4;transform:scale(.95)}
-          50%{opacity:1;transform:scale(1.05)}
-        }
-        @keyframes shimmer {
-          0%{background-position:200% 0}
-          100%{background-position:-200% 0}
-        }
-      `}</style>
-    </div>
-  );
-}
 
 export default function WorkScreen({ user, setUser, showToast, addNotif, lang, navigate, onShowGuestPlanModal }) {
   const t = I18N[lang] || I18N.en;
+  const { playTone } = useSound();
   const [phase, setPhase] = useState('config'); // 'config' | 'terminal' | 'success'
 
   // Config form
@@ -144,6 +44,19 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
   // Success data (stored in ref to avoid re-renders during terminal)
   const jobRef     = useRef(null);
   const resultRef  = useRef(null);
+
+
+  // ── Sound when daily limit reached ────────────────────────────────────────
+  const limitSoundFiredRef = useRef(false);
+  useEffect(() => {
+    if (dailyDone >= dailyLimit && dailyLimit > 0 && !limitSoundFiredRef.current) {
+      limitSoundFiredRef.current = true;
+      playTone('limit');
+    }
+    if (dailyDone < dailyLimit) {
+      limitSoundFiredRef.current = false;
+    }
+  }, [dailyDone, dailyLimit]);
 
   // ── Fetch work status on mount ─────────────────────────────────────────────
   useEffect(() => {
@@ -183,6 +96,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
   // When brand changes, clear selected model
   const handleBrandSelect = (b) => {
     if (limitReached) return;
+    playTone('click');
     setBrand(b);
     setDeviceName('');
   };
@@ -226,6 +140,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
       resumeElapsedRef.current = 0;
       setDailyDone(data.dailyDone);
       setDailyLimit(data.dailyLimit);
+      playTone('start');
       setPhase('terminal');
     } catch {
       showToast(t.toast_connection_error, 'error');
@@ -295,6 +210,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
         text: `${deviceName} — ${t.device_posted} $${Math.min(data.marketPrice, 10)}`,
       });
 
+      playTone('complete');
       setPhase('success');
 
       // Guest: show task-limit message + upgrade prompt when cap hit
@@ -334,12 +250,12 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
   const nowBDT = new Date(new Date().getTime() + 6 * 60 * 60 * 1000);
 
   // ── Country access check ──────────────────────────────────────────────────
-  const [countryAccess, setCountryAccess] = useState({ loading: false, blocked: false });
+  const [countryAccess, setCountryAccess] = useState({ loading: true, blocked: false, error: false });
   useEffect(() => {
     authFetch(`${API_URL}/api/work/access`)
       .then(r => r.json())
-      .then(d => setCountryAccess({ loading: false, blocked: !!d.blocked }))
-      .catch(() => setCountryAccess({ loading: false, blocked: false }));
+      .then(d => setCountryAccess({ loading: false, blocked: !!d.blocked, error: false }))
+      .catch(() => setCountryAccess({ loading: false, blocked: true, error: true }));
   }, []);
 
   // ── Restriction overlays (early return — nav stays accessible) ──────────────
@@ -357,15 +273,36 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
     }}>← {t.nav_home}</button>
   );
 
+  if (countryAccess.loading) {
+    return (
+      <>
+        <div className="screen-title"><Icons.Work size={18}/> {t.nav_work}</div>
+        <div style={{ ...restrictionOverlayStyle, gap: 12 }}>
+          <div style={{ fontSize: 13, color: 'var(--text2)' }}>{lang === 'bn' ? 'এক্সেস যাচাই করা হচ্ছে...' : 'Checking access...'}</div>
+        </div>
+      </>
+    );
+  }
+
   if (countryAccess.blocked) {
     return (
       <>
         <div className="screen-title"><Icons.Work size={18}/> {t.nav_work}</div>
         <div style={restrictionOverlayStyle}>
-          <div style={{fontSize:50}}>🌍</div>
-          <div style={{fontFamily:'Space Grotesk',fontSize:22,fontWeight:800}}>{t.work_country_blocked}</div>
-          <div style={{fontSize:14,color:'var(--text2)',maxWidth:280,lineHeight:1.7}}>{t.work_country_msg}</div>
-          <div style={{fontSize:12,color:'var(--text2)',opacity:.7}}>{t.work_country_sub}</div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}><Icons.Globe size={50} /></div>
+          {countryAccess.error ? (
+            <>
+              <div style={{fontFamily:'Space Grotesk',fontSize:22,fontWeight:800}}>{lang === 'bn' ? 'সংযোগ ত্রুটি' : 'Connection Error'}</div>
+              <div style={{fontSize:14,color:'var(--text2)',maxWidth:280,lineHeight:1.7}}>{lang === 'bn' ? 'এক্সেস যাচাই করা সম্ভব হয়নি। পুনরায় চেষ্টা করুন।' : 'Could not verify access. Please check your connection and try again.'}</div>
+              <button onClick={() => { setCountryAccess({ loading: true, blocked: false, error: false }); authFetch(`${API_URL}/api/work/access`).then(r => r.json()).then(d => setCountryAccess({ loading: false, blocked: !!d.blocked, error: false })).catch(() => setCountryAccess({ loading: false, blocked: true, error: true })); }} style={{ marginTop: 8, padding: '10px 28px', borderRadius: 24, background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}>{lang === 'bn' ? 'আবার চেষ্টা করুন' : 'Retry'}</button>
+            </>
+          ) : (
+            <>
+              <div style={{fontFamily:'Space Grotesk',fontSize:22,fontWeight:800}}>{t.work_country_blocked}</div>
+              <div style={{fontSize:14,color:'var(--text2)',maxWidth:280,lineHeight:1.7}}>{t.work_country_msg}</div>
+              <div style={{fontSize:12,color:'var(--text2)',opacity:.7}}>{t.work_country_sub}</div>
+            </>
+          )}
           {backBtn}
         </div>
       </>
@@ -382,7 +319,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
       <>
         <div className="screen-title"><Icons.Work size={18}/> {t.nav_work}</div>
         <div style={restrictionOverlayStyle}>
-          <div style={{fontSize:50}}>🕘</div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}><Icons.Clock size={50} /></div>
           <div style={{fontFamily:'Space Grotesk',fontSize:22,fontWeight:800}}>{t.work_time_over}</div>
           <div style={{fontSize:14,color:'var(--text2)',maxWidth:280,lineHeight:1.7}}>
             {t.work_time_msg_line1}<br/>
@@ -461,7 +398,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
               </label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
                 {brandModels.map(m => (
-                  <div key={m} onClick={() => !limitReached && setDeviceName(m)}
+                  <div key={m} onClick={() => { if(!limitReached){ setDeviceName(m); playTone('click'); } }}
                     style={{
                       background: deviceName === m ? `${BRAND_COLORS[brand] || 'var(--accent)'}18` : 'var(--input-bg)',
                       border: `1px solid ${deviceName === m ? (BRAND_COLORS[brand] || 'var(--accent)') : 'var(--border)'}`,
@@ -491,13 +428,14 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
           <label className="input-label">{t.ram}</label>
           <div className="config-grid" style={{ marginBottom:14 }}>
             {DEVICE_CONFIGS.rams.map(r => (
-              <div key={r} onClick={() => !limitReached && setRam(r)}
+              <div key={r} onClick={() => { if(!limitReached){ setRam(r); playTone('click'); } }}
                 style={{
-                  background: ram===r ? 'rgba(35,175,145,.15)' : 'var(--input-bg)',
-                  border: `1px solid ${ram===r ? 'var(--accent)' : 'var(--border)'}`,
+                  background: ram===r ? 'rgba(16,185,129,.18)' : 'var(--input-bg)',
+                  border: `1px solid ${ram===r ? '#10B981' : 'var(--border)'}`,
                   borderRadius:10, padding:'10px 8px', textAlign:'center',
                   cursor: limitReached ? 'not-allowed' : 'pointer', transition:'all .2s',
                   fontSize:12, fontWeight:600, opacity: limitReached ? .5 : 1,
+                  color: ram===r ? '#10B981' : 'var(--text)',
                 }}>
                 {r}
               </div>
@@ -508,13 +446,14 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
           <label className="input-label">{t.storage}</label>
           <div className="config-grid" style={{ marginBottom:14 }}>
             {DEVICE_CONFIGS.roms.map(r => (
-              <div key={r} onClick={() => !limitReached && setRom(r)}
+              <div key={r} onClick={() => { if(!limitReached){ setRom(r); playTone('click'); } }}
                 style={{
-                  background: rom===r ? 'rgba(35,175,145,.15)' : 'var(--input-bg)',
-                  border: `1px solid ${rom===r ? 'var(--accent)' : 'var(--border)'}`,
+                  background: rom===r ? 'rgba(139,92,246,.18)' : 'var(--input-bg)',
+                  border: `1px solid ${rom===r ? '#8B5CF6' : 'var(--border)'}`,
                   borderRadius:10, padding:'10px 8px', textAlign:'center',
                   cursor: limitReached ? 'not-allowed' : 'pointer', transition:'all .2s',
                   fontSize:12, fontWeight:600, opacity: limitReached ? .5 : 1,
+                  color: rom===r ? '#8B5CF6' : 'var(--text)',
                 }}>
                 {r}
               </div>
@@ -525,15 +464,17 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
           <label className="input-label">{t.color}</label>
           <div className="config-grid" style={{ marginBottom:14 }}>
             {DEVICE_CONFIGS.colors.map(c => (
-              <div key={c} onClick={() => !limitReached && setColor(c)}
+              <div key={c} onClick={() => { if(!limitReached){ setColor(c); playTone('click'); } }}
                 style={{
-                  background: color===c ? 'rgba(35,175,145,.15)' : 'var(--input-bg)',
-                  border: `1px solid ${color===c ? 'var(--accent)' : 'var(--border)'}`,
-                  borderRadius:10, padding:'10px 8px', textAlign:'center',
+                  background: color===c ? `${COLOR_SWATCHES[c] || '#555'}22` : 'var(--input-bg)',
+                  border: `2px solid ${color===c ? (COLOR_SWATCHES[c] || 'var(--accent)') : 'var(--border)'}`,
+                  borderRadius:10, padding:'8px 6px', textAlign:'center',
                   cursor: limitReached ? 'not-allowed' : 'pointer', transition:'all .2s',
-                  fontSize:12, fontWeight:600, opacity: limitReached ? .5 : 1,
+                  fontSize:10, fontWeight:700, opacity: limitReached ? .5 : 1,
+                  display:'flex', flexDirection:'column', alignItems:'center', gap:4,
                 }}>
-                {c}
+                <div style={{ width:18, height:18, borderRadius:'50%', background: COLOR_SWATCHES[c] || '#555', border:'2px solid rgba(255,255,255,0.2)', boxShadow:`0 2px 8px ${COLOR_SWATCHES[c] || '#555'}66` }} />
+                <span style={{ color: color===c ? (COLOR_SWATCHES[c] || 'var(--accent)') : 'var(--text)', lineHeight:1.2 }}>{c}</span>
               </div>
             ))}
           </div>
@@ -541,7 +482,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
           {/* Preview phone when fully configured */}
           {deviceName && brand && color && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
-              <DeviceImage brand={brand} model={deviceName} size={130} />
+              <PhoneMockup brand={brand} model={deviceName} color={color} size={130} />
             </div>
           )}
         </div>
@@ -565,7 +506,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
 
         {/* Device info with real phone mockup */}
         <div className="device-preview">
-          <DeviceImage brand={brand} model={deviceName} animating={progress < 100} />
+          <PhoneMockup brand={brand} model={deviceName} color={color} animating={progress < 100} />
           <div style={{ fontFamily:'Space Grotesk', fontSize:14, fontWeight:700, marginTop: 8 }}>{deviceName}</div>
           <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{brand} · {ram} · {rom}</div>
         </div>
@@ -629,7 +570,7 @@ export default function WorkScreen({ user, setUser, showToast, addNotif, lang, n
 
       {/* Device preview with real phone mockup */}
       <div className="device-preview">
-        <DeviceImage brand={jobBrand} model={jobModel} />
+        <PhoneMockup brand={jobBrand} model={jobModel} color={jobColor} />
         <div style={{ fontFamily:'Space Grotesk', fontSize:15, fontWeight:700, marginTop: 8 }}>{jobModel}</div>
         <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>
           {jobBrand} · {job?.ram || ram} · {job?.rom || rom}
