@@ -565,6 +565,19 @@ export const I18N = {
     ref_level2:             'LEVEL 2',
     ref_level3:             'LEVEL 3',
     ref_no_members:         'No members yet',
+    ref_generate_card:      'Generate Share Card',
+    ref_card_title:         'Referral Share Card',
+    ref_card_download:      'Download Card (PNG)',
+    ref_card_close:         'Close',
+    ref_card_earnings:      'My Referral Earnings',
+    ref_card_join:          'Join PhoneCraft & Earn Daily!',
+    ref_card_scan:          'Scan or use code to join',
+
+    // ── Withdrawal Ticker ────────────────────────────────────────────────────
+    ticker_title:           'Live Withdrawals',
+    ticker_via:             'via',
+    ticker_earned:          'earned',
+    ticker_loading:         'Loading live data...',
 
     // ── Profile (extra) ──────────────────────────────────────────────────────
     prof_change_photo:      'Change photo',
@@ -1230,6 +1243,19 @@ export const I18N = {
     ref_level2:             'লেভেল ২',
     ref_level3:             'লেভেল ৩',
     ref_no_members:         'এখনও কেউ নেই',
+    ref_generate_card:      'শেয়ার কার্ড তৈরি করুন',
+    ref_card_title:         'রেফারেল শেয়ার কার্ড',
+    ref_card_download:      'কার্ড ডাউনলোড করুন (PNG)',
+    ref_card_close:         'বন্ধ করুন',
+    ref_card_earnings:      'আমার রেফারেল আয়',
+    ref_card_join:          'ফোনক্রাফটে যোগ দিন ও প্রতিদিন আয় করুন!',
+    ref_card_scan:          'স্ক্যান করুন বা কোড ব্যবহার করুন',
+
+    // ── Withdrawal Ticker ────────────────────────────────────────────────────
+    ticker_title:           'লাইভ উইথড্রয়াল',
+    ticker_via:             'এর মাধ্যমে',
+    ticker_earned:          'আয় করেছেন',
+    ticker_loading:         'লাইভ ডেটা লোড হচ্ছে...',
 
     // ── Profile (extra) ──────────────────────────────────────────────────────
     prof_change_photo:      'ছবি পরিবর্তন করুন',
