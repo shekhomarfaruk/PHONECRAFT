@@ -66,7 +66,7 @@ function DpCopyBtn({ text, isBn }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button type="button" onClick={handle} style={{ background: copied ? 'rgba(30,95,212,.15)' : 'var(--input-bg)', border: `1px solid ${copied ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: copied ? 'var(--accent)' : 'var(--text2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .2s', flexShrink: 0 }}>
+    <button type="button" onClick={handle} style={{ background: copied ? 'rgba(16,185,129,.15)' : 'var(--input-bg)', border: `1px solid ${copied ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: copied ? 'var(--accent)' : 'var(--text2)', display: 'flex', alignItems: 'center', gap: 5, transition: 'all .2s', flexShrink: 0 }}>
       {copied ? <Icons.CheckCircle size={13} /> : <Icons.Copy size={13} />}
       {copied ? (isBn ? 'কপি হয়েছে' : 'Copied') : (isBn ? 'কপি' : 'Copy')}
     </button>
@@ -414,7 +414,7 @@ function ForgotPasswordModal({ lang, onClose }) {
 
         {step === 'code' && (
           <>
-            {msg && <div style={{ fontSize: 12, color: 'var(--accent)', marginBottom: 14, padding: '10px 12px', background: 'rgba(30,95,212,.08)', borderRadius: 8, border: '1px solid rgba(30,95,212,.2)' }}>{msg}</div>}
+            {msg && <div style={{ fontSize: 12, color: 'var(--accent)', marginBottom: 14, padding: '10px 12px', background: 'rgba(16,185,129,.08)', borderRadius: 8, border: '1px solid rgba(16,185,129,.2)' }}>{msg}</div>}
             <div className="input-wrap">
               <label className="input-label">{isBn ? 'রিসেট কোড (৬ ডিজিট)' : 'Reset Code (6 digits)'}</label>
               <input className="inp" placeholder={isBn ? 'অ্যাডমিনের দেওয়া কোড' : 'Code from admin'}
@@ -715,10 +715,10 @@ function Step2Details({ regForm, setRegForm, onNext, onBack, lang, showLegal, on
         </div>
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginBottom: 16, padding: '10px 12px', borderRadius: 10, background: agreed ? 'rgba(30,95,212,0.07)' : 'rgba(10,20,40,0.4)', border: agreed ? '1px solid rgba(30,95,212,0.3)' : '1px solid rgba(10,20,40,0.65)', transition: 'all .2s' }}>
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginBottom: 16, padding: '10px 12px', borderRadius: 10, background: agreed ? 'rgba(16,185,129,0.07)' : 'rgba(10,20,40,0.4)', border: agreed ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(10,20,40,0.65)', transition: 'all .2s' }}>
         <div style={{ position: 'relative', flexShrink: 0, marginTop: 2 }}>
           <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
-          <div style={{ width: 18, height: 18, borderRadius: 5, border: agreed ? '2px solid #1E5FD4' : '2px solid rgba(112,122,138,0.5)', background: agreed ? '#1E5FD4' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s' }}>
+          <div style={{ width: 18, height: 18, borderRadius: 5, border: agreed ? '2px solid #10B981' : '2px solid rgba(112,122,138,0.5)', background: agreed ? '#10B981' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s' }}>
             {agreed && <svg width="11" height="9" viewBox="0 0 11 9" fill="none"><polyline points="1,4.5 4,8 10,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
         </div>

@@ -92,7 +92,7 @@ function EarningsTicker({ lang = 'en' }) {
   );
 }
 
-const LIVE_COLORS = ['#23AF91','#6366F1','#F59E0B','#EF4444','#3B82F6','#EC4899','#10B981','#8B5CF6'];
+const LIVE_COLORS = ['#23AF91','#34D399','#F59E0B','#EF4444','#10B981','#EC4899','#10B981','#8B5CF6'];
 const LIVE_ITEMS = [
   { code: 'BD', text: 'R***** from Bangladesh bought NovaTech Pro 4G!',   time: 'Just now'  },
   { code: 'IN', text: 'S***** from India bought QuantumX Ultra 5G!',      time: '1 min ago' },
@@ -381,7 +381,7 @@ function HomeScreen({user, setUser, navigate, lang, showToast, notifications = [
         >
           <div style={{
             width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            background: 'linear-gradient(135deg, #2DD4BF, #6366F1)',
+            background: 'linear-gradient(135deg, #2DD4BF, #34D399)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             position: 'relative',
           }}>

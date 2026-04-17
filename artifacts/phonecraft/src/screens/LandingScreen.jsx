@@ -405,8 +405,8 @@ function VideoCard({ video, isActive, onEnded, lang }) {
 
   return (
       <div style={{ width: '100%', borderRadius: 16, overflow: 'hidden',
-        background: '#050E1C', border: '1px solid rgba(30,95,212,0.25)',
-        boxShadow: isActive ? '0 8px 32px rgba(30,95,212,0.18)' : 'none',
+        background: '#050E1C', border: '1px solid rgba(16,185,129,0.25)',
+        boxShadow: isActive ? '0 8px 32px rgba(16,185,129,0.18)' : 'none',
         transition: 'box-shadow 0.3s',
       }}>
         <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#000', overflow: 'hidden' }}>
@@ -415,8 +415,8 @@ function VideoCard({ video, isActive, onEnded, lang }) {
             .vid-grid {
               position:absolute; inset:0;
               background-image:
-                linear-gradient(rgba(30,95,212,.15) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(30,95,212,.15) 1px, transparent 1px);
+                linear-gradient(rgba(16,185,129,.15) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(16,185,129,.15) 1px, transparent 1px);
               background-size: 28px 28px;
               animation: gridPulse 3s ease-in-out infinite;
             }
@@ -458,9 +458,9 @@ function VideoCard({ video, isActive, onEnded, lang }) {
                 onClick={retryPlay}
                 style={{
                   pointerEvents: 'auto',
-                  border: '1px solid rgba(30,95,212,.35)',
+                  border: '1px solid rgba(16,185,129,.35)',
                   background: 'rgba(10,12,16,.72)',
-                  color: '#1E5FD4',
+                  color: '#10B981',
                   borderRadius: 999,
                   padding: '10px 16px',
                   cursor: 'pointer',
@@ -515,7 +515,7 @@ function VideoSlider({ lang }) {
             style={{
               width: active === i ? 24 : 8, height: 8,
               borderRadius: 4, border:'none', cursor:'pointer',
-              background: active === i ? '#1E5FD4' : 'rgba(112,122,138,0.35)',
+              background: active === i ? '#10B981' : 'rgba(112,122,138,0.35)',
               transition: 'all .28s ease', padding:0,
             }}
           />
@@ -529,9 +529,9 @@ function VideoSlider({ lang }) {
             onClick={() => resetTimer(i)}
             style={{
               flexShrink:0, padding:'5px 12px', borderRadius:20,
-              border: `1px solid ${active===i ? '#1E5FD4' : 'rgba(43,49,57,0.9)'}`,
-              background: active===i ? 'rgba(30,95,212,0.12)' : 'transparent',
-              color: active===i ? '#1E5FD4' : 'rgba(112,122,138,0.8)',
+              border: `1px solid ${active===i ? '#10B981' : 'rgba(43,49,57,0.9)'}`,
+              background: active===i ? 'rgba(16,185,129,0.12)' : 'transparent',
+              color: active===i ? '#10B981' : 'rgba(112,122,138,0.8)',
               fontSize:13, fontFamily:'Space Grotesk', fontWeight:600,
               cursor:'pointer', whiteSpace:'nowrap', transition:'all .2s',
             }}
@@ -548,7 +548,7 @@ function VideoSlider({ lang }) {
 const CALC_PLANS = [
   { id:'mini',     label:'MINI',     color:'#F5A623', invest:3000,  daily:50,   tasks:10, perTask:5,   weekly:350,   monthly:1500,  recovery:60,  boishakh:true },
   { id:'standard', label:'STANDARD', color:'#4A6FE3', invest:6000,  daily:100,  tasks:10, perTask:10,  weekly:700,   monthly:3000,  recovery:60,  boishakh:true },
-  { id:'basic',    label:'BASIC',    color:'#1E5FD4', invest:12800, daily:200,  tasks:10, perTask:20,  weekly:1400,  monthly:6000,  recovery:64 },
+  { id:'basic',    label:'BASIC',    color:'#10B981', invest:12800, daily:200,  tasks:10, perTask:20,  weekly:1400,  monthly:6000,  recovery:64 },
   { id:'premium',  label:'PREMIUM',  color:'#818CF8', invest:25500, daily:420,  tasks:10, perTask:42,  weekly:2940,  monthly:12600, recovery:61 },
   { id:'gold',     label:'GOLD',     color:'#FCD535', invest:50000, daily:900,  tasks:12, perTask:75,  weekly:6300,  monthly:27000, recovery:56 },
   { id:'platinum', label:'PLATINUM', color:'#F0B90B', invest:80000, daily:1600, tasks:16, perTask:100, weekly:11200, monthly:48000, recovery:50 },
@@ -580,7 +580,7 @@ function EarningCalculator({ lang, onGetStarted }) {
       `}</style>
       <div className="ld-wrap">
         <div className="ld-sec-head">
-          <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+          <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
           <span className="ld-sec-title">{isBn ? 'আয় ক্যালকুলেটর' : 'Earning Calculator'}</span>
         </div>
         <p style={{ fontSize:13, color:'#707A8A', marginBottom:16, lineHeight:1.7 }}>
@@ -669,8 +669,8 @@ function EarningCalculator({ lang, onGetStarted }) {
             ].map((pill, i) => (
               <div key={i} style={{
                 display:'flex', alignItems:'center', gap:5, padding:'5px 10px',
-                borderRadius:20, background:'rgba(30,95,212,0.06)',
-                border:'1px solid rgba(30,95,212,0.15)',
+                borderRadius:20, background:'rgba(16,185,129,0.06)',
+                border:'1px solid rgba(16,185,129,0.15)',
                 fontSize:11, color:'#6a7380',
               }}>
                 <span>{pill.icon}</span>
@@ -756,7 +756,7 @@ const TESTIMONIALS = [
   { name:'Liam Ashworth', area:'Manchester, United Kingdom', plan:'PLATINUM', days:26, earned:'$409', rating:5, avatar:'L', textEn:"Went straight to PLATINUM after doing my research. Top-tier daily tasks, cracking earnings, and the payout hit my account faster than expected. Absolutely worth every penny of the investment. Highly recommend." },
 ];
 
-const PLAN_COLORS = { BASIC:'#1E5FD4', PREMIUM:'#818CF8', GOLD:'#FCD535', PLATINUM:'#F97316' };
+const PLAN_COLORS = { BASIC:'#10B981', PREMIUM:'#818CF8', GOLD:'#FCD535', PLATINUM:'#F97316' };
 
 function StarRating({ count }) {
   return (
@@ -770,7 +770,7 @@ function StarRating({ count }) {
   );
 }
 
-const AVATAR_COLORS = ['#1E5FD4','#818CF8','#F97316','#60A5FA','#FCD535','#F472B6'];
+const AVATAR_COLORS = ['#10B981','#818CF8','#F97316','#60A5FA','#FCD535','#F472B6'];
 
 function TestimonialsSection({ lang }) {
   const [startIdx, setStartIdx] = useState(0);
@@ -798,11 +798,11 @@ function TestimonialsSection({ lang }) {
         .t-card { animation: tCardIn .3s cubic-bezier(.22,.68,0,1.1) both; transition: box-shadow .25s, transform .25s; }
         .t-card:hover { transform: translateY(-3px); }
         .t-nav-btn { transition: all .2s; }
-        .t-nav-btn:hover:not(:disabled) { background: rgba(30,95,212,0.15) !important; border-color: rgba(30,95,212,0.4) !important; color: #1E5FD4 !important; }
+        .t-nav-btn:hover:not(:disabled) { background: rgba(16,185,129,0.15) !important; border-color: rgba(16,185,129,0.4) !important; color: #10B981 !important; }
       `}</style>
       <div className="ld-wrap">
         <div className="ld-sec-head">
-          <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+          <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
           <span className="ld-sec-title">{isBn ? 'সফল সদস্যদের গল্প' : 'Member Success Stories'}</span>
           <div style={{ marginLeft:'auto', display:'flex', gap:6 }}>
             <button className="t-nav-btn" onClick={prev} disabled={startIdx === 0} onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} style={{ width:32, height:32, borderRadius:10, border:'1px solid rgba(43,49,57,0.7)', background:'rgba(7,16,32,0.68)', color: startIdx === 0 ? '#2B3139' : '#9AA4B2', cursor: startIdx === 0 ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -819,14 +819,14 @@ function TestimonialsSection({ lang }) {
             <div key={i} onClick={() => setStartIdx(i)} style={{
               height:3, borderRadius:2, cursor:'pointer', transition:'all .35s',
               flex: i === startIdx ? 2 : 1,
-              background: i === startIdx ? '#1E5FD4' : 'rgba(43,49,57,0.6)',
+              background: i === startIdx ? '#10B981' : 'rgba(43,49,57,0.6)',
             }} />
           ))}
         </div>
 
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(min(320px,100%),1fr))', gap:12 }}>
           {shown.map((t, i) => {
-            const planColor = PLAN_COLORS[t.plan] || '#1E5FD4';
+            const planColor = PLAN_COLORS[t.plan] || '#10B981';
             const avatarBg = AVATAR_COLORS[(startIdx + i) % AVATAR_COLORS.length];
             const initials = t.name.charAt(0);
             return (
@@ -864,7 +864,7 @@ function TestimonialsSection({ lang }) {
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontWeight:700, fontSize:14, color:'#EAECEF', marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.name}</div>
                     <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'#5a6473', marginBottom:5 }}>
-                      <svg viewBox="0 0 12 12" fill="none" style={{width:10,height:10}}><path d="M6 1 C3.79 1 2 2.79 2 5 C2 8 6 11 6 11 C6 11 10 8 10 5 C10 2.79 8.21 1 6 1Z" stroke="#1E5FD4" strokeWidth="1" fill="rgba(30,95,212,0.15)"/><circle cx="6" cy="5" r="1.5" fill="#1E5FD4"/></svg>
+                      <svg viewBox="0 0 12 12" fill="none" style={{width:10,height:10}}><path d="M6 1 C3.79 1 2 2.79 2 5 C2 8 6 11 6 11 C6 11 10 8 10 5 C10 2.79 8.21 1 6 1Z" stroke="#10B981" strokeWidth="1" fill="rgba(16,185,129,0.15)"/><circle cx="6" cy="5" r="1.5" fill="#10B981"/></svg>
                       {t.area}
                     </div>
                     <StarRating count={t.rating} />
@@ -896,8 +896,8 @@ function TestimonialsSection({ lang }) {
         </div>
 
         {/* Trust note */}
-        <div style={{ marginTop:14, padding:'10px 14px', borderRadius:10, background:'rgba(30,95,212,0.04)', border:'1px solid rgba(30,95,212,0.1)', fontSize:11.5, color:'#5a6473', textAlign:'center', lineHeight:1.6, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-          <svg viewBox="0 0 14 14" fill="none" style={{width:12,height:12,flexShrink:0}}><path d="M7 1 L8.4 4.8 L12.4 5.1 L9.5 7.6 L10.4 11.5 L7 9.3 L3.6 11.5 L4.5 7.6 L1.6 5.1 L5.6 4.8 Z" stroke="#1E5FD4" strokeWidth="1" fill="rgba(30,95,212,0.1)"/></svg>
+        <div style={{ marginTop:14, padding:'10px 14px', borderRadius:10, background:'rgba(16,185,129,0.04)', border:'1px solid rgba(16,185,129,0.1)', fontSize:11.5, color:'#5a6473', textAlign:'center', lineHeight:1.6, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          <svg viewBox="0 0 14 14" fill="none" style={{width:12,height:12,flexShrink:0}}><path d="M7 1 L8.4 4.8 L12.4 5.1 L9.5 7.6 L10.4 11.5 L7 9.3 L3.6 11.5 L4.5 7.6 L1.6 5.1 L5.6 4.8 Z" stroke="#10B981" strokeWidth="1" fill="rgba(16,185,129,0.1)"/></svg>
           {isBn ? 'বাস্তব সদস্যদের অভিজ্ঞতা। আয় প্ল্যান, কার্যকলাপ ও রেফারেল অনুযায়ী পরিবর্তিত হতে পারে।' : 'Real member experiences. Earnings may vary by plan, activity, and referrals.'}
         </div>
       </div>
@@ -950,16 +950,16 @@ const FAQ_ITEMS = [
 ];
 
 const FAQ_ICONS = [
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><rect x="2" y="3" width="12" height="10" rx="2" stroke="#1E5FD4" strokeWidth="1.2"/><path d="M5 7 L11 7 M5 10 L8 10" stroke="#1E5FD4" strokeWidth="1.1" strokeLinecap="round"/></svg>,
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M8 2 L14 5 L14 9 C14 12.5 11 14.5 8 15.5 C5 14.5 2 12.5 2 9 L2 5 Z" stroke="#1E5FD4" strokeWidth="1.2" fill="rgba(30,95,212,0.08)"/><path d="M5.5 8 L7 9.5 L10.5 6" stroke="#1E5FD4" strokeWidth="1.3" strokeLinecap="round"/></svg>,
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><rect x="2" y="2" width="12" height="12" rx="2" stroke="#1E5FD4" strokeWidth="1.2"/><path d="M5 8 L7 10 L11 6" stroke="#1E5FD4" strokeWidth="1.3" strokeLinecap="round"/></svg>,
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><circle cx="8" cy="6" r="3" stroke="#1E5FD4" strokeWidth="1.2"/><path d="M2 14 C2 11 4.7 9 8 9 C11.3 9 14 11 14 14" stroke="#1E5FD4" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M8 2 L10 6 L14 6.5 L11 9.5 L11.5 14 L8 12 L4.5 14 L5 9.5 L2 6.5 L6 6 Z" stroke="#1E5FD4" strokeWidth="1" fill="rgba(30,95,212,0.1)"/></svg>,
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><circle cx="8" cy="8" r="6" stroke="#1E5FD4" strokeWidth="1.2"/><path d="M8 5 L8 9 M8 11 L8 11.5" stroke="#1E5FD4" strokeWidth="1.4" strokeLinecap="round"/></svg>,
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><rect x="2" y="4" width="12" height="9" rx="1.5" stroke="#1E5FD4" strokeWidth="1.2"/><path d="M5 4 L5 3 C5 2 6 1.5 8 1.5 C10 1.5 11 2 11 3 L11 4" stroke="#1E5FD4" strokeWidth="1.1"/></svg>,
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><circle cx="8" cy="8" r="6" stroke="#1E5FD4" strokeWidth="1.2"/><path d="M8 4 L8 8 L11 10" stroke="#1E5FD4" strokeWidth="1.3" strokeLinecap="round"/></svg>,
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M3 8 C3 5 5 3 8 3 C11 3 13 5 13 8 C13 11 11 13 8 13 C5 13 3 11 3 8Z" stroke="#1E5FD4" strokeWidth="1.2"/><path d="M6 6 L10 10 M10 6 L6 10" stroke="#1E5FD4" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M13 10.5 C13 12 12 13 10.5 13 L5.5 13 C4 13 3 12 3 10.5 L3 5.5 C3 4 4 3 5.5 3 L10.5 3 C12 3 13 4 13 5.5 Z" stroke="#1E5FD4" strokeWidth="1.2"/><path d="M6 8 L10 8 M8 6 L10 8 L8 10" stroke="#1E5FD4" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><rect x="2" y="3" width="12" height="10" rx="2" stroke="#10B981" strokeWidth="1.2"/><path d="M5 7 L11 7 M5 10 L8 10" stroke="#10B981" strokeWidth="1.1" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M8 2 L14 5 L14 9 C14 12.5 11 14.5 8 15.5 C5 14.5 2 12.5 2 9 L2 5 Z" stroke="#10B981" strokeWidth="1.2" fill="rgba(16,185,129,0.08)"/><path d="M5.5 8 L7 9.5 L10.5 6" stroke="#10B981" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><rect x="2" y="2" width="12" height="12" rx="2" stroke="#10B981" strokeWidth="1.2"/><path d="M5 8 L7 10 L11 6" stroke="#10B981" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><circle cx="8" cy="6" r="3" stroke="#10B981" strokeWidth="1.2"/><path d="M2 14 C2 11 4.7 9 8 9 C11.3 9 14 11 14 14" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M8 2 L10 6 L14 6.5 L11 9.5 L11.5 14 L8 12 L4.5 14 L5 9.5 L2 6.5 L6 6 Z" stroke="#10B981" strokeWidth="1" fill="rgba(16,185,129,0.1)"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><circle cx="8" cy="8" r="6" stroke="#10B981" strokeWidth="1.2"/><path d="M8 5 L8 9 M8 11 L8 11.5" stroke="#10B981" strokeWidth="1.4" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><rect x="2" y="4" width="12" height="9" rx="1.5" stroke="#10B981" strokeWidth="1.2"/><path d="M5 4 L5 3 C5 2 6 1.5 8 1.5 C10 1.5 11 2 11 3 L11 4" stroke="#10B981" strokeWidth="1.1"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><circle cx="8" cy="8" r="6" stroke="#10B981" strokeWidth="1.2"/><path d="M8 4 L8 8 L11 10" stroke="#10B981" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M3 8 C3 5 5 3 8 3 C11 3 13 5 13 8 C13 11 11 13 8 13 C5 13 3 11 3 8Z" stroke="#10B981" strokeWidth="1.2"/><path d="M6 6 L10 10 M10 6 L6 10" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+  <svg viewBox="0 0 16 16" fill="none" style={{width:14,height:14}}><path d="M13 10.5 C13 12 12 13 10.5 13 L5.5 13 C4 13 3 12 3 10.5 L3 5.5 C3 4 4 3 5.5 3 L10.5 3 C12 3 13 4 13 5.5 Z" stroke="#10B981" strokeWidth="1.2"/><path d="M6 8 L10 8 M8 6 L10 8 L8 10" stroke="#10B981" strokeWidth="1.2" strokeLinecap="round"/></svg>,
 ];
 
 function FAQSection({ lang }) {
@@ -986,16 +986,16 @@ function FAQSection({ lang }) {
       <style>{`
         @keyframes faqFade { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
         .faq-item { transition: border-color .2s, box-shadow .2s; }
-        .faq-item:hover { border-color: rgba(30,95,212,0.25) !important; }
-        .faq-item.open { border-color: rgba(30,95,212,0.3) !important; box-shadow: 0 4px 20px rgba(30,95,212,0.06); }
+        .faq-item:hover { border-color: rgba(16,185,129,0.25) !important; }
+        .faq-item.open { border-color: rgba(16,185,129,0.3) !important; box-shadow: 0 4px 20px rgba(16,185,129,0.06); }
         .faq-btn { transition: background .2s; }
-        .faq-btn:hover { background: rgba(30,95,212,0.04) !important; }
+        .faq-btn:hover { background: rgba(16,185,129,0.04) !important; }
       `}</style>
       <div className="ld-wrap">
         <div className="ld-sec-head">
-          <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+          <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
           <span className="ld-sec-title">{isBn ? 'প্রশ্ন ও উত্তর' : 'FAQ'}</span>
-          <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700, color:'#1E5FD4', background:'rgba(30,95,212,0.1)', border:'1px solid rgba(30,95,212,0.2)', borderRadius:10, padding:'2px 8px', fontFamily:'Space Grotesk', letterSpacing:0.8 }}>{items.length} {isBn ? 'প্রশ্ন' : 'Q&As'}</span>
+          <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700, color:'#10B981', background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.2)', borderRadius:10, padding:'2px 8px', fontFamily:'Space Grotesk', letterSpacing:0.8 }}>{items.length} {isBn ? 'প্রশ্ন' : 'Q&As'}</span>
         </div>
         <p style={{ fontSize:13, color:'#707A8A', marginBottom:16 }}>
           {isBn ? 'সাধারণ প্রশ্নের উত্তর এখানে পাবেন:' : 'Find answers to common questions:'}
@@ -1008,8 +1008,8 @@ function FAQSection({ lang }) {
               className={`faq-item${openIdx === i ? ' open' : ''}`}
               style={{
                 borderRadius:14,
-                border:`1px solid ${openIdx === i ? 'rgba(30,95,212,0.25)' : 'rgba(43,49,57,0.7)'}`,
-                background: openIdx === i ? 'linear-gradient(135deg, rgba(30,95,212,0.05), rgba(5,12,28,0.92))' : 'rgba(7,16,32,0.75)',
+                border:`1px solid ${openIdx === i ? 'rgba(16,185,129,0.25)' : 'rgba(43,49,57,0.7)'}`,
+                background: openIdx === i ? 'linear-gradient(135deg, rgba(16,185,129,0.05), rgba(5,12,28,0.92))' : 'rgba(7,16,32,0.75)',
                 overflow:'hidden',
               }}
             >
@@ -1025,8 +1025,8 @@ function FAQSection({ lang }) {
                 {/* Icon */}
                 <div style={{
                   width:30, height:30, borderRadius:9, flexShrink:0,
-                  background: openIdx === i ? 'rgba(30,95,212,0.12)' : 'rgba(22,26,37,0.8)',
-                  border:`1px solid ${openIdx === i ? 'rgba(30,95,212,0.3)' : 'rgba(43,49,57,0.6)'}`,
+                  background: openIdx === i ? 'rgba(16,185,129,0.12)' : 'rgba(22,26,37,0.8)',
+                  border:`1px solid ${openIdx === i ? 'rgba(16,185,129,0.3)' : 'rgba(43,49,57,0.6)'}`,
                   display:'flex', alignItems:'center', justifyContent:'center',
                   transition:'all .2s',
                 }}>
@@ -1041,20 +1041,20 @@ function FAQSection({ lang }) {
                 {/* Chevron */}
                 <div style={{
                   width:24, height:24, borderRadius:7, flexShrink:0,
-                  background: openIdx === i ? 'rgba(30,95,212,0.12)' : 'transparent',
-                  border: openIdx === i ? '1px solid rgba(30,95,212,0.25)' : '1px solid rgba(43,49,57,0.5)',
+                  background: openIdx === i ? 'rgba(16,185,129,0.12)' : 'transparent',
+                  border: openIdx === i ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(43,49,57,0.5)',
                   display:'flex', alignItems:'center', justifyContent:'center',
                   transition:'all .25s',
                 }}>
                   <svg viewBox="0 0 12 12" fill="none" style={{ width:10, height:10, transform: openIdx === i ? 'rotate(180deg)' : 'rotate(0)', transition:'transform .25s cubic-bezier(.4,0,.2,1)' }}>
-                    <path d="M2 4 L6 8 L10 4" stroke={openIdx === i ? '#1E5FD4' : '#5a6473'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M2 4 L6 8 L10 4" stroke={openIdx === i ? '#10B981' : '#5a6473'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
               </button>
 
               {openIdx === i && (
                 <div style={{ padding:'0 16px 14px 58px', animation:'faqFade .2s ease both' }}>
-                  <div style={{ height:1, background:'rgba(30,95,212,0.12)', marginBottom:12 }} />
+                  <div style={{ height:1, background:'rgba(16,185,129,0.12)', marginBottom:12 }} />
                   <p style={{ fontSize:13, color:'#8A95A3', lineHeight:1.85, margin:0 }}>{item.a}</p>
                 </div>
               )}
@@ -1103,8 +1103,8 @@ export function LegalModal({ doc, onClose }) {
         {/* Content */}
         <div style={{ overflowY:'auto', padding:'16px 20px 24px', flex:1 }}>
           {/* UK Company Header */}
-          <div style={{ marginBottom:14, padding:'10px 14px', borderRadius:10, background:'rgba(30,95,212,0.06)', border:'1px solid rgba(30,95,212,0.18)' }}>
-            <div style={{ fontFamily:'Space Grotesk', fontWeight:700, fontSize:14, color:'#1E5FD4', marginBottom:2 }}>PhoneCraft Ltd</div>
+          <div style={{ marginBottom:14, padding:'10px 14px', borderRadius:10, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.18)' }}>
+            <div style={{ fontFamily:'Space Grotesk', fontWeight:700, fontSize:14, color:'#10B981', marginBottom:2 }}>PhoneCraft Ltd</div>
             <div style={{ fontSize:11, color:'#707A8A', lineHeight:1.6 }}>
               Registered in England &amp; Wales &nbsp;·&nbsp; Company No. 15234567<br/>
               71-75 Shelton Street, Covent Garden, London WC2H 9JQ
@@ -1115,12 +1115,12 @@ export function LegalModal({ doc, onClose }) {
           </p>
           {doc.sections.map((s, i) => (
             <div key={i} style={{ marginBottom:18 }}>
-              <div style={{ fontWeight:700, fontSize:14, color:'#1E5FD4', marginBottom:6 }}>{s.heading}</div>
+              <div style={{ fontWeight:700, fontSize:14, color:'#10B981', marginBottom:6 }}>{s.heading}</div>
               <p style={{ fontSize:13, color:'rgba(234,236,239,0.75)', lineHeight:1.75 }}>{s.body}</p>
             </div>
           ))}
-          <div style={{ marginTop:24, padding:'12px 16px', background:'rgba(30,95,212,0.06)', border:'1px solid rgba(30,95,212,0.2)', borderRadius:10 }}>
-            <p style={{ fontSize:13, color:'rgba(30,95,212,0.85)', lineHeight:1.7 }}>
+          <div style={{ marginTop:24, padding:'12px 16px', background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.2)', borderRadius:10 }}>
+            <p style={{ fontSize:13, color:'rgba(16,185,129,0.85)', lineHeight:1.7 }}>
               By creating an account or using PhoneCraft, you acknowledge that you have read, understood, and agree to be bound by these terms.
             </p>
           </div>
@@ -1249,7 +1249,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
 
         .ld-hero-ring {
           position:absolute; border-radius:50%;
-          border:1px solid rgba(30,95,212,0.18);
+          border:1px solid rgba(16,185,129,0.18);
           animation: ringRotate 14s linear infinite;
         }
         .ld-hero-ring2 {
@@ -1274,7 +1274,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         .ld-step-line {
           position:absolute; top:20px; left:calc(50% + 20px);
           width: calc(100% - 40px); height:1px;
-          background: linear-gradient(90deg, rgba(30,95,212,.4), rgba(99,102,241,.2));
+          background: linear-gradient(90deg, rgba(16,185,129,.4), rgba(99,102,241,.2));
         }
 
         .ld-trust-badge {
@@ -1291,21 +1291,21 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           transition: border-color .2s, color .2s;
           text-decoration:none; display:inline-block; text-align:center;
         }
-        .ld-legal-btn:hover { border-color:rgba(30,95,212,.4); color:#1E5FD4; }
+        .ld-legal-btn:hover { border-color:rgba(16,185,129,.4); color:#10B981; }
       `}</style>
 
       {/* ── PWA INSTALL BANNER ── */}
       {!bannerDismissed && !isInstalled && (
         <div style={{
           background: 'linear-gradient(90deg, rgba(10,12,16,0.97), rgba(22,26,37,0.97))',
-          borderBottom: '1px solid rgba(30,95,212,.3)',
+          borderBottom: '1px solid rgba(16,185,129,.3)',
           padding: '10px clamp(16px,4vw,56px)',
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
           <div style={{
             width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            background: 'linear-gradient(135deg, rgba(30,95,212,.2), rgba(30,95,212,.08))',
-            border: '1px solid rgba(30,95,212,.3)',
+            background: 'linear-gradient(135deg, rgba(16,185,129,.2), rgba(16,185,129,.08))',
+            border: '1px solid rgba(16,185,129,.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
           }}>
             <img src="/logo.png" alt="" style={{ width: 30, height: 30, objectFit: 'contain' }} onError={e => { e.target.style.display='none'; }} />
@@ -1317,13 +1317,13 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           {deferredPrompt && (
             <button
               onClick={handleInstall}
-              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#1E5FD4,#1a8f75)', color: '#fff', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, boxShadow: '0 2px 12px rgba(30,95,212,.35)' }}
+              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#10B981,#059669)', color: '#fff', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, boxShadow: '0 2px 12px rgba(16,185,129,.35)' }}
             >{t.install_btn}</button>
           )}
           <button
             onClick={dismissBanner}
             style={{ background: 'none', border: '1px solid rgba(43,49,57,.8)', color: '#707A8A', cursor: 'pointer', fontSize: 16, lineHeight: 1, flexShrink: 0, padding: '4px 8px', borderRadius: 6, transition: 'all .2s' }}
-            onMouseEnter={e => { e.target.style.borderColor='rgba(30,95,212,.4)'; e.target.style.color='#1E5FD4'; }}
+            onMouseEnter={e => { e.target.style.borderColor='rgba(16,185,129,.4)'; e.target.style.color='#10B981'; }}
             onMouseLeave={e => { e.target.style.borderColor='rgba(43,49,57,.8)'; e.target.style.color='#707A8A'; }}
           ><Icons.X size={14} /></button>
         </div>
@@ -1333,8 +1333,8 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         onClick={() => setShowInstallGuide(true)}
         style={{
           cursor: 'pointer',
-          background: 'linear-gradient(90deg, rgba(30,95,212,.2), rgba(99,102,241,.14))',
-          borderBottom: '1px solid rgba(30,95,212,.28)',
+          background: 'linear-gradient(90deg, rgba(16,185,129,.2), rgba(99,102,241,.14))',
+          borderBottom: '1px solid rgba(16,185,129,.28)',
           padding: '10px clamp(16px,4vw,56px)',
           display: 'flex', alignItems: 'center', gap: 10,
         }}
@@ -1342,7 +1342,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         <div style={{
           width: 34, height: 34, borderRadius: 10,
           background: 'rgba(10,12,16,.45)',
-          border: '1px solid rgba(30,95,212,.35)',
+          border: '1px solid rgba(16,185,129,.35)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
           flexShrink: 0,
         }}>
@@ -1356,7 +1356,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
             {t.land_install_sub}
           </div>
         </div>
-        <span style={{ color: '#1E5FD4', fontSize: 17, fontWeight: 900, flexShrink: 0 }}>›</span>
+        <span style={{ color: '#10B981', fontSize: 17, fontWeight: 900, flexShrink: 0 }}>›</span>
       </div>
 
       <div style={{ minHeight:'100dvh', background:'transparent', color:'#EAECEF', fontFamily:'Inter,sans-serif', paddingBottom:60, overflowX:'hidden' }}>
@@ -1371,19 +1371,19 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <img src="/logo.png" alt="PhoneCraft" style={{ width:30, height:30, objectFit:'contain' }} onError={e=>{e.target.style.display='none'}} />
             <span style={{ fontFamily:'Space Grotesk', fontWeight:700, fontSize:'clamp(18px,4vw,22px)', letterSpacing:.5 }}>
-              PHONE<span style={{ color:'#1E5FD4' }}>CRAFT</span>
+              PHONE<span style={{ color:'#10B981' }}>CRAFT</span>
             </span>
           </div>
           <div style={{ display:'flex', gap:6, alignItems:'center' }}>
             <button
               onClick={onLogin}
-              style={{ padding:'8px 18px', borderRadius:8, border:'1px solid rgba(30,95,212,.4)', background:'transparent', color:'#1E5FD4', fontFamily:'Space Grotesk', fontWeight:600, fontSize:14, cursor:'pointer', transition:'all .2s' }}
-              onMouseEnter={e=>{ e.target.style.background='rgba(30,95,212,.1)'; }}
+              style={{ padding:'8px 18px', borderRadius:8, border:'1px solid rgba(16,185,129,.4)', background:'transparent', color:'#10B981', fontFamily:'Space Grotesk', fontWeight:600, fontSize:14, cursor:'pointer', transition:'all .2s' }}
+              onMouseEnter={e=>{ e.target.style.background='rgba(16,185,129,.1)'; }}
               onMouseLeave={e=>{ e.target.style.background='transparent'; }}
             >{t.login}</button>
             <button
               onClick={onGetStarted}
-              style={{ padding:'8px 18px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#1E5FD4,#1a8f75)', color:'#fff', fontFamily:'Space Grotesk', fontWeight:700, fontSize:14, cursor:'pointer', boxShadow:'0 2px 12px rgba(30,95,212,.3)' }}
+              style={{ padding:'8px 18px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#10B981,#059669)', color:'#fff', fontFamily:'Space Grotesk', fontWeight:700, fontSize:14, cursor:'pointer', boxShadow:'0 2px 12px rgba(16,185,129,.3)' }}
             >{t.signup}</button>
           </div>
           </div>{/* end ld-wrap */}
@@ -1396,7 +1396,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           <div className="ld-hero-ring" style={{ width:260, height:260, top:'50%', left:'50%', marginTop:-130, marginLeft:-130 }} />
           <div className="ld-hero-ring2" style={{ width:360, height:360, top:'50%', left:'50%', marginTop:-180, marginLeft:-180 }} />
           {/* Glow orb */}
-          <div style={{ position:'absolute', top:20, left:'50%', transform:'translateX(-50%)', width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle, rgba(30,95,212,.12) 0%, transparent 70%)', pointerEvents:'none' }} />
+          <div style={{ position:'absolute', top:20, left:'50%', transform:'translateX(-50%)', width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle, rgba(16,185,129,.12) 0%, transparent 70%)', pointerEvents:'none' }} />
 
           {/* Logo - Animated Portal */}
           <div className="ld-fade ld-fade-1 auth-logo-wrap" style={{ marginBottom:4, paddingTop:0, paddingBottom:0 }}>
@@ -1416,7 +1416,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
 
           {/* UK Trust Badges */}
           <div className="ld-fade ld-fade-1" style={{ display:'flex', gap:8, alignItems:'center', justifyContent:'center', flexWrap:'wrap', marginBottom:16 }}>
-            <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 14px', borderRadius:20, background:'rgba(30,95,212,.12)', border:'1px solid rgba(30,95,212,.38)', fontSize:11, color:'#7EB4FF', fontFamily:'Space Grotesk', fontWeight:700, letterSpacing:1.5 }}>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 14px', borderRadius:20, background:'rgba(16,185,129,.12)', border:'1px solid rgba(16,185,129,.38)', fontSize:11, color:'#7EB4FF', fontFamily:'Space Grotesk', fontWeight:700, letterSpacing:1.5 }}>
               <img src="/flag-uk.svg" alt="UK" style={{ width:18, height:12, objectFit:'cover', borderRadius:2, flexShrink:0 }} /> UK REGISTERED PLATFORM
             </div>
             <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 14px', borderRadius:20, background:'rgba(201,168,76,.10)', border:'1px solid rgba(201,168,76,.35)', fontSize:11, color:'#C9A84C', fontFamily:'Space Grotesk', fontWeight:700, letterSpacing:1.5 }}>
@@ -1427,7 +1427,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           {/* Headline */}
           <h1 className="ld-fade ld-fade-2" style={{ fontFamily:'Space Grotesk', fontSize:'clamp(28px,4vw,56px)', fontWeight:900, lineHeight:1.18, marginBottom:14, position:'relative' }}>
             {t.headline1}<br />
-            <span style={{ background:'linear-gradient(90deg,#4B9EFF,#C9A84C)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
+            <span style={{ background:'linear-gradient(90deg,#6EE7B7,#C9A84C)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
               {t.headline2}
             </span>
           </h1>
@@ -1442,29 +1442,29 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
               onClick={onGetStarted}
               style={{
                 width:'100%', padding:'15px 36px', borderRadius:12, border:'none',
-                background:'linear-gradient(135deg,#1E5FD4,#1A4AB8)',
+                background:'linear-gradient(135deg,#10B981,#1A4AB8)',
                 color:'#fff', fontFamily:'Space Grotesk', fontWeight:700, fontSize:16,
-                cursor:'pointer', boxShadow:'0 4px 24px rgba(30,95,212,.40), inset 0 1px 0 rgba(255,255,255,.15)',
+                cursor:'pointer', boxShadow:'0 4px 24px rgba(16,185,129,.40), inset 0 1px 0 rgba(255,255,255,.15)',
                 transition:'transform .18s, box-shadow .18s',
                 letterSpacing:0.3,
               }}
-              onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(30,95,212,.50), inset 0 1px 0 rgba(255,255,255,.15)'; }}
-              onMouseLeave={e=>{ e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 24px rgba(30,95,212,.40), inset 0 1px 0 rgba(255,255,255,.15)'; }}
+              onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(16,185,129,.50), inset 0 1px 0 rgba(255,255,255,.15)'; }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 24px rgba(16,185,129,.40), inset 0 1px 0 rgba(255,255,255,.15)'; }}
             >
               <img src="/flag-uk.svg" alt="UK" style={{ width:18, height:12, objectFit:'cover', borderRadius:2, marginRight:6, verticalAlign:'middle' }} /> {t.cta_start}
             </button>
             <button
               onClick={onLogin}
-              style={{ width:'100%', padding:'14px 32px', borderRadius:12, border:'1px solid rgba(30,95,212,.45)', background:'transparent', color:'#7EB4FF', fontFamily:'Space Grotesk', fontWeight:600, fontSize:15, cursor:'pointer', transition:'all .18s' }}
-              onMouseEnter={e=>{ e.currentTarget.style.background='rgba(30,95,212,.10)'; e.currentTarget.style.borderColor='rgba(30,95,212,.7)'; }}
-              onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='rgba(30,95,212,.45)'; }}
+              style={{ width:'100%', padding:'14px 32px', borderRadius:12, border:'1px solid rgba(16,185,129,.45)', background:'transparent', color:'#7EB4FF', fontFamily:'Space Grotesk', fontWeight:600, fontSize:15, cursor:'pointer', transition:'all .18s' }}
+              onMouseEnter={e=>{ e.currentTarget.style.background='rgba(16,185,129,.10)'; e.currentTarget.style.borderColor='rgba(16,185,129,.7)'; }}
+              onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='rgba(16,185,129,.45)'; }}
             >
               {t.cta_member}
             </button>
           </div>
 
           {/* UK Company Trust Strip */}
-          <div className="ld-fade ld-fade-4" style={{ marginTop:20, padding:'9px 16px', borderRadius:12, background:'rgba(30,95,212,.06)', border:'1px solid rgba(30,95,212,.18)', display:'flex', alignItems:'center', justifyContent:'center', gap:6, flexWrap:'wrap', textAlign:'center' }}>
+          <div className="ld-fade ld-fade-4" style={{ marginTop:20, padding:'9px 16px', borderRadius:12, background:'rgba(16,185,129,.06)', border:'1px solid rgba(16,185,129,.18)', display:'flex', alignItems:'center', justifyContent:'center', gap:6, flexWrap:'wrap', textAlign:'center' }}>
             <span style={{ fontSize:10, color:'#5A7499', fontFamily:'Space Grotesk', fontWeight:600, letterSpacing:0.5 }}>
               🏛️ {isBn ? 'ইংল্যান্ড ও ওয়েলসে নিবন্ধিত · কোম্পানি নং ১৫২৩৪৫৬৭' : 'Registered in England & Wales · Company No. 15234567'} &nbsp;·&nbsp;
               🔒 {isBn ? 'ICO নং ZB456789 · UK GDPR সম্মত' : 'ICO No. ZB456789 · UK GDPR Compliant'} &nbsp;·&nbsp;
@@ -1742,9 +1742,9 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         <section className="ld-fade ld-fade-4 ld-section">
           <div className="ld-wrap">
           <div className="ld-sec-head">
-            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
             <span className="ld-sec-title">{t.vid_title}</span>
-            <span style={{ marginLeft:'auto', fontSize:10, color:'#1E5FD4', background:'rgba(30,95,212,.1)', border:'1px solid rgba(30,95,212,.2)', borderRadius:10, padding:'2px 8px', fontFamily:'Space Grotesk', fontWeight:600 }}>{t.vid_live}</span>
+            <span style={{ marginLeft:'auto', fontSize:10, color:'#10B981', background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.2)', borderRadius:10, padding:'2px 8px', fontFamily:'Space Grotesk', fontWeight:600 }}>{t.vid_live}</span>
           </div>
           <div style={{ maxWidth:760, margin:'0 auto' }}>
             <VideoSlider lang={lang} />
@@ -1756,7 +1756,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         <section className="ld-fade ld-fade-4 ld-section">
           <div className="ld-wrap">
           <div className="ld-sec-head">
-            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
             <span className="ld-sec-title">{t.how_title}</span>
           </div>
           <style>{`
@@ -1768,15 +1768,15 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           `}</style>
           <div className="ld-6steps">
             {(lang === 'bn' ? [
-              { step:'০১', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.3"/><path d="M8 12 L11 15 L16 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>, title:'রেফারেল কোড সংগ্রহ', desc:'আপনার রেফারারের কাছ থেকে একটি বৈধ রেফারেল কোড নিন। রেফারেল কোড ছাড়া নিবন্ধন সম্ভব নয়।', color:'#1E5FD4' },
-              { step:'০২', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="4" y="3" width="16" height="18" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M8 8 L16 8 M8 12 L16 12 M8 16 L12 16" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'অ্যাকাউন্ট তৈরি', desc:'আপনার নাম, মোবাইল নম্বর/ইমেইল, পাসওয়ার্ড ও রেফারেল কোড দিয়ে মাত্র ২ মিনিটে নিবন্ধন করুন।', color:'#6366F1' },
+              { step:'০১', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.3"/><path d="M8 12 L11 15 L16 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>, title:'রেফারেল কোড সংগ্রহ', desc:'আপনার রেফারারের কাছ থেকে একটি বৈধ রেফারেল কোড নিন। রেফারেল কোড ছাড়া নিবন্ধন সম্ভব নয়।', color:'#10B981' },
+              { step:'০২', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="4" y="3" width="16" height="18" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M8 8 L16 8 M8 12 L16 12 M8 16 L12 16" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'অ্যাকাউন্ট তৈরি', desc:'আপনার নাম, মোবাইল নম্বর/ইমেইল, পাসওয়ার্ড ও রেফারেল কোড দিয়ে মাত্র ২ মিনিটে নিবন্ধন করুন।', color:'#34D399' },
               { step:'০৩', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="2" y="6" width="20" height="13" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M2 10 L22 10" stroke="currentColor" strokeWidth="1.3"/><circle cx="7" cy="15" r="1.5" fill="currentColor"/><path d="M11 15 L17 15" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'প্ল্যান বিনিয়োগ', desc:'BASIC থেকে PLATINUM পর্যন্ত আপনার বাজেট অনুযায়ী প্ল্যান বেছে নিন এবং bKash/Nagad-এ পেমেন্ট করুন।', color:'#FCD535' },
               { step:'০৪', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M8 5 L8 3 M16 5 L16 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M7 12 L10 15 L17 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>, title:'ভার্চুয়াল ফোন তৈরি', desc:'প্রতিদিন আপনার ড্যাশবোর্ডে লগইন করুন এবং ভার্চুয়াল ম্যানুফ্যাকচারিং টাস্ক শুরু করুন। প্রতিটি টাস্ক মাত্র ২ মিনিট!', color:'#F97316' },
               { step:'০৫', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><path d="M4 20 L4 10 L8 10 L8 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M10 20 L10 6 L14 6 L14 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M16 20 L16 13 L20 13 L20 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M2 20 L22 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'মার্কেটপ্লেসে বিক্রি', desc:'আপনার তৈরি ভার্চুয়াল ফোন স্বয়ংক্রিয়ভাবে মার্কেটপ্লেসে পোস্ট হয় এবং ৩০ মিনিটের মধ্যে বিক্রি হয়।', color:'#A78BFA' },
               { step:'০৬', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.3"/><path d="M12 7 L12 17 M9 9.5 Q9 7 12 7 Q15 7 15 9.5 Q15 12 12 12 Q9 12 9 14.5 Q9 17 12 17" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'আয় উইথড্র করুন', desc:'আপনার আয় সরাসরি bKash, Nagad বা ব্যাংক অ্যাকাউন্টে উইথড্র করুন। ২৪ ঘন্টার মধ্যে প্রক্রিয়া করা হয়।', color:'#4ADE80' },
             ] : [
-              { step:'01', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.3"/><path d="M8 12 L11 15 L16 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>, title:'Get Referral Code', desc:'Obtain a valid referral code from your referrer. Registration requires a referral code.', color:'#1E5FD4' },
-              { step:'02', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="4" y="3" width="16" height="18" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M8 8 L16 8 M8 12 L16 12 M8 16 L12 16" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'Create Account', desc:'Register in 2 minutes with your name, mobile/email, password and referral code.', color:'#6366F1' },
+              { step:'01', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.3"/><path d="M8 12 L11 15 L16 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>, title:'Get Referral Code', desc:'Obtain a valid referral code from your referrer. Registration requires a referral code.', color:'#10B981' },
+              { step:'02', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="4" y="3" width="16" height="18" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M8 8 L16 8 M8 12 L16 12 M8 16 L12 16" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'Create Account', desc:'Register in 2 minutes with your name, mobile/email, password and referral code.', color:'#34D399' },
               { step:'03', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="2" y="6" width="20" height="13" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M2 10 L22 10" stroke="currentColor" strokeWidth="1.3"/><circle cx="7" cy="15" r="1.5" fill="currentColor"/><path d="M11 15 L17 15" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'Choose & Pay Plan', desc:'Select a plan from BASIC to PLATINUM and pay via bKash, Nagad, or bank.', color:'#FCD535' },
               { step:'04', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M8 5 L8 3 M16 5 L16 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M7 12 L10 15 L17 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>, title:'Manufacture Phones', desc:'Log in daily and start virtual manufacturing tasks. Each task takes just 2 minutes!', color:'#F97316' },
               { step:'05', icon: <svg viewBox="0 0 24 24" fill="none" style={{width:22,height:22}}><path d="M4 20 L4 10 L8 10 L8 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M10 20 L10 6 L14 6 L14 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M16 20 L16 13 L20 13 L20 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M2 20 L22 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, title:'List on Marketplace', desc:'Your manufactured phones auto-list on the marketplace and sell within 30 minutes.', color:'#A78BFA' },
@@ -1819,7 +1819,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         <section className="ld-fade ld-fade-5 ld-section">
           <div className="ld-wrap">
           <div className="ld-sec-head">
-            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
             <span className="ld-sec-title">{t.plans_title}</span>
           </div>
           <p style={{ fontSize:'clamp(13px,1.2vw,16px)', color:'#707A8A', marginBottom:20 }}>{t.plans_sub}</p>
@@ -1957,21 +1957,21 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
 
             {/* BASIC */}
             <div className="pcard" onClick={onGetStarted}
-              style={{ background:'linear-gradient(145deg,#0f1e1a,#111820)', border:'1px solid rgba(30,95,212,.3)' }}
-              onMouseEnter={e=>{ e.currentTarget.style.boxShadow='0 10px 32px rgba(30,95,212,.2)'; }}
+              style={{ background:'linear-gradient(145deg,#0f1e1a,#111820)', border:'1px solid rgba(16,185,129,.3)' }}
+              onMouseEnter={e=>{ e.currentTarget.style.boxShadow='0 10px 32px rgba(16,185,129,.2)'; }}
               onMouseLeave={e=>{ e.currentTarget.style.boxShadow='none'; }}
             >
-              <div className="pcard-glow" style={{ width:160, height:160, background:'#1E5FD4', top:-40, right:-40 }} />
+              <div className="pcard-glow" style={{ width:160, height:160, background:'#10B981', top:-40, right:-40 }} />
               <div style={{ marginBottom:8 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
-                  <div className="pcard-badge" style={{ background:'rgba(30,95,212,.15)', border:'1px solid rgba(30,95,212,.3)', color:'#1E5FD4' }}>
+                  <div className="pcard-badge" style={{ background:'rgba(16,185,129,.15)', border:'1px solid rgba(16,185,129,.3)', color:'#10B981' }}>
                     {t.plan_basic_badge}
                   </div>
-                  <span className="pcard-save" style={{ background:'rgba(30,95,212,.15)', color:'#1E5FD4' }}>SAVE {convertCurrency(2200, lang)}</span>
+                  <span className="pcard-save" style={{ background:'rgba(16,185,129,.15)', color:'#10B981' }}>SAVE {convertCurrency(2200, lang)}</span>
                 </div>
                 <div style={{ fontFamily:'Space Grotesk', fontSize:'clamp(20px,1.8vw,26px)', fontWeight:900, lineHeight:1, marginBottom:6 }}>BASIC</div>
                 <div style={{ display:'flex', alignItems:'baseline', gap:8, flexWrap:'wrap' }}>
-                  <span style={{ fontFamily:'Space Grotesk', fontSize:'clamp(24px,2vw,30px)', fontWeight:900, color:'#1E5FD4', lineHeight:1 }}>{convertCurrency(12800, lang)}</span>
+                  <span style={{ fontFamily:'Space Grotesk', fontSize:'clamp(24px,2vw,30px)', fontWeight:900, color:'#10B981', lineHeight:1 }}>{convertCurrency(12800, lang)}</span>
                   <span className="pcard-old-price">{convertCurrency(15000, lang)}</span>
                 </div>
                 <div style={{ fontSize:11, color:'#707A8A', marginTop:2 }}>{t.one_time}</div>
@@ -1986,16 +1986,16 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
                   'Email support',
                 ].map((f,i)=>(
                   <div key={i} className="pcard-feat">
-                    <span style={{ width:16, height:16, borderRadius:'50%', background:'rgba(30,95,212,.15)', border:'1px solid rgba(30,95,212,.4)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <svg width="8" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#1E5FD4" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>
+                    <span style={{ width:16, height:16, borderRadius:'50%', background:'rgba(16,185,129,.15)', border:'1px solid rgba(16,185,129,.4)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <svg width="8" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#10B981" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>
                     </span>
                     {f}
                   </div>
                 ))}
               </div>
-              <button onClick={onGetStarted} style={{ width:'100%', marginTop:16, padding:'12px', borderRadius:10, border:'1.5px solid rgba(30,95,212,.5)', background:'rgba(30,95,212,.08)', color:'#1E5FD4', fontFamily:'Space Grotesk', fontWeight:700, fontSize:15, cursor:'pointer', transition:'background .2s' }}
-                onMouseEnter={e=>{ e.target.style.background='rgba(30,95,212,.18)'; }}
-                onMouseLeave={e=>{ e.target.style.background='rgba(30,95,212,.08)'; }}
+              <button onClick={onGetStarted} style={{ width:'100%', marginTop:16, padding:'12px', borderRadius:10, border:'1.5px solid rgba(16,185,129,.5)', background:'rgba(16,185,129,.08)', color:'#10B981', fontFamily:'Space Grotesk', fontWeight:700, fontSize:15, cursor:'pointer', transition:'background .2s' }}
+                onMouseEnter={e=>{ e.target.style.background='rgba(16,185,129,.18)'; }}
+                onMouseLeave={e=>{ e.target.style.background='rgba(16,185,129,.08)'; }}
               >{t.act_basic}</button>
             </div>
 
@@ -2005,9 +2005,9 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
               onMouseEnter={e=>{ e.currentTarget.style.boxShadow='0 10px 36px rgba(99,102,241,.28)'; }}
               onMouseLeave={e=>{ e.currentTarget.style.boxShadow='none'; }}
             >
-              <div className="pcard-glow" style={{ width:180, height:180, background:'#6366F1', top:-50, right:-50 }} />
+              <div className="pcard-glow" style={{ width:180, height:180, background:'#34D399', top:-50, right:-50 }} />
               {/* MOST POPULAR ribbon */}
-              <div style={{ position:'absolute', top:14, right:-28, background:'linear-gradient(135deg,#6366F1,#818CF8)', color:'#fff', fontSize:9, fontFamily:'Space Grotesk', fontWeight:700, padding:'4px 36px', transform:'rotate(35deg)', letterSpacing:1.2, boxShadow:'0 2px 8px rgba(99,102,241,.4)' }}>
+              <div style={{ position:'absolute', top:14, right:-28, background:'linear-gradient(135deg,#34D399,#818CF8)', color:'#fff', fontSize:9, fontFamily:'Space Grotesk', fontWeight:700, padding:'4px 36px', transform:'rotate(35deg)', letterSpacing:1.2, boxShadow:'0 2px 8px rgba(99,102,241,.4)' }}>
                 {t.popular_ribbon}
               </div>
               <div style={{ marginBottom:8 }}>
@@ -2042,7 +2042,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
                   </div>
                 ))}
               </div>
-              <button onClick={onGetStarted} style={{ width:'100%', marginTop:16, padding:'12px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#6366F1,#818CF8)', color:'#fff', fontFamily:'Space Grotesk', fontWeight:700, fontSize:15, cursor:'pointer', boxShadow:'0 4px 16px rgba(99,102,241,.35)' }}>
+              <button onClick={onGetStarted} style={{ width:'100%', marginTop:16, padding:'12px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#34D399,#818CF8)', color:'#fff', fontFamily:'Space Grotesk', fontWeight:700, fontSize:15, cursor:'pointer', boxShadow:'0 4px 16px rgba(99,102,241,.35)' }}>
                 {t.act_premium}
               </button>
             </div>
@@ -2150,13 +2150,13 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         <section className="ld-fade ld-fade-5 ld-section">
           <div className="ld-wrap">
           <div className="ld-sec-head">
-            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
             <span className="ld-sec-title">{t.trust_title}</span>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:12 }}>
             {t.trust_badges.map((b, i) => (
               <div key={i} className="ld-trust-badge">
-                <span style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:10, background:'rgba(30,95,212,.08)' }}>{(() => { const IC = Icons[b.iconKey]; return IC ? <IC size={20} /> : null; })()}</span>
+                <span style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:10, background:'rgba(16,185,129,.08)' }}>{(() => { const IC = Icons[b.iconKey]; return IC ? <IC size={20} /> : null; })()}</span>
                 <div>
                   <div style={{ fontWeight:700, fontSize:'clamp(13px,1.2vw,16px)' }}>{b.title}</div>
                   <div style={{ fontSize:'clamp(12px,1vw,14px)', color:'#707A8A', marginTop:2, lineHeight:1.5 }}>{b.desc}</div>
@@ -2171,7 +2171,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         <section className="ld-fade ld-fade-5 ld-section">
           <div className="ld-wrap">
           <div className="ld-sec-head">
-            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
             <span className="ld-sec-title">{t.cert_title}</span>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:12 }}>
@@ -2179,7 +2179,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
               <div key={i} style={{ borderRadius:14, border:'1px solid rgba(43,49,57,0.9)', background:'rgba(22,26,37,.7)', padding:'14px 16px', display:'flex', flexDirection:'column', gap:8 }}>
                 <img src={c.logo} alt={c.title} style={{ width:'100%', height:50, objectFit:'contain', borderRadius:6 }} />
                 <div style={{ fontFamily:'Space Grotesk', fontWeight:700, fontSize:13, color:'#EAECEF' }}>{c.title}</div>
-                <div style={{ fontSize:11, color:'#1E5FD4', fontWeight:600 }}>{c.num}</div>
+                <div style={{ fontSize:11, color:'#10B981', fontWeight:600 }}>{c.num}</div>
                 <div style={{ fontSize:11, color:'#707A8A', lineHeight:1.5 }}>{c.body}</div>
               </div>
             ))}
@@ -2191,7 +2191,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         <section className="ld-fade ld-fade-5 ld-section">
           <div className="ld-wrap">
           <div className="ld-sec-head">
-            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
             <span className="ld-sec-title">{t.partner_title}</span>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:12 }}>
@@ -2200,7 +2200,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
                 <img src={p.logo} alt={p.name} style={{ width:'100%', height:50, objectFit:'contain', borderRadius:6 }} />
                 <div style={{ fontFamily:'Space Grotesk', fontWeight:700, fontSize:13, color:'#EAECEF' }}>{p.name}</div>
                 <div style={{ fontSize:11, color:'#707A8A', lineHeight:1.5 }}>{p.desc}</div>
-                <div style={{ marginTop:2, display:'inline-flex', alignItems:'center', padding:'3px 8px', borderRadius:20, background:'rgba(30,95,212,0.1)', border:'1px solid rgba(30,95,212,0.25)', fontSize:11, color:'#1E5FD4', fontWeight:600, alignSelf:'flex-start' }}>{p.label}</div>
+                <div style={{ marginTop:2, display:'inline-flex', alignItems:'center', padding:'3px 8px', borderRadius:20, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.25)', fontSize:11, color:'#10B981', fontWeight:600, alignSelf:'flex-start' }}>{p.label}</div>
               </div>
             ))}
           </div>
@@ -2211,7 +2211,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         <section className="ld-fade ld-fade-6 ld-section">
           <div className="ld-wrap">
           <div className="ld-sec-head">
-            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#1E5FD4,#6366F1)', display:'inline-block' }} />
+            <span style={{ width:3, height:18, borderRadius:2, background:'linear-gradient(180deg,#10B981,#34D399)', display:'inline-block' }} />
             <span className="ld-sec-title">{t.legal_title}</span>
           </div>
           <div style={{ borderRadius:14, border:'1px solid rgba(43,49,57,0.9)', background:'rgba(22,26,37,.7)', padding:'16px 16px 12px', marginBottom:14 }}>
@@ -2224,13 +2224,13 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
                 </p>
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                   <button className="ld-legal-btn" onClick={() => setLegalDoc(legalData.terms)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid rgba(43,49,57,0.9)', background:'none', color:'#707A8A', cursor:'pointer', fontSize:11, fontFamily:'Inter,sans-serif', transition:'all .2s' }}
-                    onMouseEnter={e=>{ e.target.style.borderColor='rgba(30,95,212,.4)'; e.target.style.color='#1E5FD4'; }}
+                    onMouseEnter={e=>{ e.target.style.borderColor='rgba(16,185,129,.4)'; e.target.style.color='#10B981'; }}
                     onMouseLeave={e=>{ e.target.style.borderColor='rgba(43,49,57,0.9)'; e.target.style.color='#707A8A'; }}
                   >
                     {t.terms_btn}
                   </button>
                   <button className="ld-legal-btn" onClick={() => setLegalDoc(legalData.privacy)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid rgba(43,49,57,0.9)', background:'none', color:'#707A8A', cursor:'pointer', fontSize:11, fontFamily:'Inter,sans-serif', transition:'all .2s' }}
-                    onMouseEnter={e=>{ e.target.style.borderColor='rgba(30,95,212,.4)'; e.target.style.color='#1E5FD4'; }}
+                    onMouseEnter={e=>{ e.target.style.borderColor='rgba(16,185,129,.4)'; e.target.style.color='#10B981'; }}
                     onMouseLeave={e=>{ e.target.style.borderColor='rgba(43,49,57,0.9)'; e.target.style.color='#707A8A'; }}
                   >
                     {t.privacy_btn}
@@ -2251,7 +2251,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
         {/* ── BOTTOM CTA ── */}
         <section className="ld-section">
           <div className="ld-wrap">
-          <div style={{ borderRadius:18, background:'linear-gradient(135deg, rgba(30,95,212,.1), rgba(99,102,241,.08))', border:'1px solid rgba(30,95,212,.2)', padding:'clamp(20px,4vw,40px) clamp(20px,4vw,48px)', textAlign:'center' }}>
+          <div style={{ borderRadius:18, background:'linear-gradient(135deg, rgba(16,185,129,.1), rgba(99,102,241,.08))', border:'1px solid rgba(16,185,129,.2)', padding:'clamp(20px,4vw,40px) clamp(20px,4vw,48px)', textAlign:'center' }}>
             <div style={{ fontFamily:'Space Grotesk', fontSize:'clamp(20px,4vw,28px)', fontWeight:900, marginBottom:10 }}>
               {t.cta_title}
             </div>
@@ -2260,7 +2260,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
             </p>
             <button
               onClick={onGetStarted}
-              style={{ padding:'14px 48px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#1E5FD4,#1a8f75)', color:'#fff', fontFamily:'Space Grotesk', fontWeight:700, fontSize:'clamp(14px,2vw,16px)', cursor:'pointer', boxShadow:'0 4px 24px rgba(30,95,212,.4)' }}
+              style={{ padding:'14px 48px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#10B981,#059669)', color:'#fff', fontFamily:'Space Grotesk', fontWeight:700, fontSize:'clamp(14px,2vw,16px)', cursor:'pointer', boxShadow:'0 4px 24px rgba(16,185,129,.4)' }}
             >
               {t.cta_btn}
             </button>
@@ -2273,7 +2273,7 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
           <div className="ld-wrap" style={{ textAlign:'center' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:10 }}>
               <img src="/logo.png" alt="" style={{ width:20, height:20, objectFit:'contain' }} onError={e=>{e.target.style.display='none'}} />
-              <span style={{ fontFamily:'Space Grotesk', fontWeight:700, fontSize:15 }}>PHONE<span style={{color:'#1E5FD4'}}>CRAFT</span></span>
+              <span style={{ fontFamily:'Space Grotesk', fontWeight:700, fontSize:15 }}>PHONE<span style={{color:'#10B981'}}>CRAFT</span></span>
             </div>
             <div style={{ display:'flex', justifyContent:'center', gap:16, marginBottom:12 }}>
               <button className="ld-legal-btn" onClick={() => setLegalDoc(legalData.terms)} style={{ padding:'4px 0', border:'none', background:'none', color:'#707A8A', cursor:'pointer', fontSize:13, fontFamily:'Inter,sans-serif' }}>{t.footer_terms}</button>
@@ -2282,8 +2282,8 @@ export default function LandingScreen({ isDark, onGetStarted, onLogin, lang = 'e
             </div>
             {setLang && (
               <div style={{ display:'flex', justifyContent:'center', gap:6, marginBottom:12 }}>
-                <button onClick={()=>setLang('en')} style={{ padding:'5px 14px', borderRadius:6, border:'none', background: lang==='en' ? '#1E5FD4' : 'rgba(30,95,212,.12)', color: lang==='en' ? '#fff' : '#1E5FD4', fontFamily:'Space Grotesk', fontWeight:700, fontSize:11, cursor:'pointer', transition:'all .2s' }}>EN</button>
-                <button onClick={()=>setLang('bn')} style={{ padding:'5px 14px', borderRadius:6, border:'none', background: lang==='bn' ? '#1E5FD4' : 'rgba(30,95,212,.12)', color: lang==='bn' ? '#fff' : '#1E5FD4', fontFamily:'Space Grotesk', fontWeight:700, fontSize:11, cursor:'pointer', transition:'all .2s' }}>বাং</button>
+                <button onClick={()=>setLang('en')} style={{ padding:'5px 14px', borderRadius:6, border:'none', background: lang==='en' ? '#10B981' : 'rgba(16,185,129,.12)', color: lang==='en' ? '#fff' : '#10B981', fontFamily:'Space Grotesk', fontWeight:700, fontSize:11, cursor:'pointer', transition:'all .2s' }}>EN</button>
+                <button onClick={()=>setLang('bn')} style={{ padding:'5px 14px', borderRadius:6, border:'none', background: lang==='bn' ? '#10B981' : 'rgba(16,185,129,.12)', color: lang==='bn' ? '#fff' : '#10B981', fontFamily:'Space Grotesk', fontWeight:700, fontSize:11, cursor:'pointer', transition:'all .2s' }}>বাং</button>
               </div>
             )}
             <div style={{ fontSize:12, color:'rgba(112,122,138,.5)', marginBottom:4 }}>

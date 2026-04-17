@@ -3,7 +3,7 @@ export const PLANS = [
   { id:'mini',     name:'MINI',     price:'\u09F33,000',   rate:3000,   perTask:5,   dailyEarn:50,    daily:10, taskTime:2, color:'#F5A623', l1:20, l2:4, l3:1, boishakh:true },
   { id:'standard', name:'STANDARD', price:'\u09F36,000',   rate:6000,   perTask:10,  dailyEarn:100,   daily:10, taskTime:2, color:'#1A2A6B', l1:20, l2:4, l3:1, boishakh:true },
   { id:'basic',    name:'BASIC',    price:'\u09F312,800',  rate:12800,  perTask:20,  dailyEarn:200,   daily:10, taskTime:2, color:'#23AF91', l1:20, l2:4, l3:1 },
-  { id:'premium',  name:'PREMIUM',  price:'\u09F325,500',  rate:25500,  perTask:42,  dailyEarn:420,   daily:10, taskTime:2, color:'#6366F1', l1:20, l2:4, l3:1 },
+  { id:'premium',  name:'PREMIUM',  price:'\u09F325,500',  rate:25500,  perTask:42,  dailyEarn:420,   daily:10, taskTime:2, color:'#34D399', l1:20, l2:4, l3:1 },
   { id:'gold',     name:'GOLD',     price:'\u09F350,000',  rate:50000,  perTask:75,  dailyEarn:900,   daily:12, taskTime:2, color:'#FCD535', l1:20, l2:4, l3:1 },
   { id:'platinum', name:'PLATINUM', price:'\u09F380,000',  rate:80000,  perTask:100, dailyEarn:1600,  daily:16, taskTime:2, color:'#F0B90B', l1:20, l2:4, l3:1 },
 ];

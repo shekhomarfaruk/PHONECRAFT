@@ -171,9 +171,9 @@ class ScanLine {
   update() { this.y += this.speed; if (this.y > this.h + 10) this.y = -10; }
   draw(ctx, w) {
     const g = ctx.createLinearGradient(0, this.y - 2, 0, this.y + 2);
-    g.addColorStop(0, 'rgba(30,95,212,0)');
-    g.addColorStop(0.5, 'rgba(30,95,212,0.07)');
-    g.addColorStop(1, 'rgba(30,95,212,0)');
+    g.addColorStop(0, 'rgba(16,185,129,0)');
+    g.addColorStop(0.5, 'rgba(16,185,129,0.07)');
+    g.addColorStop(1, 'rgba(16,185,129,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, this.y - 2, w, 4);
   }

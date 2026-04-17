@@ -148,7 +148,7 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
               <button
                 onClick={() => act('approve')}
                 disabled={!!loading}
-                style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#23AF91,#1a8f75)', color: '#fff', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: loading ? .6 : 1 }}
+                style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#23AF91,#059669)', color: '#fff', fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: loading ? .6 : 1 }}
               >
                 {loading === 'approve' ? '...' : (isDirectPay ? (lang === 'bn' ? 'যাচাই ও অনুমোদন' : 'Verify & Approve') : t.notif_agree)}
               </button>

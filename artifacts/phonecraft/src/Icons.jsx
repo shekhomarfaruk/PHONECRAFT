@@ -118,7 +118,7 @@ const Icons = {
       <defs>
         <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#23AF91"/>
-          <stop offset="100%" stopColor="#6366F1"/>
+          <stop offset="100%" stopColor="#34D399"/>
         </linearGradient>
       </defs>
       <path d="M32 4L56 18v28L32 60 8 46V18L32 4z" fill="url(#logoGrad)" opacity="0.15" stroke="url(#logoGrad)" strokeWidth="1.5"/>
@@ -126,13 +126,13 @@ const Icons = {
       <path d="M24 44V20h10a8 8 0 010 16H28" stroke="url(#logoGrad)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
       <circle cx="24" cy="20" r="2" fill="#23AF91"/>
       <circle cx="34" cy="20" r="2" fill="#23AF91"/>
-      <circle cx="38" cy="28" r="2" fill="#6366F1"/>
-      <circle cx="34" cy="36" r="2" fill="#6366F1"/>
+      <circle cx="38" cy="28" r="2" fill="#34D399"/>
+      <circle cx="34" cy="36" r="2" fill="#34D399"/>
       <circle cx="24" cy="44" r="2" fill="#23AF91"/>
       <line x1="38" y1="28" x2="48" y2="28" stroke="#23AF91" strokeWidth="1" opacity="0.5"/>
-      <line x1="24" y1="44" x2="16" y2="44" stroke="#6366F1" strokeWidth="1" opacity="0.5"/>
+      <line x1="24" y1="44" x2="16" y2="44" stroke="#34D399" strokeWidth="1" opacity="0.5"/>
       <circle cx="48" cy="28" r="1.5" fill="#23AF91" opacity="0.6"/>
-      <circle cx="16" cy="44" r="1.5" fill="#6366F1" opacity="0.6"/>
+      <circle cx="16" cy="44" r="1.5" fill="#34D399" opacity="0.6"/>
     </svg>
   ),
 
@@ -141,13 +141,13 @@ const Icons = {
       <defs>
         <linearGradient id="lmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#23AF91"/>
-          <stop offset="100%" stopColor="#6366F1"/>
+          <stop offset="100%" stopColor="#34D399"/>
         </linearGradient>
       </defs>
       <path d="M32 4L56 18v28L32 60 8 46V18L32 4z" fill="url(#lmGrad)" opacity="0.15" stroke="url(#lmGrad)" strokeWidth="2"/>
       <path d="M24 44V20h10a8 8 0 010 16H28" stroke="url(#lmGrad)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
       <circle cx="24" cy="20" r="2" fill="#23AF91"/>
-      <circle cx="38" cy="28" r="2" fill="#6366F1"/>
+      <circle cx="38" cy="28" r="2" fill="#34D399"/>
       <circle cx="24" cy="44" r="2" fill="#23AF91"/>
     </svg>
   ),

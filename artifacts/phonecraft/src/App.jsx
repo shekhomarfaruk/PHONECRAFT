@@ -770,11 +770,11 @@ export default function App() {
               if (!isActive || !text) return null;
               const type = appSettings.announcement_type || 'info';
               const typeStyle = {
-                info:    { bg: 'linear-gradient(90deg,#2563EB,#1d4ed8)', icon: <Icons.Info size={15} color="#fff" /> },
+                info:    { bg: 'linear-gradient(90deg,#10B981,#059669)', icon: <Icons.Info size={15} color="#fff" /> },
                 warning: { bg: 'linear-gradient(90deg,#D97706,#b45309)', icon: <Icons.AlertTriangle size={15} color="#fff" /> },
                 success: { bg: 'linear-gradient(90deg,#059669,#047857)', icon: <Icons.CheckCircle size={15} color="#fff" /> },
                 error:   { bg: 'linear-gradient(90deg,#DC2626,#b91c1c)', icon: <Icons.AlertCircle size={15} color="#fff" /> },
-              }[type] || { bg: 'linear-gradient(90deg,#2563EB,#1d4ed8)', icon: <Icons.Bell size={15} color="#fff" /> };
+              }[type] || { bg: 'linear-gradient(90deg,#10B981,#059669)', icon: <Icons.Bell size={15} color="#fff" /> };
               const imageUrl = appSettings.announcement_image
                 ? (appSettings.announcement_image.startsWith('http') ? appSettings.announcement_image : `${API_URL}${appSettings.announcement_image}`)
                 : null;

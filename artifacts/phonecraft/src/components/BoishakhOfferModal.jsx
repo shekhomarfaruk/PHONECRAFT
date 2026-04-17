@@ -132,14 +132,20 @@ export default function BoishakhOfferModal({ onClose }) {
 
           {/* Header content */}
           <div style={{ padding:'16px 16px 14px', position:'relative', zIndex:1 }}>
-            {/* Close button */}
-            <button onClick={onClose} style={{
-              position:'absolute', top:12, right:12,
-              width:30, height:30, borderRadius:'50%',
-              background:'rgba(0,0,0,.3)', border:`1.5px solid ${B.gold}66`,
-              color:B.goldLight, fontSize:14, fontWeight:700, cursor:'pointer',
-              display:'flex', alignItems:'center', justifyContent:'center',
-            }}>✕</button>
+            {/* Close button — high z-index so corner ornament SVG can't intercept clicks */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              aria-label="Close"
+              style={{
+                position:'absolute', top:10, right:10,
+                width:36, height:36, borderRadius:'50%',
+                background:'rgba(0,0,0,.55)', border:`1.5px solid ${B.gold}88`,
+                color:B.goldLight, fontSize:16, fontWeight:800, cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                zIndex:50, lineHeight:1, padding:0,
+              }}
+            >✕</button>
 
             {/* Corner ornaments + title */}
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>

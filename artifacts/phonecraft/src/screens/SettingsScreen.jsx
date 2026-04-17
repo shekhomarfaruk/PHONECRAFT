@@ -244,7 +244,7 @@ export default function SettingsScreen({ user, setUser, showToast, lang, setLang
               {user.avatar.startsWith('/') ? (
                 <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #23AF91, #6366F1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 18, fontFamily: 'Space Grotesk' }}>{user.avatar}</div>
+                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #23AF91, #34D399)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 18, fontFamily: 'Space Grotesk' }}>{user.avatar}</div>
               )}
             </div>
             <div>

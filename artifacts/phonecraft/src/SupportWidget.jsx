@@ -91,7 +91,7 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
     <>
       <style>{`
         .sw-widget { position:fixed; bottom:24px; right:20px; z-index:9000; display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
-        .sw-btn { width:52px; height:52px; border-radius:50%; border:none; background:linear-gradient(135deg,#23AF91,#1a8f75); color:#fff; font-size:22px; cursor:pointer; box-shadow:0 4px 18px rgba(35,175,145,.45); display:flex; align-items:center; justify-content:center; transition:transform .2s, box-shadow .2s; position:relative; }
+        .sw-btn { width:52px; height:52px; border-radius:50%; border:none; background:linear-gradient(135deg,#23AF91,#059669); color:#fff; font-size:22px; cursor:pointer; box-shadow:0 4px 18px rgba(35,175,145,.45); display:flex; align-items:center; justify-content:center; transition:transform .2s, box-shadow .2s; position:relative; }
         .sw-btn:hover { transform:scale(1.08); box-shadow:0 6px 24px rgba(35,175,145,.55); }
         .sw-pulse { position:absolute; top:-2px; right:-2px; width:12px; height:12px; background:#4ade80; border-radius:50%; border:2px solid #0B0E11; }
         .sw-pulse::after { content:''; position:absolute; inset:-3px; border-radius:50%; border:2px solid rgba(74,222,128,.5); animation:swPulse 1.8s ease-in-out infinite; }
@@ -101,14 +101,14 @@ export default function SupportWidget({ lang = 'en', userName = '' }) {
         .sw-head { background:linear-gradient(135deg,rgba(35,175,145,.15),rgba(99,102,241,.1)); padding:12px 14px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(43,49,57,.9); }
         .sw-msgs { height:260px; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; scrollbar-width:thin; scrollbar-color:rgba(43,49,57,.9) transparent; }
         .sw-bubble { max-width:82%; padding:8px 11px; border-radius:12px; font-size:12.5px; line-height:1.55; }
-        .sw-bubble.user  { align-self:flex-end; background:linear-gradient(135deg,#23AF91,#1a8f75); color:#fff; border-bottom-right-radius:3px; }
+        .sw-bubble.user  { align-self:flex-end; background:linear-gradient(135deg,#23AF91,#059669); color:#fff; border-bottom-right-radius:3px; }
         .sw-bubble.bot   { align-self:flex-start; background:rgba(43,49,57,.7); color:rgba(234,236,239,.9); border-bottom-left-radius:3px; }
         .sw-bubble.admin { align-self:flex-start; background:linear-gradient(135deg,rgba(99,102,241,.25),rgba(99,102,241,.1)); border:1px solid rgba(99,102,241,.3); color:#c7d2fe; border-bottom-left-radius:3px; }
         .sw-inp { display:flex; gap:6px; padding:10px 10px; border-top:1px solid rgba(43,49,57,.9); background:rgba(11,14,17,.6); }
         .sw-inp input { flex:1; background:rgba(43,49,57,.5); border:1px solid rgba(43,49,57,.9); border-radius:8px; padding:7px 10px; color:#EAECEF; font-size:12px; outline:none; font-family:Inter,sans-serif; }
         .sw-inp input:focus { border-color:rgba(35,175,145,.4); }
         .sw-inp input::placeholder { color:#707A8A; }
-        .sw-inp button { background:linear-gradient(135deg,#23AF91,#1a8f75); border:none; border-radius:8px; width:32px; height:32px; color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .sw-inp button { background:linear-gradient(135deg,#23AF91,#059669); border:none; border-radius:8px; width:32px; height:32px; color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
         .sw-inp button:disabled { opacity:.5; cursor:not-allowed; }
       `}</style>
 

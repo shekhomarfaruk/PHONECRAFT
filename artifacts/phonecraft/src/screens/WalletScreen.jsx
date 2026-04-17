@@ -764,7 +764,7 @@ function WalletScreen({ user, setUser, showToast, lang, appSettings, tErr, usdRa
   ];
 
   const ACTION_BTNS = [
-    { key: 'withdraw', icon: <Icons.Upload size={22} />,   label: isBn ? 'উইথড্র' : 'Withdraw', color: '#6366F1', onClick: () => setShowWithdraw(true) },
+    { key: 'withdraw', icon: <Icons.Upload size={22} />,   label: isBn ? 'উইথড্র' : 'Withdraw', color: '#34D399', onClick: () => setShowWithdraw(true) },
     { key: 'deposit',  icon: <Icons.Download size={22} />, label: isBn ? 'ডিপোজিট' : 'Deposit',  color: 'var(--accent)', onClick: () => setShowDeposit(true) },
     { key: 'transfer', icon: <Icons.Transfer size={22} />, label: isBn ? 'ট্রান্সফার' : 'Transfer', color: '#F0B90B', onClick: () => setShowTransfer(true) },
   ];

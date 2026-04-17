@@ -78,7 +78,7 @@ function ReferralCardModal({ user, lang, onClose, l1Earn, l2Earn, l3Earn }) {
     // Top accent bar
     const topGrad = ctx.createLinearGradient(0, 0, W, 0);
     topGrad.addColorStop(0, '#23AF91');
-    topGrad.addColorStop(1, '#1a8f75');
+    topGrad.addColorStop(1, '#059669');
     ctx.fillStyle = topGrad;
     ctx.fillRect(0, 0, W, 5);
 
@@ -398,14 +398,14 @@ function ReferScreen({user, showToast, lang}) {
 
         <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:10,flexWrap:'wrap'}}>
           <button className="btn btn-outline" onClick={()=>copy(user.referCode)}><Icons.Copy size={14}/> {t.copy_code}</button>
-          <button className="btn btn-primary" onClick={shareRef} style={{background:'linear-gradient(135deg,#23AF91,#1a8f75)'}}><Icons.Share size={14}/> {t.share_btn}</button>
+          <button className="btn btn-primary" onClick={shareRef} style={{background:'linear-gradient(135deg,#23AF91,#059669)'}}><Icons.Share size={14}/> {t.share_btn}</button>
         </div>
         <div style={{marginTop:10}}>
           <button
             className="btn btn-primary btn-full"
             onClick={() => setShowCard(true)}
             style={{
-              background: 'linear-gradient(135deg,#6366F1,#4f46e5)',
+              background: 'linear-gradient(135deg,#34D399,#4f46e5)',
               fontSize: 13, padding: '11px 16px', borderRadius: 12,
               fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center',
             }}
