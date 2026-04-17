@@ -16,6 +16,28 @@ require('dotenv').config();
 
 const { db, stmts, sanitizeUser, todayDate } = require('./db');
 const { TelegramService } = require('./services/telegramService');
+const { verifyCryptoDeposit } = require('./services/cryptoVerifier');
+const { isSmtpConfigured, sendMail, buildMagicLinkEmail } = require('./services/emailService');
+
+// ── Helpers: email detection + magic-link generation ─────────────────────────
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function looksLikeEmail(str) { return EMAIL_RE.test(String(str || '').trim()); }
+
+function generateMagicTokenForUser(userId) {
+  const raw = require('crypto').randomBytes(32).toString('base64url');
+  const tokenHash = require('crypto').createHash('sha256').update(raw).digest('hex');
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    .toISOString().replace('T', ' ').slice(0, 19);
+  stmts.insertMagicToken.run(userId, tokenHash, expiresAt);
+  return raw;
+}
+
+function buildMagicLink(rawToken) {
+  const base = String(process.env.APP_PUBLIC_URL || '').replace(/\/+$/, '');
+  if (base) return `${base}/auth/magic?token=${encodeURIComponent(rawToken)}`;
+  // Fallback: relative path (caller can fix); useful in dev when APP_PUBLIC_URL missing
+  return `/auth/magic?token=${encodeURIComponent(rawToken)}`;
+}
 
 // ── Web Push VAPID setup ─────────────────────────────────────────────────────
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY;
@@ -426,6 +448,12 @@ function requirePendingReferrerOrAdmin(req, res, next) {
     res.status(410).json({ error: biMsg('Registration request has expired (48-hour limit). Please ask to re-register.', 'রেজিস্ট্রেশন রিকোয়েস্টের মেয়াদ শেষ হয়ে গেছে (৪৮ ঘণ্টা সীমা)।') });
     return;
   }
+  // Direct payment registrations can only be approved by admins
+  const isDirectPay = pending.payment_method === 'direct';
+  if (isDirectPay && !req.auth?.isAdmin) {
+    res.status(403).json({ error: biMsg('Direct payment registrations can only be approved by admins.', 'ডাইরেক্ট পেমেন্ট নিবন্ধন শুধুমাত্র অ্যাডমিন অনুমোদন করতে পারবেন।') });
+    return;
+  }
   if (!req.auth?.isAdmin && pending.referrer_id !== req.auth?.userId) {
     res.status(403).json({ error: 'Forbidden' });
     return;
@@ -641,6 +669,8 @@ const CRYPTO_WALLET_KEYS = new Set([
   'crypto_tron_usdt','crypto_tron_usdc',
   'crypto_bnb_usdt','crypto_bnb_usdc',
   'crypto_sol_usdt','crypto_sol_usdc',
+  // Auto-verifier canonical keys (TRC20, ERC20, BEP20)
+  'crypto_bsc_usdt',
 ]);
 // Legacy crypto keys (old format — allow so DB values don't cause errors)
 const LEGACY_CRYPTO_KEYS = new Set([
@@ -659,6 +689,8 @@ const ALL_ALLOWED_SETTING_KEYS = new Set([
   'require_tasks_for_withdraw', 'work_blocked_countries',
   'guest_mode_enabled', 'crypto_enabled',
   'work_time_enabled', 'work_time_start', 'work_time_end',
+  'announcement_active', 'announcement_text', 'announcement_type', 'announcement_image',
+  'login_notice', 'login_notice_active',
 ]);
 
 function toClientUser(user) {
@@ -685,9 +717,10 @@ function syncDailyDoneWithCompletedJobs(userId) {
 // ── Register ─────────────────────────────────────────────────────────────────
 app.post('/api/register', registerLimiter, (req, res) => {
   try {
-    const { name, identifier, password, plan, refCode, device_id } = req.body || {};
+    const { name, identifier, password, plan, refCode, device_id, paymentMethod, txnHash } = req.body || {};
+    const isDirectPay = paymentMethod === 'direct';
 
-    if (!name || !identifier || !password || !refCode)
+    if (!name || !identifier || !password || (!isDirectPay && !refCode))
       return res.status(400).json({ error: 'All fields are required including referral code' });
 
     // ── GUSTMODE: instant guest trial account ─────────────────────────────────
@@ -778,19 +811,30 @@ app.post('/api/register', registerLimiter, (req, res) => {
     if (!/^[a-zA-Z0-9._@+\-]+$/.test(cleanId))
       return res.status(400).json({ error: 'Invalid phone/email format' });
 
+    // Strict email-format enforcement when identifier contains '@'
+    if (cleanId.includes('@') && !looksLikeEmail(cleanId))
+      return res.status(400).json({ error: biMsg('Please enter a valid email address', 'সঠিক ইমেইল ঠিকানা দিন') });
+
     if (stmts.getUserByIdentifier.get(cleanId))
       return res.status(400).json({ error: 'This email/phone is already registered' });
 
-    const referrer = stmts.getUserByReferCode.get(refCode);
-    if (!referrer)
+    const referrer = refCode ? stmts.getUserByReferCode.get(refCode) : null;
+    if (!referrer && (!isDirectPay || !!refCode))
       return res.status(404).json({ error: 'Invalid referral code' });
 
     const planRow = stmts.getPlan.get(plan);
     if (!planRow)
       return res.status(400).json({ error: 'Invalid plan selected' });
 
-    if (referrer.balance < planRow.rate)
+    // Balance check only required for referrer-pays flow
+    if (!isDirectPay && referrer.balance < planRow.rate)
       return res.status(400).json({ error: 'insufficient_balance', needed: planRow.rate, plan_name: planRow.name });
+
+    const cleanTxn = isDirectPay ? String(txnHash || '').trim() : '';
+
+    // Direct pay: require a transaction ID
+    if (isDirectPay && (cleanTxn.length < 4 || cleanTxn.length > 200))
+      return res.status(400).json({ error: biMsg('Please enter a valid Transaction ID', 'সঠিক Transaction ID দিন') });
 
     const hash = bcrypt.hashSync(cleanPass, 10);
 
@@ -805,50 +849,79 @@ app.post('/api/register', registerLimiter, (req, res) => {
     const pending = stmts.insertPendingReg.run({
       name: cleanName, identifier: cleanId,
       password_hash: hash, plan_id: plan,
-      refer_code_used: refCode, referrer_id: referrer.id,
+      refer_code_used: refCode || '', referrer_id: referrer ? referrer.id : 0,
       new_refer_code: newReferCode, plan_rate: planRow.rate,
+      payment_method: isDirectPay ? 'direct' : 'referrer',
+      txn_hash: cleanTxn,
     });
     const pendingId = pending.lastInsertRowid;
 
-    const meta = JSON.stringify({ pending_id: pendingId, plan_name: planRow.name, amount: planRow.rate, new_user_name: name.trim() });
-    stmts.insertNotifWithMeta.run(
-      referrer.id,
-      biMsg(
-        `🔔 ${name.trim()} wants to join using your referral code (${planRow.name}). ${fmtAmt(planRow.rate, 'en')} will be deducted from your balance.`,
-        `🔔 ${name.trim()} আপনার রেফারেল কোড ব্যবহার করে ${planRow.name} প্ল্যানে যোগ দিতে চাইছেন। আপনার ব্যালেন্স থেকে ${fmtAmt(planRow.rate, 'bn')} কাটা হবে।`
-      ),
-      'registration_request',
-      meta
-    );
+    if (!isDirectPay) {
+      // Notify the referrer they need to approve
+      const meta = JSON.stringify({ pending_id: pendingId, plan_name: planRow.name, amount: planRow.rate, new_user_name: name.trim() });
+      stmts.insertNotifWithMeta.run(
+        referrer.id,
+        biMsg(
+          `🔔 ${name.trim()} wants to join using your referral code (${planRow.name}). ${fmtAmt(planRow.rate, 'en')} will be deducted from your balance.`,
+          `🔔 ${name.trim()} আপনার রেফারেল কোড ব্যবহার করে ${planRow.name} প্ল্যানে যোগ দিতে চাইছেন। আপনার ব্যালেন্স থেকে ${fmtAmt(planRow.rate, 'bn')} কাটা হবে।`
+        ),
+        'registration_request',
+        meta
+      );
+    }
 
     // Alert admins in-app about new registration request
     try {
-      const regAdminMsg = biMsg(
-        `🔔 New Registration Request: ${name.trim()} (${planRow.name.toUpperCase()}) — Referred by ${referrer.name}`,
-        `🔔 নতুন নিবন্ধন অনুরোধ: ${name.trim()} (${planRow.name.toUpperCase()}) — রেফার করেছেন: ${referrer.name}`
-      );
       const allAdmins = stmts.getAdminUsers.all();
-      for (const adm of allAdmins) {
-        stmts.insertNotification.run(adm.id, regAdminMsg, 'info');
+      const adminMeta = JSON.stringify({ pending_id: pendingId, plan_name: planRow.name, amount: planRow.rate, new_user_name: name.trim(), payment_method: isDirectPay ? 'direct' : 'referrer', txn_hash: cleanTxn || '' });
+      if (isDirectPay) {
+        // Direct pay: admins see approve/decline just like referrers do
+        const directAdminMsg = biMsg(
+          `💳 ${name.trim()} wants to join via Direct Payment (${planRow.name}) — TxID: ${cleanTxn}. Please verify & approve.`,
+          `💳 ${name.trim()} ডাইরেক্ট পেমেন্টে ${planRow.name} প্ল্যানে যোগ দিতে চাইছেন — TxID: ${cleanTxn}। যাচাই করে অনুমোদন করুন।`
+        );
+        for (const adm of allAdmins) {
+          stmts.insertNotifWithMeta.run(adm.id, directAdminMsg, 'registration_request', adminMeta);
+        }
+      } else {
+        const regAdminMsg = biMsg(
+          `🔔 New Registration Request: ${name.trim()} (${planRow.name.toUpperCase()}) — Referred by ${referrer.name}`,
+          `🔔 নতুন নিবন্ধন অনুরোধ: ${name.trim()} (${planRow.name.toUpperCase()}) — রেফার করেছেন: ${referrer.name}`
+        );
+        for (const adm of allAdmins) {
+          stmts.insertNotification.run(adm.id, regAdminMsg, 'info');
+        }
       }
     } catch (_) {}
 
     // Alert admins on Telegram (fire-and-forget)
-    sendTelegram([
+    const telegramLines = isDirectPay ? [
+      `💳 <b>নতুন Direct Payment Registration</b>`,
+      `━━━━━━━━━━━━━━━━━━━`,
+      `👤 নাম: <b>${name.trim()}</b>`,
+      `📋 প্ল্যান: <b>${planRow.name}</b> (${fmtAmt(planRow.rate, 'bn')} / ${fmtAmt(planRow.rate, 'en')})`,
+      `🔗 রেফারার: <b>${referrer ? referrer.name : 'N/A (Direct)'}</b>`,
+      `🧾 TxID: <code>${cleanTxn}</code>`,
+      `🆔 Pending ID: #${pendingId}`,
+      `🕐 সময়: ${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })}`,
+      `━━━━━━━━━━━━━━━━━━━`,
+      `✅ Admin Panel থেকে Approve/Decline করুন।`,
+    ] : [
       `🔔 <b>নতুন Registration Request</b>`,
       `━━━━━━━━━━━━━━━━━━━`,
       `👤 নাম: <b>${name.trim()}</b>`,
       `📋 প্ল্যান: <b>${planRow.name}</b> (${fmtAmt(planRow.rate, 'bn')} / ${fmtAmt(planRow.rate, 'en')})`,
-      `🔗 রেফারার: <b>${referrer.name}</b>`,
+      `🔗 রেফারার: <b>${referrer ? referrer.name : 'N/A'}</b>`,
       `🆔 Pending ID: #${pendingId}`,
       `🕐 সময়: ${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })}`,
       `━━━━━━━━━━━━━━━━━━━`,
       `✅ রেফারারের নোটিফিকেশনে Approve/Decline অপশন আছে।`,
-    ].join('\n')).catch(() => {});
+    ];
+    sendTelegram(telegramLines.join('\n')).catch(() => {});
 
     // Push notification to all admins
     notifyAdmins({
-      title: '👤 নতুন Registration Request',
+      title: isDirectPay ? '💳 নতুন Direct Payment Registration' : '👤 নতুন Registration Request',
       body: `${name.trim()} — ${planRow.name} (${fmtAmt(planRow.rate, 'bn')} / ${fmtAmt(planRow.rate, 'en')})`,
       icon: '/logo.png', tag: 'admin-reg', url: '/xpc-ctrl-7f3b/',
     });
@@ -861,13 +934,16 @@ app.post('/api/register', registerLimiter, (req, res) => {
 });
 
 // ── Approve pending registration ──────────────────────────────────────────────
-app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOrAdmin, (req, res) => {
+app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOrAdmin, async (req, res) => {
   try {
     const pendingId = Number(req.params.id);
     const pending = req.pendingRegistration;
+    const isDirectPay = pending.payment_method === 'direct';
 
     const referrer = stmts.getUserById.get(pending.referrer_id);
-    if (!referrer || referrer.balance < pending.plan_rate)
+
+    // Balance check only needed for referrer-pays flow
+    if (!isDirectPay && (!referrer || referrer.balance < pending.plan_rate))
       return res.status(400).json({ error: 'insufficient_balance' });
 
     const planRow = stmts.getPlan.get(pending.plan_id);
@@ -878,29 +954,44 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
       if (!freshPending || freshPending.status !== 'pending')
         return { alreadyProcessed: true };
 
-      // ── 1. Deduct plan cost from direct referrer ──────────────────────────
-      const deducted = stmts.deductBalance.run(pending.plan_rate, referrer.id, pending.plan_rate);
-      if (deducted.changes === 0) throw new Error('Balance deduction failed');
+      if (!isDirectPay) {
+        // ── 1a. Referrer-pays: deduct plan cost from direct referrer ──────────
+        const deducted = stmts.deductBalance.run(pending.plan_rate, referrer.id, pending.plan_rate);
+        if (deducted.changes === 0) throw new Error('Balance deduction failed');
 
-      // Record spend activity for direct referrer
-      stmts.insertReferralActivity.run({
-        user_id: referrer.id, type: 'spend', level: 0,
-        amount: pending.plan_rate,
-        description: `${pending.name}-এর জন্য ${planRow ? planRow.name : ''} প্ল্যান ক্রয়`,
-        related_user_name: pending.name,
-      });
-      stmts.insertBalanceLog.run({
-        user_id: referrer.id, type: 'referral_spend', amount: -pending.plan_rate,
-        note: `${pending.name}-এর জন্য ${planRow ? planRow.name : ''} প্ল্যান ক্রয়`,
-      });
+        stmts.insertReferralActivity.run({
+          user_id: referrer.id, type: 'spend', level: 0,
+          amount: pending.plan_rate,
+          description: `${pending.name}-এর জন্য ${planRow ? planRow.name : ''} প্ল্যান ক্রয়`,
+          related_user_name: pending.name,
+        });
+        stmts.insertBalanceLog.run({
+          user_id: referrer.id, type: 'referral_spend', amount: -pending.plan_rate,
+          note: `${pending.name}-এর জন্য ${planRow ? planRow.name : ''} প্ল্যান ক্রয়`,
+        });
+      }
+      // ── 1b. Direct-pay: credit admin treasury with incoming payment ────────
+      if (isDirectPay) {
+        try {
+          const mainAdmin = db.prepare("SELECT * FROM users WHERE is_admin = 1 ORDER BY id ASC LIMIT 1").get();
+          if (mainAdmin) {
+            stmts.creditBalance.run(pending.plan_rate, mainAdmin.id);
+            stmts.insertBalanceLog.run({
+              user_id: mainAdmin.id, type: 'treasury_deposit_in', amount: pending.plan_rate,
+              note: `Direct payment from ${pending.name} (${planRow ? planRow.name : ''}) — TxID: ${pending.txn_hash}`,
+            });
+          }
+        } catch (_) {}
+      }
 
       // ── 2. Create the new user ────────────────────────────────────────────
-      const result = stmts.insertUser.run({
+      const insertedUser = stmts.insertUser.run({
         name: pending.name, identifier: pending.identifier,
         password: pending.password_hash, plan_id: pending.plan_id,
         balance: 0, daily_done: 0,
         refer_code: pending.new_refer_code, referred_by: pending.refer_code_used, avatar: '🧑',
       });
+      const newUserId = insertedUser.lastInsertRowid;
 
       stmts.updatePendingStatus.run('approved', pendingId);
 
@@ -936,27 +1027,58 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
           );
         }
         // Move up the chain
-        if (!currentUser.referred_by) break;
+        if (!currentUser || !currentUser.referred_by) break;
         currentUser = stmts.getUserByReferCode.get(currentUser.referred_by);
         if (!currentUser) break;
       }
 
-      // ── 4. Notify direct referrer of approval ────────────────────────────
-      stmts.insertNotification.run(
-        referrer.id,
-        biMsg(
-          `✅ You approved ${pending.name}'s registration. ${fmtAmt(pending.plan_rate, 'en')} was deducted from your balance.`,
-          `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ${fmtAmt(pending.plan_rate, 'bn')} কাটা হয়েছে।`
-        ),
-        'success'
-      );
+      // ── 4. Notify referrer of outcome ─────────────────────────────────────
+      if (referrer) {
+        stmts.insertNotification.run(
+          referrer.id,
+          isDirectPay
+            ? biMsg(
+                `✅ ${pending.name} has joined using your referral code. They paid directly — no balance was deducted from you.`,
+                `✅ ${pending.name} আপনার রেফারেল কোড ব্যবহার করে যোগ দিয়েছেন। তিনি সরাসরি পেমেন্ট করেছেন — আপনার ব্যালেন্স থেকে কিছু কাটা হয়নি।`
+              )
+            : biMsg(
+                `✅ You approved ${pending.name}'s registration. ${fmtAmt(pending.plan_rate, 'en')} was deducted from your balance.`,
+                `✅ আপনি ${pending.name}-এর নিবন্ধন অনুমোদন করেছেন। আপনার ব্যালেন্স থেকে ${fmtAmt(pending.plan_rate, 'bn')} কাটা হয়েছে।`
+              ),
+          'success'
+        );
+      }
 
-      return stmts.getUserById.get(referrer.id);
+      return {
+        referrerSnapshot: referrer ? stmts.getUserById.get(referrer.id) : {},
+        newUserId,
+      };
     });
 
-    const newUser = approveTx();
-    if (newUser?.alreadyProcessed)
+    const txResult = approveTx();
+    if (txResult?.alreadyProcessed)
       return res.status(409).json({ error: 'Already processed' });
+    const newUser = txResult?.referrerSnapshot || {};
+    const createdUserId = txResult?.newUserId;
+
+    // ── Magic-link: if identifier is an email, generate one-time login link ───
+    let magicEmailResult = { sent: false, reason: 'not_email' };
+    try {
+      if (createdUserId && looksLikeEmail(pending.identifier)) {
+        const rawToken = generateMagicTokenForUser(createdUserId);
+        const link = buildMagicLink(rawToken);
+        if (isSmtpConfigured()) {
+          const mail = buildMagicLinkEmail({ name: pending.name, link, publicUrl: process.env.APP_PUBLIC_URL || '' });
+          magicEmailResult = await sendMail({ to: pending.identifier, ...mail });
+        } else {
+          magicEmailResult = { sent: false, reason: 'smtp_not_configured' };
+          console.warn(`[approve] Magic link generated for user #${createdUserId} but SMTP not configured — email not sent.`);
+        }
+      }
+    } catch (e) {
+      console.error('[approve] Magic-link send error:', e && e.message);
+      magicEmailResult = { sent: false, reason: 'send_failed' };
+    }
 
     // ── Notify all admins in-app about new user approval ─────────────────────
     try {
@@ -972,11 +1094,57 @@ app.post('/api/registration/:id/approve', authRequired, requirePendingReferrerOr
       }
     } catch (_) {}
 
-    res.json({ ok: true, user: toClientUser(newUser), plan: planRow, token: issueAuthToken(newUser) });
+    res.json({
+      ok: true,
+      user: toClientUser(newUser),
+      plan: planRow,
+      token: issueAuthToken(newUser),
+      magic_email: {
+        attempted: looksLikeEmail(pending.identifier),
+        sent: !!magicEmailResult.sent,
+        reason: magicEmailResult.reason || null,
+      },
+    });
   } catch (err) {
     console.error('Approve error:', err.message);
     res.status(500).json({ error: 'Approval failed' });
   }
+});
+
+// ── Magic login: validate one-time token, mark email verified, issue session ─
+app.get('/api/auth/magic', (req, res) => {
+  try {
+    const raw = String(req.query.token || '').trim();
+    if (!raw) return res.status(400).json({ error: 'missing_token' });
+    const tokenHash = require('crypto').createHash('sha256').update(raw).digest('hex');
+    const row = stmts.getMagicTokenByHash.get(tokenHash);
+    if (!row) return res.status(400).json({ error: 'invalid_token' });
+    if (row.used_at) return res.status(400).json({ error: 'token_used' });
+    if (new Date(String(row.expires_at).replace(' ', 'T') + 'Z') < new Date())
+      return res.status(400).json({ error: 'token_expired' });
+
+    const user = stmts.getUserById.get(row.user_id);
+    if (!user) return res.status(400).json({ error: 'invalid_token' });
+    if (user.banned) return res.status(403).json({ error: 'banned' });
+
+    const upd = stmts.markMagicTokenUsed.run(row.id);
+    if (upd.changes === 0) return res.status(400).json({ error: 'token_used' });
+    stmts.setEmailVerified.run(user.id);
+
+    const fresh = stmts.getUserById.get(user.id);
+    const plan = stmts.getPlan.get(fresh.plan_id);
+    const token = issueAuthToken(fresh);
+    res.json({ ok: true, user: toClientUser(fresh), plan, token });
+  } catch (err) {
+    console.error('Magic login error:', err && err.message);
+    res.status(500).json({ error: 'magic_login_failed' });
+  }
+});
+
+// ── SMTP status (admin-only) ─────────────────────────────────────────────────
+app.get('/api/admin/smtp-status', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json({ configured: isSmtpConfigured() });
 });
 
 // ── Decline pending registration ──────────────────────────────────────────────
@@ -1092,6 +1260,18 @@ app.get('/api/me', authRequired, (req, res) => {
   } catch (err) {
     console.error('GET /api/me error:', err.message);
     res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+// ── User: get their locked withdrawal accounts ───────────────────────────────
+app.get('/api/withdraw-accounts', authRequired, (req, res) => {
+  try {
+    const rows = stmts.getAllLockedWithdrawAccounts.all(req.auth.userId);
+    const map = {};
+    for (const r of rows) map[r.method] = r.account;
+    res.json({ accounts: map });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch withdrawal accounts' });
   }
 });
 
@@ -1670,9 +1850,16 @@ app.get('/api/app-settings', (req, res) => {
     const rows = stmts.getAllSettings.all();
     const info = {};
     rows.forEach(r => { info[r.key] = r.value; });
+    const annText = info.announcement_text || info.announcement_banner || '';
     res.json({
       maintenance_mode:       info.maintenance_mode       || 'false',
       announcement_banner:    info.announcement_banner    || '',
+      announcement_active:    info.announcement_active    || '0',
+      announcement_text:      annText,
+      announcement_type:      info.announcement_type      || 'info',
+      announcement_image:     info.announcement_image     || '',
+      login_notice:           info.login_notice           || '',
+      login_notice_active:    info.login_notice_active    || '0',
       crypto_enabled:         info.crypto_enabled !== 'false' ? 'true' : 'false',
       min_withdraw:           info.min_withdraw           || '300',
       max_withdraw:           info.max_withdraw           || '150000',
@@ -1683,7 +1870,29 @@ app.get('/api/app-settings', (req, res) => {
       guest_mode_enabled:     info.guest_mode_enabled !== '0' ? 'true' : 'false',
     });
   } catch (e) {
-    res.json({ maintenance_mode: 'false', announcement_banner: '', crypto_enabled: 'true' });
+    res.json({ maintenance_mode: 'false', announcement_banner: '', announcement_active: '0', announcement_text: '', crypto_enabled: 'true' });
+  }
+});
+
+// ── Public: recent approved withdrawals (for social proof ticker) ────────────
+app.get('/api/public/recent-withdrawals', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT u.name, t.amount, t.method, t.created_at
+      FROM transactions t
+      JOIN users u ON u.id = t.user_id
+      WHERE t.type = 'withdraw' AND t.status = 'approved'
+      ORDER BY t.updated_at DESC, t.id DESC
+      LIMIT 10
+    `).all();
+    const withdrawals = rows.map(r => ({
+      name: r.name ? r.name.split(' ')[0] : 'User',
+      amount: r.amount,
+      method: r.method || 'bKash',
+    }));
+    res.json({ withdrawals });
+  } catch (e) {
+    res.json({ withdrawals: [] });
   }
 });
 
@@ -1713,6 +1922,11 @@ app.get('/api/deposit-info', (req, res) => {
       crypto_polygon_usdc:  info.crypto_polygon_usdc  || '',
       crypto_arbitrum_usdt: info.crypto_arbitrum_usdt || '',
       crypto_arbitrum_usdc: info.crypto_arbitrum_usdc || '',
+      // Auto-verifier aliases — frontend looks up depositInfo[`crypto_${blockchain}_usdt`]
+      // where blockchain is 'trc20', 'erc20', 'bep20'
+      crypto_trc20_usdt:    info.crypto_tron_usdt     || '',
+      crypto_erc20_usdt:    info.crypto_eth_usdt      || '',
+      crypto_bep20_usdt:    info.crypto_bsc_usdt      || '',
       deposit_wallets: wallets,
     });
   } catch (err) {
@@ -1774,9 +1988,9 @@ app.post('/api/admin/settings', authRequired, (req, res) => {
     const keys = body2.settings ? Object.keys(body2.settings) : ([body2.key].filter(Boolean));
     for (const k of keys) {
       if (PAYMENT_NUM_KEYS.has(k)  && !p.modify_payment_numbers) return res.status(403).json({ error: biMsg('No permission to modify payment numbers.','পেমেন্ট নম্বর পরিবর্তনের অনুমতি নেই।') });
-      if (WALLET_ADDR_KEYS.has(k)  && !p.modify_wallet_addresses) return res.status(403).json({ error: biMsg('No permission to modify wallet addresses.','ওয়ালেট ঠিকানা পরিবর্তনের অনুমতি নেই।') });
+      if ((WALLET_ADDR_KEYS.has(k) || CRYPTO_WALLET_KEYS.has(k) || LEGACY_CRYPTO_KEYS.has(k)) && !p.modify_wallet_addresses) return res.status(403).json({ error: biMsg('No permission to modify wallet addresses.','ওয়ালেট ঠিকানা পরিবর্তনের অনুমতি নেই।') });
       if (REQUIRE_PROOF_KEY.has(k) && !p.require_proof)            return res.status(403).json({ error: biMsg('No permission to change withdrawal proof setting.','উইথড্র প্রুফ সেটিং পরিবর্তনের অনুমতি নেই।') });
-      if (!PAYMENT_NUM_KEYS.has(k) && !WALLET_ADDR_KEYS.has(k) && !REQUIRE_PROOF_KEY.has(k) && !p.change_settings)
+      if (!PAYMENT_NUM_KEYS.has(k) && !WALLET_ADDR_KEYS.has(k) && !CRYPTO_WALLET_KEYS.has(k) && !LEGACY_CRYPTO_KEYS.has(k) && !REQUIRE_PROOF_KEY.has(k) && !p.change_settings)
         return res.status(403).json({ error: biMsg('No permission to change general settings.','সাধারণ সেটিংস পরিবর্তনের অনুমতি নেই।') });
     }
   }
@@ -1803,6 +2017,18 @@ app.post('/api/admin/settings', authRequired, (req, res) => {
     logAdminAction(req, 'update_settings', 'settings', 0, `${key} = ${String(value ?? '').slice(0, 100)}`);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: 'Failed' }); }
+});
+
+// ── Announcement image upload ─────────────────────────────────────────────────
+app.post('/api/admin/settings/upload-announcement-image', authRequired, upload.single('image'), (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image provided' });
+    const imageUrl = `/uploads/${req.file.filename}`;
+    stmts.setSetting.run('announcement_image', imageUrl);
+    logAdminAction(req, 'update_settings', 'settings', 0, 'announcement_image');
+    res.json({ ok: true, url: imageUrl });
+  } catch (err) { res.status(500).json({ error: 'Upload failed' }); }
 });
 
 // ── Dedicated guest-mode toggle ───────────────────────────────────────────────
@@ -1950,6 +2176,43 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         return { status: 403, body: { error: 'guest_mode', message: biMsg('Guest accounts cannot withdraw. Register a real account to earn and withdraw real money.', 'গেস্ট অ্যাকাউন্ট দিয়ে উইথড্র করা যাবে না। আসল টাকা আয় করতে একটি অ্যাকাউন্ট খুলুন।') } };
       }
 
+      // ── Deposit: fiat TXN ID format validation ──
+      if (type === 'deposit' && method !== 'crypto' && safeTxnHash) {
+        const txnTrimmed = safeTxnHash.trim();
+        if (method === 'bkash') {
+          // bKash TXN IDs: 10-digit numeric or alphanumeric (e.g. 8DP0X5XC69)
+          if (!/^[A-Z0-9]{10}$/i.test(txnTrimmed)) {
+            return { status: 400, body: { error: biMsg(
+              'Invalid bKash Transaction ID format. It must be exactly 10 alphanumeric characters (e.g. 8DP0X5XC69).',
+              'বৈধ bKash Transaction ID দিন — ১০টি অক্ষর বা সংখ্যার সমন্বয়ে গঠিত হতে হবে।'
+            ) } };
+          }
+        } else if (method === 'nagad') {
+          // Nagad TXN IDs: typically 16-digit numeric
+          if (!/^\d{14,20}$/.test(txnTrimmed)) {
+            return { status: 400, body: { error: biMsg(
+              'Invalid Nagad Transaction ID format. It must be a 14–20 digit number.',
+              'বৈধ Nagad Transaction ID দিন — ১৪ থেকে ২০ সংখ্যার মধ্যে হতে হবে।'
+            ) } };
+          }
+        } else if (method === 'rocket') {
+          // Rocket TXN IDs: 9–12 digit numeric
+          if (!/^\d{9,12}$/.test(txnTrimmed)) {
+            return { status: 400, body: { error: biMsg(
+              'Invalid Rocket Transaction ID format. It must be 9–12 digits.',
+              'বৈধ Rocket Transaction ID দিন — ৯ থেকে ১২ সংখ্যার মধ্যে হতে হবে।'
+            ) } };
+          }
+        }
+        // Blacklist: obviously fake patterns
+        if (/^0+$/.test(txnTrimmed) || /^test/i.test(txnTrimmed) || /^fake/i.test(txnTrimmed) || txnTrimmed.length < 6) {
+          return { status: 400, body: { error: biMsg(
+            'Suspicious Transaction ID rejected. Please enter a valid TXN ID from your payment app.',
+            'সন্দেহজনক Transaction ID বাতিল হয়েছে। আপনার পেমেন্ট অ্যাপ থেকে সঠিক TXN ID দিন।'
+          ) } };
+        }
+      }
+
       // ── Deposit: duplicate TxID prevention ──
       if (type === 'deposit' && safeTxnHash) {
         const existing = stmts.getTransactionByTxnHash.get(safeTxnHash);
@@ -1974,29 +2237,6 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       let flagReason = '';
 
       if (type === 'withdraw') {
-        // ── Saved payment method check (locked after first use) ─────────────
-        const FLAT_METHODS = new Set(['bkash', 'nagad', 'rocket']);
-        const submitAccount = String(account || '').trim();
-        if (FLAT_METHODS.has(method)) {
-          if (userRow.payment_account_flat) {
-            if (submitAccount !== String(userRow.payment_account_flat).trim()) {
-              return { status: 400, body: { error: biMsg(
-                `Your saved number is: ${userRow.payment_account_flat} — Contact support to change it`,
-                `আপনার সেভ করা নম্বর: ${userRow.payment_account_flat} — নম্বর পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন`
-              ) } };
-            }
-          }
-        } else if (method === 'crypto') {
-          if (userRow.payment_account_crypto) {
-            if (submitAccount !== String(userRow.payment_account_crypto).trim()) {
-              return { status: 400, body: { error: biMsg(
-                `Your saved wallet is: ${userRow.payment_account_crypto} — Contact support to change it`,
-                `আপনার সেভ করা ওয়ালেট: ${userRow.payment_account_crypto} — ওয়ালেট পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন`
-              ) } };
-            }
-          }
-        }
-
         // ── Withdraw: 24h cooldown ──
         const cooldownHours = getSettingNum('withdraw_cooldown_hours', 0);
         if (cooldownHours > 0) {
@@ -2042,6 +2282,48 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
           }
         }
 
+        // ── Locked withdrawal account check ─────────────────────────────────
+        const withdrawAccount = String(isCrypto ? (req.body.account || '') : account).trim();
+        const methodKey = isCrypto ? 'crypto' : method;
+        const locked = stmts.getLockedWithdrawAccount.get(userRow.id, methodKey);
+        if (locked) {
+          if (locked.account.toLowerCase() !== withdrawAccount.toLowerCase()) {
+            return { status: 400, body: { error: biMsg(
+              `Your ${methodKey.toUpperCase()} withdrawal account is locked to "${locked.account}". Contact support to change it.`,
+              `আপনার ${methodKey.toUpperCase()} উইথড্র অ্যাকাউন্ট "${locked.account}"-এ লক আছে। পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন।`
+            ) } };
+          }
+        } else {
+          // First withdrawal — check the address/number isn't used by another user
+          const takenByOther = stmts.getLockedWithdrawByMethodAccount.get(methodKey, withdrawAccount);
+          if (takenByOther && takenByOther.user_id !== userRow.id) {
+            return { status: 400, body: { error: biMsg(
+              'This withdrawal account is already linked to another user. Each account can only be used by one user.',
+              'এই উইথড্র অ্যাকাউন্টটি অন্য একজন ব্যবহারকারীর সাথে যুক্ত। একটি অ্যাকাউন্ট শুধুমাত্র একজন ব্যবহারকারী ব্যবহার করতে পারবেন।'
+            ) } };
+          }
+          // Lock this address to the user
+          try {
+            stmts.insertLockedWithdrawAccount.run(userRow.id, methodKey, withdrawAccount);
+          } catch (lockErr) {
+            // Unique constraint fired — another user just claimed it
+            const lockedNow = stmts.getLockedWithdrawAccount.get(userRow.id, methodKey);
+            if (lockedNow && lockedNow.account.toLowerCase() !== withdrawAccount.toLowerCase()) {
+              return { status: 400, body: { error: biMsg(
+                `Your ${methodKey.toUpperCase()} withdrawal account is locked to "${lockedNow.account}". Contact support to change it.`,
+                `আপনার ${methodKey.toUpperCase()} উইথড্র অ্যাকাউন্ট "${lockedNow.account}"-এ লক আছে। পরিবর্তন করতে সাপোর্টে যোগাযোগ করুন।`
+              ) } };
+            }
+            const takenNow = stmts.getLockedWithdrawByMethodAccount.get(methodKey, withdrawAccount);
+            if (takenNow && takenNow.user_id !== userRow.id) {
+              return { status: 400, body: { error: biMsg(
+                'This withdrawal account is already linked to another user.',
+                'এই উইথড্র অ্যাকাউন্টটি অন্য একজন ব্যবহারকারীর সাথে যুক্ত।'
+              ) } };
+            }
+          }
+        }
+
         if (userRow.balance < numAmount) {
           return { status: 400, body: { error: 'Insufficient balance' } };
         }
@@ -2062,12 +2344,24 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         }
       }
 
-      // ── Deposit: auto-flag if duplicate TxID substring detected ──
-      if (type === 'deposit' && safeTxnHash) {
-        const txnLower = safeTxnHash.toLowerCase();
-        if (txnLower.length < 6 || /^[0]+$/.test(txnLower) || /^test/i.test(txnLower)) {
+      // ── Deposit: auto-flag suspicious-but-valid fiat TxIDs ──────────────────
+      // These pass format validation but look fabricated or bot-generated.
+      if (type === 'deposit' && !isCrypto && safeTxnHash) {
+        const txnStr = safeTxnHash.trim();
+        const txnDigits = txnStr.replace(/\D/g, '');
+        const allSameChar = /^(.)\1+$/.test(txnStr);
+        const isSequential = txnDigits.length >= 6 && (
+          txnDigits === '0123456789'.slice(0, txnDigits.length) ||
+          txnDigits === '9876543210'.slice(0, txnDigits.length) ||
+          txnDigits === '1234567890'.slice(0, txnDigits.length)
+        );
+        const startsTest = /^test/i.test(txnStr);
+        const tooShort = txnStr.length < 6;
+        const allZeros = /^0+$/.test(txnStr);
+        const repeatingPair = /^(.{2,4})\1{2,}$/.test(txnDigits); // e.g., "123412341234"
+        if (allSameChar || isSequential || startsTest || tooShort || allZeros || repeatingPair) {
           shouldFlag = true;
-          flagReason = `Suspicious TxID: "${safeTxnHash}"`;
+          flagReason = `Suspicious fiat TxID pattern: "${safeTxnHash}"`;
         }
       }
 
@@ -2082,34 +2376,22 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         stmts.flagTransaction.run(flagReason, txResult.lastInsertRowid);
       }
 
-      // ── Save payment method on first withdrawal ─────────────────────────
-      if (type === 'withdraw') {
-        const FLAT_METHODS_SET = new Set(['bkash', 'nagad', 'rocket']);
-        const acctToSave = String(account || '').trim();
-        if (FLAT_METHODS_SET.has(method) && acctToSave && !userRow.payment_account_flat) {
-          stmts.savePaymentFlat.run(acctToSave, userRow.id);
-        } else if (method === 'crypto' && acctToSave && !userRow.payment_account_crypto) {
-          stmts.savePaymentCrypto.run(acctToSave, userRow.id);
-        }
-      }
-
       const admins = stmts.getAdminUsers.all();
       const notifMsg = `New ${type} request: ${fmtAmt(numAmount, 'bn')} / ${fmtAmt(numAmount, 'en')} from ${userRow.name} (${method})`;
       for (const admin of admins) {
         stmts.insertNotification.run(admin.id, notifMsg, 'info');
       }
 
-      const updatedUser = stmts.getUserById.get(userRow.id);
       return {
         status: 200,
         body: {
           ok: true,
           transactionId: txResult.lastInsertRowid,
-          newBalance: updatedUser.balance,
-          savedPaymentFlat: updatedUser.payment_account_flat || null,
-          savedPaymentCrypto: updatedUser.payment_account_crypto || null,
+          newBalance: stmts.getUserById.get(userRow.id).balance,
         },
         userRow,
+        wasFlagged: shouldFlag,
+        flagReason,
       };
     })();
 
@@ -2137,6 +2419,56 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
       timestamp: bdTime,
     };
 
+    // ── Crypto auto-verification (TRC20, ERC20, BEP20 only) ─────────────────
+    if (type === 'deposit' && isCrypto && safeTxnHash && ['trc20', 'erc20', 'bep20'].includes(safeBlockchain)) {
+      const walletSettingKey = safeBlockchain === 'trc20' ? 'crypto_tron_usdt'
+        : safeBlockchain === 'erc20' ? 'crypto_eth_usdt'
+        : 'crypto_bsc_usdt';
+      const platformWallet = getSettingStr(walletSettingKey, '');
+
+      if (platformWallet) {
+        const usdRate = await refreshUsdRate();
+        const expectedUsdt = numAmount / usdRate;
+
+        try {
+          const verifyResult = await verifyCryptoDeposit(safeBlockchain, safeTxnHash, expectedUsdt, platformWallet);
+
+          if (verifyResult.ok) {
+            // Auto-approve: credit balance, update transaction, insert balance_log
+            const approveResult = processTransactionAction({ txId, status: 'approved', adminNote: 'auto-verified' });
+            if (approveResult.status === 200) {
+              const freshUser = stmts.getUserById.get(userRow.id);
+              result.body.autoVerified = true;
+              result.body.newBalance = freshUser ? freshUser.balance : result.body.newBalance;
+
+              // Telegram finance notification for auto-approved crypto deposit
+              const autoMsg = `✅ <b>Crypto Deposit Auto-Verified</b>\n👤 ${userRow.name} (ID: ${userRow.id})\n💰 ${fmtAmt(numAmount, 'en')} / ${fmtAmt(numAmount, 'bn')}\n⛓ ${safeBlockchain.toUpperCase()} · ${safeTxnHash}\n🔍 Verified on-chain — balance credited automatically.`;
+              sendTelegram(autoMsg, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS }).catch(() => {});
+
+              res.json({ ...result.body, message: 'Deposit auto-verified and credited to your account!' });
+              return;
+            }
+          } else {
+            // Verification failed — flag the transaction for admin review
+            db.prepare("UPDATE transactions SET flagged=1, flag_reason=? WHERE id=?").run(
+              `Crypto auto-verify failed: ${verifyResult.error}`, txId
+            );
+            // Notify finance Telegram of failed/suspicious crypto deposit
+            const failMsg = `⚠️ <b>Crypto Deposit Verification Failed</b>\n👤 ${userRow.name} (ID: ${userRow.id})\n💰 ${fmtAmt(numAmount, 'en')}\n⛓ ${safeBlockchain.toUpperCase()} · ${safeTxnHash}\n❌ Reason: ${verifyResult.error}`;
+            sendTelegram(failMsg, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS }).catch(() => {});
+            // Attach a safe, user-facing message explaining the situation
+            result.body.pendingReview = true;
+            result.body.verifyMessage = biMsg(
+              `Transaction submitted for manual review. Verification note: ${verifyResult.error}`,
+              `লেনদেনটি ম্যানুয়াল পর্যালোচনার জন্য পাঠানো হয়েছে।`
+            );
+          }
+        } catch (verifyErr) {
+          console.error('[CryptoVerifier] Unexpected error:', verifyErr.message);
+        }
+      }
+    }
+
     if (type === 'deposit') {
       telegramService.sendDepositNotification(payload).catch((err) => {
         console.error('Finance Telegram error:', err.message);
@@ -2146,6 +2478,11 @@ app.post('/api/withdraw', authRequired, financeLimiter, async (req, res) => {
         body: `${userRow.name} — ${fmtAmt(numAmount, 'bn')} / ${fmtAmt(numAmount, 'en')} (${String(method).toUpperCase()})`,
         icon: '/logo.png', tag: 'admin-deposit', url: '/xpc-ctrl-7f3b/',
       });
+      // ── Flagged fiat deposit: send Telegram finance alert ──────────────────
+      if (result.wasFlagged && !isCrypto) {
+        const flaggedFiatMsg = `🚨 <b>Flagged Fiat Deposit — Manual Review Required</b>\n👤 ${userRow.name} (ID: ${userRow.id})\n💰 ${fmtAmt(numAmount, 'en')} via ${String(method).toUpperCase()}\n🔖 TXN ID: ${safeTxnHash || '(none)'}\n⚠️ Reason: ${result.flagReason}`;
+        sendTelegram(flaggedFiatMsg, { botToken: FINANCE_BOT, chatIds: FINANCE_CHAT_IDS }).catch(() => {});
+      }
     } else {
       telegramService.sendWithdrawNotification(payload).catch((err) => {
         console.error('Finance Telegram error:', err.message);
@@ -3468,6 +3805,41 @@ app.post('/api/admin/users/:id/force-password-reset', authRequired, (req, res) =
   }
 });
 
+// ── Admin: view a user's locked withdrawal accounts ──────────────────────────
+app.get('/api/admin/users/:id/withdraw-accounts', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const rows = stmts.getAllLockedWithdrawAccounts.all(Number(req.params.id));
+    res.json({ accounts: rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch' });
+  }
+});
+
+// ── Admin: reset a user's locked withdrawal account ──────────────────────────
+// Body: { method: 'bkash' } to reset one method, or { method: 'all' } for all
+app.delete('/api/admin/users/:id/withdraw-accounts', authRequired, (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!requirePerm(req, res, 'edit_users')) return;
+  try {
+    const userId = Number(req.params.id);
+    const target = stmts.getUserById.get(userId);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    const { method } = req.body || {};
+    if (!method) return res.status(400).json({ error: 'method required' });
+    if (method === 'all') {
+      stmts.deleteAllLockedWithdrawAccounts.run(userId);
+      logAdminAction(req, 'reset_withdraw_accounts', 'user', userId, `reset ALL locked withdrawal accounts for ${target.name}`);
+    } else {
+      stmts.deleteLockedWithdrawAccount.run(userId, method);
+      logAdminAction(req, 'reset_withdraw_account', 'user', userId, `reset ${method} locked withdrawal account for ${target.name}`);
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset withdrawal account' });
+  }
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
 // AUTO-SELL ENGINE — runs every 60 seconds
 // ══════════════════════════════════════════════════════════════════════════════
@@ -3577,6 +3949,7 @@ app.get('/api/admin/live-locations', authRequired, (req, res) => {
 
 // Get team chat messages (newest first, then reverse for display)
 app.get('/api/team-chat', authRequired, (req, res) => {
+  db.prepare("DELETE FROM team_chat WHERE created_at < datetime('now', '-24 hours')").run();
   const rows = stmts.getTeamChat.all().reverse();
   res.json({ messages: rows });
 });

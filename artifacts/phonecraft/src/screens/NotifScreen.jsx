@@ -49,9 +49,22 @@ function RegistrationModal({ notif, onClose, setItems, showToast, lang, userId, 
       // Mark as read on server so it doesn't reappear after next poll
       authFetch(`${API_URL}/api/user/${userId}/notifications/${notif.id}/read`, { method: 'PATCH' }).catch(() => {});
       setItems(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
-      showToast(action === 'approve'
-        ? (t.notif_approved_msg)
-        : (t.notif_declined_msg), action === 'approve' ? 'success' : 'error');
+      if (action === 'approve') {
+        showToast(t.notif_approved_msg, 'success');
+        // Magic-link email status for email-based Direct Pay registrations
+        const me = data?.magic_email;
+        if (me && me.sent === false) {
+          const reason = me.reason || '';
+          const warnMsg = reason === 'smtp_not_configured'
+            ? 'Account activated, but the login email could not be sent (SMTP not configured). Please contact the user directly.'
+            : reason === 'send_failed'
+              ? 'Account activated, but the login email failed to send. Please try again or contact the user.'
+              : '';
+          if (warnMsg) setTimeout(() => showToast(warnMsg, 'error'), 400);
+        }
+      } else {
+        showToast(t.notif_declined_msg, 'error');
+      }
     } catch (_) {
       showToast(t.notif_network_err, 'error');
       setLoading('');

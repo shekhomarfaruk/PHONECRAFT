@@ -287,6 +287,67 @@ export default function App() {
     }
   }, []);
 
+  // ── Magic-link landing: /auth/magic?token=... ──────────────────────────────
+  const [magicState, setMagicState] = useState(null); // 'loading' | 'error' | null
+  const [magicError, setMagicError] = useState('');
+  // When magic-link fails, explicitly route user to the Auth/login screen with an error toast.
+  useEffect(() => {
+    if (magicState !== 'error') return;
+    try {
+      setAuth(false);
+      setShowLanding(false);
+      setScreen('auth');
+      if (magicError) showToast(magicError, 'error');
+    } catch {}
+    const t = setTimeout(() => setMagicState(null), 50);
+    return () => clearTimeout(t);
+  }, [magicState, magicError]);
+  useEffect(() => {
+    const path = window.location.pathname || '';
+    if (!/\/auth\/magic\/?$/.test(path)) return;
+    const token = new URLSearchParams(window.location.search).get('token');
+    if (!token) {
+      setMagicState('error');
+      setMagicError(lang === 'bn' ? 'লগইন লিংক অবৈধ।' : 'Invalid login link.');
+      return;
+    }
+    setMagicState('loading');
+    (async () => {
+      try {
+        const r = await fetch(`${API_URL}/api/auth/magic?token=${encodeURIComponent(token)}`);
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.ok) {
+          const reason = d.error || 'invalid';
+          const msgs = {
+            token_expired: lang === 'bn' ? 'লিংকের মেয়াদ শেষ হয়ে গেছে।' : 'This login link has expired.',
+            token_used:    lang === 'bn' ? 'এই লিংকটি ইতিমধ্যে ব্যবহৃত হয়েছে।' : 'This login link has already been used.',
+            invalid_token: lang === 'bn' ? 'লগইন লিংক অবৈধ।' : 'Invalid login link.',
+            missing_token: lang === 'bn' ? 'লগইন লিংক অবৈধ।' : 'Invalid login link.',
+            banned:        lang === 'bn' ? 'আপনার অ্যাকাউন্ট সাময়িকভাবে নিষিদ্ধ।' : 'Your account is suspended.',
+          };
+          setMagicError(msgs[reason] || (lang === 'bn' ? 'লগইন ব্যর্থ হয়েছে।' : 'Login failed.'));
+          setMagicState('error');
+          // Clean URL so error doesn't repeat on refresh
+          window.history.replaceState({}, '', '/');
+          return;
+        }
+        const nextUser = mapApiUser(d.user, d.plan, d.token);
+        setUser(nextUser);
+        saveStoredSession(nextUser);
+        setAuth(true);
+        setShowLanding(false);
+        setScreen('home');
+        setMagicState(null);
+        showToast(lang === 'bn' ? 'স্বাগতম! আপনি লগইন হয়েছেন।' : 'Welcome — you are now logged in.', 'success');
+        window.history.replaceState({}, '', '/');
+      } catch (_) {
+        setMagicError(lang === 'bn' ? 'কানেকশন সমস্যা।' : 'Connection error.');
+        setMagicState('error');
+        window.history.replaceState({}, '', '/');
+      }
+    })();
+  }, []);
+
   // ── Poll pending registration status ──────────────────────────────────────
   useEffect(() => {
     if (!pendingRegId) return;
@@ -299,7 +360,14 @@ export default function App() {
         if (data.status === 'approved') {
           clearInterval(poll);
           setPendingRegId(null);
-          showToast(lang === 'bn' ? 'নিবন্ধন অনুমোদিত হয়েছে! লগইন করুন।' : 'Registration approved! Please login.', 'success');
+          const ident = String(regForm.identifier || '').trim();
+          const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ident);
+          showToast(
+            isEmail
+              ? (lang === 'bn' ? 'নিবন্ধন অনুমোদিত হয়েছে! আপনার ইমেইল চেক করুন — লগইন লিংক পাঠানো হয়েছে।' : 'Registration approved! Check your email for a login link.')
+              : (lang === 'bn' ? 'নিবন্ধন অনুমোদিত হয়েছে! লগইন করুন।' : 'Registration approved! Please login.'),
+            'success'
+          );
           setAuthTab('login');
         } else if (data.status === 'declined') {
           clearInterval(poll);
@@ -561,6 +629,21 @@ export default function App() {
     <>
       <GlobalStyles isDark={isDark} fontSize={fontSize} />
       <PhoneCraftBackground isDark={isDark} />
+    </>
+  );
+
+  // ── Magic-link landing screen ─────────────────────────────────────────────
+  if (magicState === 'loading') return (
+    <>
+      <GlobalStyles isDark={isDark} fontSize={fontSize} />
+      <PhoneCraftBackground isDark={isDark} />
+      <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
+        <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid rgba(120,120,120,0.2)', borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 17, color: 'var(--text)' }}>
+          {lang === 'bn' ? 'আপনাকে লগইন করানো হচ্ছে...' : 'Logging you in...'}
+        </div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
     </>
   );
 

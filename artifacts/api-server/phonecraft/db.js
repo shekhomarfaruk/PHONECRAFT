@@ -139,6 +139,20 @@ try { db.exec('ALTER TABLE users ADD COLUMN guest_ip TEXT DEFAULT NULL'); } catc
 try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_guest_device_id ON users(guest_device_id) WHERE guest_device_id IS NOT NULL'); } catch (_) {}
 // Test account flag
 try { db.exec('ALTER TABLE users ADD COLUMN is_test INTEGER DEFAULT 0'); } catch (_) {}
+// Email verification flag
+try { db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0'); } catch (_) {}
+// Magic-login tokens (one-time activation links sent on admin approval)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS magic_login_tokens (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    token_hash  TEXT NOT NULL UNIQUE,
+    expires_at  TEXT NOT NULL,
+    used_at     TEXT DEFAULT NULL,
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_magic_tokens_user ON magic_login_tokens(user_id)'); } catch (_) {}
 
 // ── Locked withdrawal accounts ────────────────────────────────────────────────
 // Each user gets ONE locked address per method (set on first withdrawal).
@@ -1062,6 +1076,15 @@ const stmts = {
   `),
   markPasswordResetUsed: db.prepare(`UPDATE password_resets SET used = 1 WHERE token = ?`),
   updateUserPassword: db.prepare(`UPDATE users SET password = ? WHERE id = ?`),
+
+  // Magic-login tokens
+  insertMagicToken: db.prepare(`
+    INSERT INTO magic_login_tokens (user_id, token_hash, expires_at)
+    VALUES (?, ?, ?)
+  `),
+  getMagicTokenByHash: db.prepare(`SELECT * FROM magic_login_tokens WHERE token_hash = ?`),
+  markMagicTokenUsed:  db.prepare(`UPDATE magic_login_tokens SET used_at = datetime('now') WHERE id = ? AND used_at IS NULL`),
+  setEmailVerified:    db.prepare(`UPDATE users SET email_verified = 1 WHERE id = ?`),
 };
 
 // ── Helper: strip password from user object ─────────────────────────────────────

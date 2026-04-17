@@ -9,7 +9,7 @@ import {
   Flag, Globe, Bell, BellOff, BellRing, Link, Zap, MessageCircle,
   Wallet, ArrowLeftRight, PlusCircle, MinusCircle, SlidersHorizontal,
   Factory, Network, UserPlus, TrendingDown, Package, Megaphone,
-  MapPin, ChevronUp, Cpu, ShieldCheck, BookOpen, Layers,
+  MapPin, ChevronUp, Cpu, ShieldCheck, BookOpen, Layers, Mail, MailWarning,
 } from 'lucide-react';
 
 const BASE = import.meta.env.BASE_URL || '/admin-panel/';
@@ -314,6 +314,7 @@ function PendingRegistrationsPage({ authFetch, toast, isMain }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [smtpConfigured, setSmtpConfigured] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -331,6 +332,11 @@ function PendingRegistrationsPage({ authFetch, toast, isMain }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    authFetch(`${API}/api/admin/smtp-status`).then(r => r.json()).then(d => {
+      setSmtpConfigured(!!d.configured);
+    }).catch(() => {});
+  }, []);
 
   const banUser = async (id, banned) => {
     try {
@@ -356,6 +362,16 @@ function PendingRegistrationsPage({ authFetch, toast, isMain }) {
         </div>
         <button className="btn btn-outline btn-sm" onClick={load}><RefreshCw size={14} /></button>
       </div>
+
+      {!smtpConfigured && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', marginBottom: 12, borderRadius: 10, background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.35)', color: '#B45309', fontSize: 12.5, lineHeight: 1.55 }}
+          title="Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM and APP_PUBLIC_URL to enable magic-link emails on approval.">
+          <MailWarning size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <b>SMTP not configured.</b> Approving an email-based registration will still activate the account, but the magic login link will not be emailed. Configure SMTP env vars to enable.
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ padding: '14px 16px', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -405,9 +421,16 @@ function PendingRegistrationsPage({ authFetch, toast, isMain }) {
                     <div style={{ color: '#3B82F6', fontWeight: 600 }}>{hoursAgo(u.created_at)}</div>
                   </td>
                   <td>
-                    <span className={`badge ${u.banned ? 'badge-red' : 'badge-green'}`}>
-                      {u.banned ? 'Banned' : 'Active'}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                      <span className={`badge ${u.banned ? 'badge-red' : 'badge-green'}`}>
+                        {u.banned ? 'Banned' : 'Active'}
+                      </span>
+                      {/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(u.identifier || '')) && (
+                        u.email_verified
+                          ? <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Mail size={10} /> Email verified</span>
+                          : <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#B45309', display: 'inline-flex', alignItems: 'center', gap: 4 }}><MailWarning size={10} /> Email unverified</span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <button
@@ -2097,6 +2120,11 @@ function UsersPage({ authFetch, toast, isMain, adminUser, adminPerms }) {
               })()}
               {!selected.referred_by && <span className="badge" style={{ background: 'var(--bg2)', color: 'var(--text2)' }}>Direct / No Referrer</span>}
               <span className={`badge ${selected.banned ? 'badge-red' : 'badge-green'}`}>{selected.banned ? 'Banned' : 'Active'}</span>
+              {/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(selected.identifier || '')) && (
+                selected.email_verified
+                  ? <span className="badge badge-green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Mail size={10} /> Email verified</span>
+                  : <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#B45309', display: 'inline-flex', alignItems: 'center', gap: 4 }}><MailWarning size={10} /> Email unverified</span>
+              )}
               {selected.is_admin && <span className="badge badge-purple">Admin</span>}
               {selected.is_guest && <span className="badge badge-yellow">Guest</span>}
               {selected.is_test && <span className="badge badge-blue">Test Account</span>}

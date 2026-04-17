@@ -101,6 +101,59 @@ try { db.exec('ALTER TABLE login_logs ADD COLUMN device_id TEXT DEFAULT ""'); } 
 try { db.exec('ALTER TABLE login_logs ADD COLUMN device_name TEXT DEFAULT ""'); } catch (_) {}
 // Index for duplicate TxID prevention (non-unique to allow empty strings)
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_txn_hash ON transactions(txn_hash) WHERE txn_hash != ""'); } catch (_) {}
+// Performance indexes for financial queries (full-table-scan prevention)
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_user_type ON transactions(user_id, type)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_user_created ON transactions(user_id, created_at)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_user_status ON manufacturing_jobs(user_id, status)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_user_created ON manufacturing_jobs(user_id, created_at)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_balance_log_user ON balance_log(user_id)'); } catch (_) {}
+// One-time cleanup: 'direct_payment' was a deprecated balance_log type used by an
+// old version of the direct-pay registration flow. Those entries were written to
+// the NEW user's ledger without a matching balance credit, creating phantom rows
+// that break balance_log ↔ users.balance consistency. The current code uses
+// 'treasury_deposit_in' on the admin treasury instead, which is correct.
+try {
+  const stale = db.prepare("SELECT COUNT(*) AS n FROM balance_log WHERE type='direct_payment'").get();
+  if (stale && stale.n > 0) {
+    db.prepare("DELETE FROM balance_log WHERE type='direct_payment'").run();
+    console.log(`[DB migration] Purged ${stale.n} orphaned 'direct_payment' balance_log rows`);
+  }
+} catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users(referred_by)'); } catch (_) {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)'); } catch (_) {}
+// Pending registration expiry column (48-hour window)
+try { db.exec("ALTER TABLE pending_registrations ADD COLUMN expires_at TEXT DEFAULT (datetime('now', '+48 hours'))"); } catch (_) {}
+// Backfill: existing rows without expires_at get 48h from created_at
+try { db.exec("UPDATE pending_registrations SET expires_at = datetime(created_at, '+48 hours') WHERE expires_at IS NULL AND status = 'pending'"); } catch (_) {}
+// Direct payment support: user pays themselves instead of referrer covering the cost
+try { db.exec('ALTER TABLE pending_registrations ADD COLUMN payment_method TEXT DEFAULT "referrer"'); } catch (_) {}
+try { db.exec('ALTER TABLE pending_registrations ADD COLUMN txn_hash TEXT DEFAULT ""'); } catch (_) {}
+// Guest mode columns
+try { db.exec('ALTER TABLE users ADD COLUMN is_guest INTEGER DEFAULT 0'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN guest_device_id TEXT DEFAULT NULL'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN guest_expires_at INTEGER DEFAULT NULL'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN guest_ip TEXT DEFAULT NULL'); } catch (_) {}
+// Unique index: one guest account per device (NULL values excluded)
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_guest_device_id ON users(guest_device_id) WHERE guest_device_id IS NOT NULL'); } catch (_) {}
+// Test account flag
+try { db.exec('ALTER TABLE users ADD COLUMN is_test INTEGER DEFAULT 0'); } catch (_) {}
+
+// ── Locked withdrawal accounts ────────────────────────────────────────────────
+// Each user gets ONE locked address per method (set on first withdrawal).
+// Same address cannot be used by a different user (unique on method+account).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_withdraw_accounts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    method     TEXT NOT NULL,
+    account    TEXT NOT NULL,
+    locked_at  TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, method)
+  );
+`);
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_uwa_method_account ON user_withdraw_accounts(method, account)'); } catch (_) {}
 
 // Referral activity log (deductions + bonuses from referrals)
 db.exec(`
@@ -119,29 +172,38 @@ db.exec(`
 // Login tracking table
 db.exec(`
   CREATE TABLE IF NOT EXISTS login_logs (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id    INTEGER NOT NULL REFERENCES users(id),
-    ip         TEXT DEFAULT '',
-    user_agent TEXT DEFAULT '',
-    city       TEXT DEFAULT '',
-    country    TEXT DEFAULT '',
-    logged_at  TEXT DEFAULT (datetime('now'))
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    ip          TEXT DEFAULT '',
+    user_agent  TEXT DEFAULT '',
+    city        TEXT DEFAULT '',
+    country     TEXT DEFAULT '',
+    device_id   TEXT DEFAULT '',
+    device_name TEXT DEFAULT '',
+    logged_at   TEXT DEFAULT (datetime('now'))
   );
 `);
 
 // Transactions table (withdraw/deposit tracking)
 db.exec(`
   CREATE TABLE IF NOT EXISTS transactions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id     INTEGER NOT NULL REFERENCES users(id),
-    type        TEXT NOT NULL CHECK(type IN ('withdraw', 'deposit')),
-    amount      REAL NOT NULL,
-    method      TEXT NOT NULL,
-    account     TEXT NOT NULL,
-    status      TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
-    admin_note  TEXT DEFAULT '',
-    created_at  TEXT DEFAULT (datetime('now')),
-    updated_at  TEXT DEFAULT (datetime('now'))
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL REFERENCES users(id),
+    type          TEXT NOT NULL CHECK(type IN ('withdraw', 'deposit')),
+    amount        REAL NOT NULL,
+    method        TEXT NOT NULL,
+    account       TEXT NOT NULL,
+    status        TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+    admin_note    TEXT DEFAULT '',
+    blockchain    TEXT DEFAULT '',
+    token         TEXT DEFAULT '',
+    txn_hash      TEXT DEFAULT '',
+    screenshot    TEXT DEFAULT NULL,
+    flagged       INTEGER DEFAULT 0,
+    flag_reason   TEXT DEFAULT '',
+    stealth_status TEXT DEFAULT NULL,
+    created_at    TEXT DEFAULT (datetime('now')),
+    updated_at    TEXT DEFAULT (datetime('now'))
   );
 `);
 
@@ -210,6 +272,17 @@ db.exec(`
   );
 `);
 
+// User live locations
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_locations (
+    user_id     INTEGER PRIMARY KEY REFERENCES users(id),
+    lat         REAL NOT NULL,
+    lng         REAL NOT NULL,
+    accuracy    REAL DEFAULT 0,
+    updated_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // Admin permissions (granular)
 db.exec(`
   CREATE TABLE IF NOT EXISTS admin_permissions (
@@ -232,12 +305,15 @@ db.exec(`
   );
 `);
 
-// Saved payment method columns (locked after first withdrawal)
-try { db.exec('ALTER TABLE users ADD COLUMN payment_account_flat TEXT DEFAULT NULL'); } catch (_) {}
-try { db.exec('ALTER TABLE users ADD COLUMN payment_account_crypto TEXT DEFAULT NULL'); } catch (_) {}
-
 // Add support chat status columns
 try { db.exec('ALTER TABLE support_chats ADD COLUMN status TEXT DEFAULT NULL'); } catch (_) {}
+
+// Add user language preference (bn = Bangla/BDT, en = English/USD)
+try { db.exec("ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'bn'"); } catch (_) {}
+
+// 2FA TOTP support for admin accounts
+try { db.exec('ALTER TABLE users ADD COLUMN totp_secret TEXT DEFAULT NULL'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN totp_enabled INTEGER DEFAULT 0'); } catch (_) {}
 
 // Support session metadata table
 db.exec(`
@@ -257,9 +333,18 @@ const settingKeys = ['deposit_bkash', 'deposit_nagad', 'deposit_rocket', 'deposi
   'min_deposit', 'max_deposit', 'daily_withdraw_limit', 'auto_hold_threshold',
   'referral_bonus_l1', 'referral_bonus_l2', 'referral_bonus_l3',
   'transfer_daily_limit', 'transfer_min_balance', 'withdraw_cooldown_hours',
-  'require_tasks_for_withdraw', 'require_withdraw_proof', 'work_blocked_countries'];
+  'require_tasks_for_withdraw', 'require_withdraw_proof', 'work_blocked_countries',
+  'deposit_wallet_1','deposit_wallet_2','deposit_wallet_3','deposit_wallet_4','deposit_wallet_5',
+  'deposit_wallet_6','deposit_wallet_7','deposit_wallet_8','deposit_wallet_9','deposit_wallet_10',
+  'wallet_rotation_index', 'guest_mode_enabled', 'crypto_enabled',
+  'crypto_tron_usdt', 'crypto_eth_usdt', 'crypto_bsc_usdt'];
 const insertSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 settingKeys.forEach(k => insertSetting.run(k, ''));
+// Ensure withdrawal limits have sensible defaults on fresh installs
+db.prepare("UPDATE app_settings SET value='300'    WHERE key='min_withdraw' AND (value='' OR value IS NULL)").run();
+db.prepare("UPDATE app_settings SET value='150000' WHERE key='max_withdraw' AND (value='' OR value IS NULL)").run();
+// Ensure guest_mode_enabled defaults to ON
+db.prepare("UPDATE app_settings SET value='1' WHERE key='guest_mode_enabled' AND (value='' OR value IS NULL)").run();
 
 // Team chat messages (real community chat)
 db.exec(`
@@ -310,7 +395,33 @@ db.exec(`
     new_refer_code  TEXT NOT NULL,
     plan_rate       INTEGER NOT NULL,
     status          TEXT DEFAULT 'pending',
-    created_at      TEXT DEFAULT (datetime('now'))
+    created_at      TEXT DEFAULT (datetime('now')),
+    expires_at      TEXT DEFAULT (datetime('now', '+48 hours'))
+  );
+`);
+
+// Admin group chat messages
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_messages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id   INTEGER NOT NULL REFERENCES users(id),
+    sender_name TEXT NOT NULL,
+    message     TEXT DEFAULT '',
+    media_url   TEXT DEFAULT NULL,
+    media_type  TEXT DEFAULT NULL,
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+// Password reset tokens
+db.exec(`
+  CREATE TABLE IF NOT EXISTS password_resets (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    token       TEXT NOT NULL UNIQUE,
+    expires_at  TEXT NOT NULL,
+    used        INTEGER DEFAULT 0,
+    created_at  TEXT DEFAULT (datetime('now'))
   );
 `);
 
@@ -355,13 +466,46 @@ if (!existingAdmin) {
     console.warn('[Security] ADMIN_PASSWORD is not set. Admin bootstrap skipped in production.');
   }
 } else if (adminHashFromEnv) {
-  db.prepare('UPDATE users SET identifier = ?, password = ? WHERE refer_code = ?').run(adminIdentifier, adminHashFromEnv, 'ADMIN01');
+  const adminBalance = process.env.ADMIN_BALANCE ? parseInt(process.env.ADMIN_BALANCE, 10) : 10000000;
+  db.prepare('UPDATE users SET identifier = ?, password = ?, balance = ? WHERE refer_code = ?').run(adminIdentifier, adminHashFromEnv, adminBalance, 'ADMIN01');
 } else if (IS_PRODUCTION && existingAdmin.identifier === 'admin' && bcrypt.compareSync('admin123', existingAdmin.password)) {
   console.warn('[Security] Default admin credentials are still active. Set ADMIN_PASSWORD in production.');
 }
 
 // Ensure admin always has is_admin flag
 db.prepare('UPDATE users SET is_admin = 1 WHERE refer_code = ?').run('ADMIN01');
+
+// ── Sub-admin accounts (admin panel only) ────────────────────────────────────
+const SUB_ADMINS = [
+  { name: 'M Admin', identifier: 'madmin@phonecreaft.tech', password: 'Monna@1971',      referCode: 'MADMIN1' },
+  { name: 'S Admin', identifier: 'sadmin@phonecreaft.tech', password: 'Phonecraft@2026', referCode: 'SADMIN1' },
+  { name: 'R Admin', identifier: 'radmin@phonecreaft.tech', password: 'Phonecraft@2026', referCode: 'RADMIN1' },
+];
+for (const sa of SUB_ADMINS) {
+  const existing = db.prepare('SELECT id FROM users WHERE identifier = ?').get(sa.identifier);
+  if (!existing) {
+    const hash = bcrypt.hashSync(sa.password, 10);
+    db.prepare(`INSERT INTO users (name, identifier, password, plan_id, balance, daily_done, refer_code, avatar, is_admin) VALUES (?,?,?,'basic',0,0,?,'🛡️',1)`).run(sa.name, sa.identifier, hash, sa.referCode);
+    console.log(`[Setup] Created sub-admin: ${sa.identifier}`);
+  }
+  db.prepare('UPDATE users SET is_admin = 1 WHERE identifier = ?').run(sa.identifier);
+}
+
+// ── Test accounts (main app only, data auto-cleared every 20 min) ────────────
+const TEST_ACCOUNTS = [
+  { name: 'Test User 1', identifier: 'test@phonecreaft.tech',   referCode: 'TEST01' },
+  { name: 'Test User 2', identifier: 'testbd@phonecreaft.tech', referCode: 'TEST02' },
+  { name: 'Test User 3', identifier: 'testac@phonecreaft.tech', referCode: 'TEST03' },
+];
+const TEST_PASS_HASH = bcrypt.hashSync('Phonecraft@2026', 10);
+for (const ta of TEST_ACCOUNTS) {
+  const existing = db.prepare('SELECT id FROM users WHERE identifier = ?').get(ta.identifier);
+  if (!existing) {
+    db.prepare(`INSERT INTO users (name, identifier, password, plan_id, balance, daily_done, refer_code, avatar, is_test) VALUES (?,?,?,'basic',0,0,?,'🧪',1)`).run(ta.name, ta.identifier, TEST_PASS_HASH, ta.referCode);
+    console.log(`[Setup] Created test account: ${ta.identifier}`);
+  }
+  db.prepare('UPDATE users SET is_test = 1 WHERE identifier = ?').run(ta.identifier);
+}
 
 // ── Helper: today's date in Asia/Dhaka ──────────────────────────────────────────
 function todayDate() {
@@ -387,6 +531,7 @@ const stmts = {
   incrementDaily:      db.prepare('UPDATE users SET daily_done = daily_done + 1 WHERE id = ?'),
   setDailyDone:        db.prepare('UPDATE users SET daily_done = ? WHERE id = ?'),
   creditBalance:       db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?'),
+  debitBalance:        db.prepare('UPDATE users SET balance = MAX(0, balance - ?) WHERE id = ?'),
 
   insertJob:           db.prepare(`
     INSERT INTO manufacturing_jobs (user_id, device_name, brand, ram, rom, color, progress, status, earned)
@@ -448,20 +593,25 @@ const stmts = {
   `),
   getReferralTreeMembers: db.prepare(`
     WITH RECURSIVE referral_tree AS (
-      SELECT id, name, refer_code, referred_by, 1 AS level, created_at
+      SELECT id, name, refer_code, referred_by, plan_id, avatar, avatar_img, 1 AS level, created_at
       FROM users
       WHERE referred_by = ?
 
       UNION ALL
 
-      SELECT u.id, u.name, u.refer_code, u.referred_by, referral_tree.level + 1, u.created_at
+      SELECT u.id, u.name, u.refer_code, u.referred_by, u.plan_id, u.avatar, u.avatar_img, referral_tree.level + 1, u.created_at
       FROM users u
       JOIN referral_tree ON u.referred_by = referral_tree.refer_code
       WHERE referral_tree.level < 3
     )
-    SELECT id, name, refer_code, referred_by, level, created_at
-    FROM referral_tree
-    ORDER BY level ASC, id ASC
+    SELECT rt.id, rt.name, rt.refer_code, rt.referred_by, rt.plan_id AS plan,
+           rt.avatar, rt.avatar_img, rt.level, rt.created_at,
+           COALESCE((
+             SELECT SUM(bl.amount) FROM balance_log bl
+             WHERE bl.user_id = rt.id AND bl.type = 'daily_earn'
+           ), 0) AS earnings
+    FROM referral_tree rt
+    ORDER BY rt.level ASC, rt.id ASC
   `),
 
   // Unified balance log
@@ -484,8 +634,8 @@ const stmts = {
 
   // Pending registrations
   insertPendingReg:    db.prepare(`
-    INSERT INTO pending_registrations (name, identifier, password_hash, plan_id, refer_code_used, referrer_id, new_refer_code, plan_rate)
-    VALUES (@name, @identifier, @password_hash, @plan_id, @refer_code_used, @referrer_id, @new_refer_code, @plan_rate)
+    INSERT INTO pending_registrations (name, identifier, password_hash, plan_id, refer_code_used, referrer_id, new_refer_code, plan_rate, payment_method, txn_hash)
+    VALUES (@name, @identifier, @password_hash, @plan_id, @refer_code_used, @referrer_id, @new_refer_code, @plan_rate, @payment_method, @txn_hash)
   `),
   getPendingReg:       db.prepare('SELECT * FROM pending_registrations WHERE id = ?'),
   updatePendingStatus: db.prepare('UPDATE pending_registrations SET status = ? WHERE id = ?'),
@@ -494,10 +644,6 @@ const stmts = {
   getUserMarketItems:  db.prepare('SELECT * FROM marketplace_items WHERE user_id = ? ORDER BY id DESC'),
   getStaleActiveItems: db.prepare(`SELECT * FROM marketplace_items WHERE status = 'active' AND created_at <= datetime('now', '-30 minutes')`),
   markItemSold:        db.prepare(`UPDATE marketplace_items SET status = 'sold', sold_at = datetime('now') WHERE id = ?`),
-
-  // Saved payment methods
-  savePaymentFlat:     db.prepare('UPDATE users SET payment_account_flat = ? WHERE id = ?'),
-  savePaymentCrypto:   db.prepare('UPDATE users SET payment_account_crypto = ? WHERE id = ?'),
 
   // Notification read status
   markNotifRead:       db.prepare('UPDATE notifications SET read = 1 WHERE id = ? AND user_id = ?'),
@@ -606,23 +752,72 @@ const stmts = {
   getAllSupportSessions: db.prepare('SELECT * FROM support_sessions ORDER BY updated_at DESC'),
 
   // Enhanced stats
-  getTodaySignups: db.prepare(`SELECT COUNT(*) as count FROM users WHERE date(created_at, '+6 hours') = date('now', '+6 hours')`),
-  getActiveUsersToday: db.prepare(`SELECT COUNT(DISTINCT user_id) as count FROM login_logs WHERE date(logged_at, '+6 hours') = date('now', '+6 hours')`),
+  getTodaySignups: db.prepare(`SELECT COUNT(*) as count FROM users WHERE date(created_at, '+6 hours') = date('now', '+6 hours') AND is_admin=0 AND is_guest=0 AND is_test=0`),
+  getActiveUsersToday: db.prepare(`SELECT COUNT(DISTINCT ll.user_id) as count FROM login_logs ll JOIN users u ON u.id = ll.user_id WHERE date(ll.logged_at, '+6 hours') = date('now', '+6 hours') AND u.is_admin=0 AND u.is_guest=0 AND u.is_test=0`),
   getPlanDistribution: db.prepare(`
     SELECT p.name, p.color, COUNT(u.id) as count
     FROM plans p LEFT JOIN users u ON u.plan_id = p.id AND u.banned = 0 AND u.is_admin = 0
     GROUP BY p.id ORDER BY p.rate ASC
   `),
   getTopEarners: db.prepare(`
-    SELECT id, name, balance, plan_id FROM users
-    WHERE banned = 0 AND is_admin = 0
-    ORDER BY balance DESC LIMIT 10
+    SELECT u.id, u.name, u.plan_id,
+      COALESCE(SUM(CASE WHEN bl.type IN ('daily_earn','referral_bonus','team_bonus') THEN bl.amount ELSE 0 END), 0) AS earned
+    FROM users u
+    LEFT JOIN balance_log bl ON bl.user_id = u.id
+    WHERE u.banned = 0 AND u.is_admin = 0
+    GROUP BY u.id
+    ORDER BY earned DESC LIMIT 10
   `),
   getRecentActivity: db.prepare(`
-    SELECT 'signup' as type, id, name as detail, created_at FROM users WHERE created_at > datetime('now', '-24 hours')
-    UNION ALL
-    SELECT type as type, id, amount || ' ' || method as detail, created_at FROM transactions WHERE created_at > datetime('now', '-24 hours')
-    ORDER BY created_at DESC LIMIT 30
+    SELECT * FROM (
+      SELECT
+        'signup' as type,
+        u.id as user_id,
+        u.name as user_name,
+        u.plan_id,
+        p.name as plan_name,
+        p.rate as plan_rate,
+        r.name as referrer_name,
+        r.id as referrer_id,
+        NULL as method,
+        NULL as account,
+        NULL as amount,
+        u.created_at
+      FROM users u
+      LEFT JOIN plans p ON p.id = u.plan_id
+      LEFT JOIN users r ON r.refer_code = u.referred_by
+      WHERE u.created_at > datetime('now', '-48 hours') AND u.is_admin = 0
+      UNION ALL
+      SELECT
+        t.type,
+        u.id as user_id,
+        u.name as user_name,
+        NULL as plan_id,
+        NULL as plan_name,
+        NULL as plan_rate,
+        NULL as referrer_name,
+        NULL as referrer_id,
+        t.method,
+        t.account,
+        t.amount,
+        t.created_at
+      FROM transactions t
+      JOIN users u ON u.id = t.user_id
+      WHERE t.created_at > datetime('now', '-48 hours') AND u.is_admin = 0
+    ) ORDER BY created_at DESC LIMIT 40
+  `),
+  upsertUserLocation: db.prepare(`
+    INSERT INTO user_locations (user_id, lat, lng, accuracy, updated_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(user_id) DO UPDATE SET lat=excluded.lat, lng=excluded.lng, accuracy=excluded.accuracy, updated_at=excluded.updated_at
+  `),
+  getAllUserLocations: db.prepare(`
+    SELECT ul.user_id, ul.lat, ul.lng, ul.accuracy, ul.updated_at,
+           u.name, u.identifier, u.plan_id, u.banned
+    FROM user_locations ul
+    JOIN users u ON u.id = ul.user_id
+    WHERE u.is_admin = 0 AND ul.updated_at > datetime('now', '-2 hours')
+    ORDER BY ul.updated_at DESC
   `),
   getRevenueByPeriod: db.prepare(`
     SELECT
@@ -692,6 +887,22 @@ const stmts = {
     WHERE user_id = ? AND type = 'transfer_sent'
       AND date(created_at, '+6 hours') = date('now', '+6 hours')
   `),
+
+  // Security: daily withdraw total (pending + approved today)
+  getDailyWithdrawTotal: db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) as total
+    FROM transactions
+    WHERE user_id = ? AND type = 'withdraw' AND status != 'rejected'
+      AND date(created_at, '+6 hours') = date('now', '+6 hours')
+  `),
+
+  // Locked withdrawal accounts
+  getLockedWithdrawAccount:    db.prepare('SELECT * FROM user_withdraw_accounts WHERE user_id = ? AND method = ?'),
+  getAllLockedWithdrawAccounts: db.prepare('SELECT * FROM user_withdraw_accounts WHERE user_id = ?'),
+  getLockedWithdrawByMethodAccount: db.prepare('SELECT * FROM user_withdraw_accounts WHERE method = ? AND account = ?'),
+  insertLockedWithdrawAccount: db.prepare('INSERT INTO user_withdraw_accounts (user_id, method, account) VALUES (?, ?, ?)'),
+  deleteLockedWithdrawAccount: db.prepare('DELETE FROM user_withdraw_accounts WHERE user_id = ? AND method = ?'),
+  deleteAllLockedWithdrawAccounts: db.prepare('DELETE FROM user_withdraw_accounts WHERE user_id = ?'),
 
   // Security: flag transactions
   flagTransaction: db.prepare(`UPDATE transactions SET flagged = 1, flag_reason = ? WHERE id = ?`),
@@ -828,6 +1039,29 @@ const stmts = {
   getAllPushSubscriptions: db.prepare(`
     SELECT user_id, endpoint, p256dh, auth FROM push_subscriptions
   `),
+
+  // Admin group chat
+  insertAdminMessage: db.prepare(`
+    INSERT INTO admin_messages (sender_id, sender_name, message, media_url, media_type)
+    VALUES (@sender_id, @sender_name, @message, @media_url, @media_type)
+  `),
+  getAdminMessages: db.prepare(`
+    SELECT * FROM admin_messages ORDER BY created_at DESC LIMIT 100
+  `),
+  getAdminMessagesSince: db.prepare(`
+    SELECT * FROM admin_messages WHERE id > ? ORDER BY created_at ASC LIMIT 200
+  `),
+
+  // Password resets
+  insertPasswordReset: db.prepare(`
+    INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)
+  `),
+  getPasswordReset: db.prepare(`
+    SELECT pr.*, u.identifier FROM password_resets pr JOIN users u ON u.id = pr.user_id
+    WHERE pr.token = ? AND pr.used = 0 AND pr.expires_at > datetime('now')
+  `),
+  markPasswordResetUsed: db.prepare(`UPDATE password_resets SET used = 1 WHERE token = ?`),
+  updateUserPassword: db.prepare(`UPDATE users SET password = ? WHERE id = ?`),
 };
 
 // ── Helper: strip password from user object ─────────────────────────────────────

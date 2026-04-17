@@ -970,9 +970,10 @@ function SummaryRow({ label, value, highlight, accent }) {
 }
 
 // ── Step 4: Waiting for Approval ──────────────────────────────────────────────
-function Step4Waiting({ lang, onCancel, paymentMethod }) {
+function Step4Waiting({ lang, onCancel, paymentMethod, identifier }) {
   const isBn = lang === 'bn';
   const isDirectPay = paymentMethod === 'direct';
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(identifier || '').trim());
   const ringColor = isDirectPay ? '232,136,10' : '192,57,43';
   const dotColor  = isDirectPay ? '#E8880A' : '#C0392B';
 
@@ -1019,8 +1020,12 @@ function Step4Waiting({ lang, onCancel, paymentMethod }) {
       <p style={{ fontSize: 13.5, color: 'var(--text2)', lineHeight: 1.75, marginBottom: 18, maxWidth: 310, margin: '0 auto 18px' }}>
         {isDirectPay
           ? (isBn
-            ? 'আপনার পেমেন্ট TxID জমা হয়েছে। আমাদের অ্যাডমিন টিম যাচাই করে আপনার অ্যাকাউন্ট অ্যাক্টিভ করবেন।'
-            : 'Your payment TxID has been submitted. Our admin team will verify your payment and activate your account.'
+            ? (isEmail
+              ? 'আপনার পেমেন্ট TxID জমা হয়েছে। অনুমোদনের পর আপনার ইমেইলে একটি লগইন লিংক পাঠানো হবে — ইনবক্স চেক করুন।'
+              : 'আপনার পেমেন্ট TxID জমা হয়েছে। আমাদের অ্যাডমিন টিম যাচাই করে আপনার অ্যাকাউন্ট অ্যাক্টিভ করবেন।')
+            : (isEmail
+              ? 'Your payment TxID has been submitted. After approval, a one-time login link will be emailed to you — check your inbox.'
+              : 'Your payment TxID has been submitted. Our admin team will verify your payment and activate your account.')
           )
           : (isBn
             ? 'আপনার রেফারার একটি নোটিফিকেশন পেয়েছেন। তিনি অনুমোদন করলে আপনার অ্যাকাউন্ট স্বয়ংক্রিয়ভাবে তৈরি হবে।'
@@ -1091,6 +1096,11 @@ function RegisterFlow({ regForm, setRegForm, doRegister, loading, lang, pendingR
 
   const handleStep2Next = () => {
     setLocalError('');
+    const id = String(regForm.identifier || '').trim();
+    if (id.includes('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(id)) {
+      setLocalError(lang === 'bn' ? 'সঠিক ইমেইল ঠিকানা দিন' : 'Please enter a valid email address');
+      return;
+    }
     setCheckoutStep(3);
   };
 
@@ -1106,6 +1116,7 @@ function RegisterFlow({ regForm, setRegForm, doRegister, loading, lang, pendingR
         <Step4Waiting
           lang={lang}
           paymentMethod={regForm.paymentMethod}
+          identifier={regForm.identifier}
           onCancel={() => { setPendingRegId(null); setCheckoutStep(1); setAuthTab('register'); }}
         />
       </div>
